@@ -1,4 +1,4 @@
-"""Find each {test}.hs file in current directory and run {ghc -iG:\\FishShit\\FISH\\app {file}} to create a test executable
+"""execute main in MainTest.hs, must be run in the Test directory
 """
 import os
 
