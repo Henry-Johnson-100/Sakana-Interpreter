@@ -13,6 +13,7 @@ module Lexer (
 ) where
 
 import Data.List
+import Token.Util.Like
 import qualified Token.Bracket  as B
 import qualified Token.Control  as C
 import qualified Token.Data     as D
@@ -21,15 +22,16 @@ import qualified Token.Operator as O
 
 data Token = Bracket B.Bracket | Control C.Control | Data D.Data | Keyword K.Keyword | Operator O.Operator deriving (Show,Read,Eq)
 
-testStrAssign = "fish some_func >( n , m )> <( fish nested_func >( )> <( m - 1 )< fin >( n == <( nested_func >( )> )< , \"Hello World\" )> <( \"Goodbye World\" )<"
+instance Like Token where
+    like (Bracket a)       (Bracket b)  = True
+    like (Control a)       (Control b)  = True
+    like (Data a)          (Data b)     = True
+    like (Keyword a)       (Keyword b)  = True
+    like (Operator a)      (Operator b) = True
+    like _                 _            = False
+    notLike a              b            = not $ like a b
 
-like :: Token -> Token -> Bool
-like (Bracket a)       (Bracket b)  = True
-like (Control a)       (Control b)  = True
-like (Data a)          (Data b)     = True
-like (Keyword a)       (Keyword b)  = True
-like (Operator a)      (Operator b) = True
-like _                 _            = False
+testStrAssign = "fish some_func >( n , m )> <( fish nested_func >( )> <( m - 1 )< fin >( n == <( nested_func >( )> )< , \"Hello World\" )> <( \"Goodbye World\" )<"
 
 baseBracket :: Token -> B.Bracket
 baseBracket (Bracket b) = b
