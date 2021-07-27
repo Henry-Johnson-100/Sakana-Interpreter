@@ -9,13 +9,13 @@ import Data.List
 import Token.Util.EagerCollapsible as EC
 
 -- |Unit tests for Token.Util.EagerCollapsible.dropInfix
-dropInfix_normal = TestCase $ assertEqual "For dropInfix [2,3] [1,2,3,4]" [1,4] (dropInfix [2,3] [1,2,3,4])
+dropInfix_normal = TestCase $ assertEqual "For dropInfix [2,3] [1,2,3,4] return [1,4]" [1,4] (dropInfix [2,3] [1,2,3,4])
 
-dropInfix_not_infix = TestCase $ assertEqual "For dropInfix [2,4] [1,2,3,4]" [1,2,3,4] (dropInfix [2,4] [1,2,3,4])
+dropInfix_not_infix = TestCase $ assertEqual "For dropInfix [2,4] [1,2,3,4] return [1,2,3,4]" [1,2,3,4] (dropInfix [2,4] [1,2,3,4])
 
-dropInfix_empty_infix = TestCase $ assertEqual "For dropInfix [] a" [1,2,3,4] (dropInfix [] [1,2,3,4])
+dropInfix_empty_infix = TestCase $ assertEqual "For dropInfix [] [a] return [a]" [1,2,3,4] (dropInfix [] [1,2,3,4])
 
-dropInfix_empty_list = TestCase $ assertEqual "Fro dropInfix a []" [] (dropInfix [2,3] [])
+dropInfix_empty_list = TestCase $ assertEqual "For dropInfix _ [] return []" [] (dropInfix [2,3] [])
 
 dropInfix_testList = TestList [dropInfix_normal, dropInfix_not_infix, dropInfix_empty_infix, dropInfix_empty_list]
 
