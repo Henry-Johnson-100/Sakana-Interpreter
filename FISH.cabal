@@ -50,7 +50,7 @@ executable FISH
                       Test
     default-language: Haskell2010
 
-test-suite test
+test-suite Token_Util_EagerCollapsible
     default-language:
         Haskell2010
     type:
@@ -58,10 +58,23 @@ test-suite test
     hs-source-dirs:
         Test
         app
-        app/Token
-        app/Token/Util
     main-is:
-        MainTest.hs
+        EagerCollapsibleTest.hs
+    build-depends:
+        base ^>=4.15.0.0
+      , tasty >= 0.7 && < 1.4.1
+      , tasty-hunit ^>=0.10.0.3
+
+test-suite Token_Data
+    default-language:
+        Haskell2010
+    type:
+        exitcode-stdio-1.0
+    hs-source-dirs:
+        Test
+        app
+    main-is:
+        TokenDataTest.hs
     build-depends:
         base ^>=4.15.0.0
       , tasty >= 0.7 && < 1.4.1

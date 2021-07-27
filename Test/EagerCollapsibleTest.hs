@@ -1,8 +1,3 @@
-module EagerCollapsibleTest(
-    eagerCollapsibleTests
-) where
-
---import Test.HUnit
 import Test.Tasty
 import Test.Tasty.HUnit
 import Data.List
@@ -10,7 +5,8 @@ import Data.List
 import Token.Util.EagerCollapsible as EC
 
 -- | main
-eagerCollapsibleTests = defaultMain tests
+main = do
+    defaultMain tests
 
 -- | All EC tests
 tests = testGroup "Token.Util.EagerCollapsible Tests" testList where
