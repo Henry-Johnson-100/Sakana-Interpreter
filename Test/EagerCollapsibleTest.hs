@@ -31,23 +31,27 @@ dropInfixTests = testGroup "dropInfix" testList where
         dropInfix_empty_list
         ]
 dropInfix_normal = testCase name assertion where
-    name      = "For dropInfix [2,3] [1,2,3,4] return [1,4]"
-    assertion = assertEqual name assert func
+    name      = "dropInfix happy params"
+    assertion = assertEqual desc assert func
+    desc      = "For dropInfix [2,3] [1,2,3,4] return [1,4]"
     assert    = [1,4]
     func      = (dropInfix [2,3] [1,2,3,4])
 dropInfix_not_infix = testCase name assertion where
-    name      = "For dropInfix [2,4] [1,2,3,4] return [1,2,3,4]"
-    assertion = assertEqual name assert func
+    name      = "dropInfix a b, a not infix"
+    assertion = assertEqual desc assert func
+    desc      = "For dropInfix [2,4] [1,2,3,4] return [1,2,3,4]"
     assert    = [1,2,3,4]
     func      = (dropInfix [2,4] [1,2,3,4])
 dropInfix_empty_infix = testCase name assertion where
-    name      = "For dropInfix [] [a] return [a]"
-    assertion = assertEqual name assert func
+    name      = "dropInfix empty infix"
+    assertion = assertEqual desc assert func
+    desc      = "For dropInfix [] [a] return [a]"
     assert    = [1,2,3,4]
     func      = (dropInfix [] [1,2,3,4])
 dropInfix_empty_list = testCase name assertion where
-    name      = "For dropInfix _ [] return []"
-    assertion = assertEqual name assert func
+    name      = "dropInfix empty list"
+    assertion = assertEqual desc assert func
+    desc      = "For dropInfix _ [] return []"
     assert    = []
     func      = (dropInfix [2,3] [])
 
@@ -62,18 +66,21 @@ isECTests = testGroup "isEagerCollapsible" testList where
             isEC_returns_false_for_single_string
         ]
 isEC_returns_true_for_EC = testCase name assertion where
-    name      = "return true for isEagerCollapsible (isPrefixOf \"\"\") (isSuffixOf \"\"\") [\"1\",\"\"Hello\",\" simple\", \" test\"\", \"1\"]"
-    assertion = assertEqual name assert func
+    name      = "isEC single EC in args"
+    assertion = assertEqual desc assert func
+    desc      = "return true for isEagerCollapsible (isPrefixOf \"\"\") (isSuffixOf \"\"\") [\"1\",\"\"Hello\",\" simple\", \" test\"\", \"1\"]"
     assert    = True
     func      = (isEagerCollapsible (isPrefixOf "\"") (isSuffixOf "\"") [" simple", " test\"","1"])
 isEC_returns_false_for_not_EC = testCase name assertion where
-    name      = "return false for isEagerCollapsible (isPrefixOf \"\"\") (isSuffixOf \"\"\") [\"1\",\"\"Hello\",\"\" simple\", \" test\"\", \"1\"]"
-    assertion = assertEqual name assert func
+    name      = "isEC with no EC"
+    assertion = assertEqual desc assert func
+    desc      = "return false for isEagerCollapsible (isPrefixOf \"\"\") (isSuffixOf \"\"\") [\"1\",\"\"Hello\",\"\" simple\", \" test\"\", \"1\"]"
     assert    = False
     func      = (isEagerCollapsible (isPrefixOf "\"") (isSuffixOf "\"") ["1","\"Hello", "\"simple", " test\"","1"])
 isEC_returns_false_for_single_string = testCase name assertion where
-    name      = "return false for whether or not a single string: [\"Hello World\"] is an eager collapsible"
-    assertion = assertEqual name assert func
+    name      = "isEC with single elem EC"
+    assertion = assertEqual desc assert func
+    desc      = "return false for whether or not a single string: [\"Hello World\"] is an eager collapsible"
     assert    = False
     func      = (isEagerCollapsible (isPrefixOf "\"") (isSuffixOf "\"") ["\"Hello World\""])
 
