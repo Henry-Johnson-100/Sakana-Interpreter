@@ -1,5 +1,5 @@
 module Test.EagerCollapsibleTest(
-main
+eagerCollapsibleTests
 ) where
 
 import Test.HUnit
@@ -45,7 +45,7 @@ tBTests = runTestTT $ TestList [tB_returns_empty_list_for_empty_list_argument, t
 
 
 -- | run all tests for Token.Util.EagerCollapsible
-main = do
+eagerCollapsibleTests = do
     dropInfixTests
     isECTests
     tBTests
