@@ -1,4 +1,4 @@
-module Test.EagerCollapsibleTest(
+module EagerCollapsibleTest(
 eagerCollapsibleTests
 ) where
 
