@@ -1,6 +1,5 @@
 module Test.EagerCollapsibleTest(
-dropInfixTests,
-isECTests
+main
 ) where
 
 import Test.HUnit
