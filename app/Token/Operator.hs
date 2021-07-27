@@ -1,0 +1,35 @@
+module Token.Operator (
+Operator(..),
+readOp,
+fromOp,
+repr
+) where
+
+data Operator = Eq | Gt | Lt | Add | Sub | Mult | Div | Mod | GtEq | LtEq deriving (Show, Read, Eq)
+
+repr :: [String]
+repr = ["==","+","-","*","/","%",">=","<=","<",">"]
+
+readOp :: String -> Operator
+readOp "=="  = Eq
+readOp ">"  = Gt
+readOp "<"  = Lt
+readOp "+"  = Add
+readOp "-"  = Sub
+readOp "*"  = Mult
+readOp "/"  = Div
+readOp "%"  = Mod
+readOp ">=" = GtEq
+readOp "<=" = LtEq
+
+fromOp :: Operator -> String
+fromOp Eq   = "=="
+fromOp Gt   = ">"
+fromOp Lt   = "<"
+fromOp Add  = "+"
+fromOp Sub  = "-"
+fromOp Mult = "*"
+fromOp Div  = "/"
+fromOp Mod  = "%"
+fromOp GtEq = ">="
+fromOp LtEq = "<="
