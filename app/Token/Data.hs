@@ -1,4 +1,6 @@
 module Token.Data (
+    Data(..),
+    consolidateStrings
 ) where
 
 
