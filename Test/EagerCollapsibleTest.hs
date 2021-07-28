@@ -32,7 +32,8 @@ isECTests = testGroup "isEagerCollapsible" testList where
             isEC_returns_true_if_encounters_complete_EC_before_any_other_beginCase,
             isEC_returns_false_for_single_string,
             isEC_returns_false_for_single_element_matching_both_terminal_cases,
-            isEC_returns_true_for_single_EC_with_different_terminal_cases
+            isEC_returns_true_for_single_EC_with_different_terminal_cases,
+            isEC_returns_true_for_single_with_same_terminal_cases
         ]
 
 isEC_returns_false_for_empty_list = testCase name assertion where
@@ -97,6 +98,13 @@ isEC_returns_true_for_single_EC_with_different_terminal_cases = testCase name as
     desc      = "isEagerCollapsible (1==) (5==) [2,3,1,2,4,6,5,2] == True"
     assert    = True
     func      = isEagerCollapsible (1==) (5==) [2,3,1,2,4,6,5,2]
+
+isEC_returns_true_for_single_with_same_terminal_cases = testCase name assertion where
+    name      = "single EC with same terminal cases"
+    assertion = assertEqual desc assert func
+    desc      = "isEC (1==) (1==) [2,3,1,2,3,1,4] contains one EC"
+    assert    = True
+    func      = isEagerCollapsible (1==) (1==) [2,3,1,2,3,1,4]
 
 
 -- |Unit tests for Token.Util.EagerCollapsible.dropInfix
