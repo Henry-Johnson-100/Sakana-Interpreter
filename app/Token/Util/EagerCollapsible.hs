@@ -5,16 +5,19 @@ isEagerCollapsible,
 dropInfix
 ) where
 
-import Data.List (delete, isInfixOf)
+import Data.List (delete, isInfixOf, foldl')
 
--- | returns True if an elem with 'endCase == True' occurs after an elem with 'beginCase == True' without another 'beginCase == True' elem occuring between the two
--- | Where the list (x:xs) is an infix taken from a list, and the first elem in (x:xs) is the first elem after (==) begin
 isEagerCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
-isEagerCollapsible _ _ [] = True
-isEagerCollapsible beginCase endCase (x:xs)
-    | endCase   x = True
-    | beginCase x = False
-    | otherwise   = isEagerCollapsible beginCase endCase xs
+isEagerCollapsible _ _ []                            = False
+isEagerCollapsible beginCase endCase xs
+    | not (any beginCase xs) || not (any endCase xs) = False
+    | takeWhileBeginCaseL < takeWhileEndCaseL        = True
+    | takeWhileBeginCaseL == takeWhileEndCaseL       = isEagerCollapsible beginCase endCase (dropped)
+    | otherwise                                      = False
+    where 
+        takeWhileBeginCaseL = length $ takeWhile (\x -> not (beginCase x)) xs
+        takeWhileEndCaseL   = length $ takeWhile (\x -> not (endCase x))   xs
+        dropped             = tail $ dropWhile (\x -> not (endCase x)) xs
 
 
 -- | For elements in a list where f(x) is True, take that element and all elements after it until the next such element.

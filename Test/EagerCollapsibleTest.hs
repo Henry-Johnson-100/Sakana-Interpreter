@@ -24,6 +24,7 @@ tests = testGroup "Token.Util.EagerCollapsible Tests" testList where
 isECTests = testGroup "isEagerCollapsible" testList where
     testList = 
         [
+            isEC_returns_false_for_empty_list,
             isEC_returns_true_for_list_containing_EC_regardless_of_initial_index,
             isEC_returns_true_for_list_containing_EC_regardless_of_initial_index_two,
             isEC_returns_false_for_list_not_containing_EC_regardless_of_initial_index,
@@ -33,6 +34,14 @@ isECTests = testGroup "isEagerCollapsible" testList where
             isEC_returns_false_for_single_element_matching_both_terminal_cases,
             isEC_returns_true_for_single_EC_with_different_terminal_cases
         ]
+
+isEC_returns_false_for_empty_list = testCase name assertion where
+    name      = "return false for empty list"
+    assertion = assertEqual desc assert func
+    desc      = "Empty lists cannot contain an EC instance"
+    assert    = False
+    func      = isEagerCollapsible (1==) (5==) []
+
 isEC_returns_true_for_list_containing_EC_regardless_of_initial_index = testCase name assertion where
     name      = "accurate boolean for isEagerCollapsible regardless of initial index position"
     assertion = assertEqual desc assert func
