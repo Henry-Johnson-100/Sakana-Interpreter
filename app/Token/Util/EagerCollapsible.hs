@@ -5,8 +5,9 @@ isEagerCollapsible,
 dropInfix
 ) where
 
-import Data.List (delete, isInfixOf, foldl')
+import Data.List (delete, isInfixOf, foldl',isPrefixOf)
 
+-- |
 isEagerCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
 isEagerCollapsible _ _ []                            = False
 isEagerCollapsible beginCase endCase xs
@@ -39,11 +40,11 @@ takeBetween beginCase afterCase (x:xs)
 -- | take two lists, the first being a list infixed in the second, return a list with that infix removed
 -- | Drops nothing if the first list is not an infix in the second list
 dropInfix :: (Eq a) => [a] -> [a] -> [a]
-dropInfix _ [] = []
+dropInfix _  [] = []
+dropInfix [] xs = xs
 dropInfix infixList (x:xs)
-    | not (isInfixOf infixList (x:xs)) = (x:xs) --if the two lists do not update appropriately, this guard will catch, which is not intended behavior that it should do so
-    | elem x infixList                 = dropInfix (delete x infixList) xs 
-    | otherwise                        = x : dropInfix infixList xs
+    | not (isPrefixOf infixList (x:xs)) = x : dropInfix infixList xs
+    | otherwise                         = dropInfix (tail infixList) (xs)
 
 
 -- | For elements in a list where f(x) is True, drop that element and all elements after it until the next such element.
