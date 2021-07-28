@@ -106,7 +106,9 @@ dropInfixTests = testGroup "dropInfix" testList where
         dropInfix_normal_two,
         dropInfix_not_infix,
         dropInfix_empty_infix,
-        dropInfix_empty_list
+        dropInfix_empty_list,
+        dropInfix_drops_nearest_complete_infix_from_list_of_repeating_infix_patterns,
+        dropInfix_drops_only_first_complete_infix_from_list
         ]
 dropInfix_normal = testCase name assertion where
     name      = "dropInfix happy params"
@@ -142,6 +144,20 @@ dropInfix_empty_list = testCase name assertion where
     desc      = "For dropInfix _ [] return []"
     assert    = []
     func      = (dropInfix [2,3] [])
+
+dropInfix_drops_nearest_complete_infix_from_list_of_repeating_infix_patterns = testCase name assertion where
+    name      = "drops infix from list of repeating patterns"
+    assertion = assertEqual desc assert func
+    desc      = "dropInfix drops the nearest complete infix from a list of repeating infixes: dropInfix [1,2,3,1] [2,3,1,4,1,2,3,1,4,1,2,3] == [2,3,1,4,4,1,2,3,1]"
+    assert    = [2,3,1,4,4,1,2,3]
+    func      = dropInfix [1,2,3,1] [2,3,1,4,1,2,3,1,4,1,2,3]
+
+dropInfix_drops_only_first_complete_infix_from_list = testCase name assertion where
+    name      = "Drops only first complete infix"
+    assertion = assertEqual desc assert func
+    desc      = "For lists with multiple infix matches, drop only the first complete infix"
+    assert    = [2,3,1,4,4,1,2,3,1,5]
+    func      = dropInfix [1,2,3,1] [2,3,1,4,1,2,3,1,4,1,2,3,1,5]
 
 
 -- | Unit tests for Token.Util.EagerCollapsible.takeBetween as tB
