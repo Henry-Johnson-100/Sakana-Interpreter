@@ -45,27 +45,22 @@ allDigits str = all (isDigit) str
 
 
 isStringPrefix :: Data -> Bool
-isStringPrefix (String a) = isPrefixOf "\"" a
+isStringPrefix (String a) = (isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)
 isStringPrefix _          = False
 
 
 isStringSuffix :: Data -> Bool
-isStringSuffix (String a) = isSuffixOf "\"" a
+isStringSuffix (String a) = (isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)
 isStringSuffix _          = False
 
 
-{---#FIXME-} --Doesn't work if the list contains two or more separate strings
 consolidateStrings :: [Data] -> [Data]
 consolidateStrings [] = []
 consolidateStrings (d:ds)
-    | isStringPrefix d && isEC ds = consolidatedString (d:ds) ++ (consolidateStrings (d:ds))
-    | otherwise = d : consolidateStrings ds
-    where 
-        consolidatedString :: [Data] -> [Data]
-        consolidatedString xs = mapToString (takeBetween (isStringPrefix) (isStringSuffix) xs)
-
-        isEC :: [Data] -> Bool
-        isEC xs = isEagerCollapsible isStringPrefix isStringSuffix xs
+    | isStringPrefix d && isEagerCollapsible isStringPrefix isStringSuffix (d:ds) = (mapTakeBetween (d:ds)) ++ consolidateStrings (dropBetween isStringPrefix isStringSuffix (d:ds))
+    | otherwise                                                                   = d : consolidateStrings ds
+    where
+        mapTakeBetween xs = mapToString $ takeBetween isStringPrefix isStringSuffix xs
 
 
 readData :: String -> Data
