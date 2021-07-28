@@ -10,7 +10,8 @@ main = do
 tests = testGroup "Token.Data tests" testList where
     testList =
         [
-            consolidateStringsTests
+            consolidateStringsTests,
+            readDataTests
         ]
 
 standardTimeout timeS= localOption (Timeout (timeS * 1000000) (concat [show timeS, "s"]))
@@ -60,3 +61,58 @@ cS_does_not_consolidate_incomplete_strings = standardTimeout 5 $ testCase name a
     desc      = "Data lists with an incomplete String EC should not be consolidated since the string is not completed"
     assert    = [Int 5, String "\"beginning", Other "middle", Other "not", Other "the", Other "end", Boolean True]
     func      = consolidateStrings [Int 5, String "\"beginning", Other "middle", Other "not", Other "the", Other "end", Boolean True]
+
+
+-- | Token.Data.readData tests as rD
+readDataTests = testGroup "readData" testList where
+    testList =
+        [
+            rD_reads_null_string_to_Other,
+            rD_reads_onlyDigits_string_as_Int,
+            rD_reads_alphanumeric_string_as_Other,
+            rD_reads_string_with_escaped_quote_as_String,
+            rD_reads_string_true_to_Boolean_true,
+            rD_reads_string_true_to_Boolean_false
+        ]
+
+rD_reads_null_string_to_Other = testCase name assertion where
+    name      = "readData of null string input"
+    assertion = assertEqual desc assert func
+    desc      = "reading an empty string should return an empty string Other Data"
+    assert    = Other ""
+    func      = readData ""
+
+rD_reads_onlyDigits_string_as_Int = testCase name assertion where
+    name      = "readData of numeric string input"
+    assertion = assertEqual desc assert func
+    desc      = "any string consisting of only digits should return an Int Data"
+    assert    = Int 56009
+    func      = readData "56009"
+
+rD_reads_alphanumeric_string_as_Other = testCase name assertion where
+    name      = "an alphanumeric string is an Other, or undefined type"
+    assertion = assertEqual d a f
+    d         = "alphanumeric strings can not be data types so they should be read as Other"
+    a         = Other "56aj90g"
+    f         = readData "56aj90g"
+
+rD_reads_string_with_escaped_quote_as_String = testCase name assertion where
+    name      = "String with escaped quotes from a file are meant to be String Data"
+    assertion = assertEqual d a f
+    d         = "Strings are a data type in fish and when read from a file, they will contain an escaped quote"
+    a         = String "\"Hello"
+    f         = readData "\"Hello"
+
+rD_reads_string_true_to_Boolean_true = testCase name assertion where
+    name      = "Read a boolean Data from a string"
+    assertion = assertEqual d a f
+    d         = "Read a string with capitalized boolean to return a Boolean Data"
+    a         = Boolean True
+    f         = readData "True"
+
+rD_reads_string_true_to_Boolean_false = testCase name assertion where
+    name      = "Read a boolean Data from a string"
+    assertion = assertEqual d a f
+    d         = "Read a string with capitalized boolean to return a Boolean Data"
+    a         = Boolean False
+    f         = readData "False"

@@ -1,6 +1,7 @@
 module Token.Data (
     Data(..),
-    consolidateStrings
+    consolidateStrings,
+    readData
 ) where
 
 
@@ -26,10 +27,10 @@ test = [Int 5, String "\"Hello ", Other "dumb ", String "world\"", Int 5, String
 
 
 fromData :: Data -> String
-fromData (String a) = a
-fromData (Int a) = show a
+fromData (String a)  = a
+fromData (Int a)     = show a
 fromData (Boolean a) = show a
-fromData (Other a) = a
+fromData (Other a)   = a
 
 
 convertToDataString :: Data -> Data
