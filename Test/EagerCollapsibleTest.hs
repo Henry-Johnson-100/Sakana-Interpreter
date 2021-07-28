@@ -12,56 +12,11 @@ main = do
 tests = testGroup "Token.Util.EagerCollapsible Tests" testList where
     testList =
         [
-            dropInfixTests,
             isECTests,
+            dropInfixTests,
             tBTests,
             dBTests
         ]
-
-
--- |Unit tests for Token.Util.EagerCollapsible.dropInfix
-dropInfixTests = testGroup "dropInfix" testList where
-    testList = [
-        dropInfix_normal,
-        dropInfix_normal_two,
-        dropInfix_not_infix,
-        dropInfix_empty_infix,
-        dropInfix_empty_list
-        ]
-dropInfix_normal = testCase name assertion where
-    name      = "dropInfix happy params"
-    assertion = assertEqual desc assert func
-    desc      = "For dropInfix [2,3] [1,2,3,4] return [1,4]"
-    assert    = [1,4]
-    func      = (dropInfix [2,3] [1,2,3,4])
-
-dropInfix_normal_two = testCase name assertion where
-    name      = "dropInfix works for longer lists with a single infix"
-    assertion = assertEqual desc assert func
-    desc      = "dropInfix [1,2,3,1] [4,5,1,2,3,1,4,5,6] == [4,5,4,5,6]"
-    assert    = [4,5,4,5,6]
-    func      = dropInfix [1,2,3,1] [4,5,1,2,3,1,4,5,6]
-
-dropInfix_not_infix = testCase name assertion where
-    name      = "dropInfix a b, a not infix"
-    assertion = assertEqual desc assert func
-    desc      = "For dropInfix [2,4] [1,2,3,4] return [1,2,3,4]"
-    assert    = [1,2,3,4]
-    func      = (dropInfix [2,4] [1,2,3,4])
-
-dropInfix_empty_infix = testCase name assertion where
-    name      = "dropInfix empty infix"
-    assertion = assertEqual desc assert func
-    desc      = "For dropInfix [] [a] return [a]"
-    assert    = [1,2,3,4]
-    func      = (dropInfix [] [1,2,3,4])
-
-dropInfix_empty_list = testCase name assertion where
-    name      = "dropInfix empty list"
-    assertion = assertEqual desc assert func
-    desc      = "For dropInfix _ [] return []"
-    assert    = []
-    func      = (dropInfix [2,3] [])
 
 
 
@@ -135,6 +90,49 @@ isEC_returns_true_for_single_EC_with_different_terminal_cases = testCase name as
     func      = isEagerCollapsible (1==) (5==) [2,3,1,2,4,6,5,2]
 
 
+-- |Unit tests for Token.Util.EagerCollapsible.dropInfix
+dropInfixTests = testGroup "dropInfix" testList where
+    testList = [
+        dropInfix_normal,
+        dropInfix_normal_two,
+        dropInfix_not_infix,
+        dropInfix_empty_infix,
+        dropInfix_empty_list
+        ]
+dropInfix_normal = testCase name assertion where
+    name      = "dropInfix happy params"
+    assertion = assertEqual desc assert func
+    desc      = "For dropInfix [2,3] [1,2,3,4] return [1,4]"
+    assert    = [1,4]
+    func      = (dropInfix [2,3] [1,2,3,4])
+
+dropInfix_normal_two = testCase name assertion where
+    name      = "dropInfix works for longer lists with a single infix"
+    assertion = assertEqual desc assert func
+    desc      = "dropInfix [1,2,3,1] [4,5,1,2,3,1,4,5,6] == [4,5,4,5,6]"
+    assert    = [4,5,4,5,6]
+    func      = dropInfix [1,2,3,1] [4,5,1,2,3,1,4,5,6]
+
+dropInfix_not_infix = testCase name assertion where
+    name      = "dropInfix a b, a not infix"
+    assertion = assertEqual desc assert func
+    desc      = "For dropInfix [2,4] [1,2,3,4] return [1,2,3,4]"
+    assert    = [1,2,3,4]
+    func      = (dropInfix [2,4] [1,2,3,4])
+
+dropInfix_empty_infix = testCase name assertion where
+    name      = "dropInfix empty infix"
+    assertion = assertEqual desc assert func
+    desc      = "For dropInfix [] [a] return [a]"
+    assert    = [1,2,3,4]
+    func      = (dropInfix [] [1,2,3,4])
+
+dropInfix_empty_list = testCase name assertion where
+    name      = "dropInfix empty list"
+    assertion = assertEqual desc assert func
+    desc      = "For dropInfix _ [] return []"
+    assert    = []
+    func      = (dropInfix [2,3] [])
 
 
 -- | Unit tests for Token.Util.EagerCollapsible.takeBetween as tB
@@ -165,6 +163,7 @@ tB_returns_only_one_EC_from_list_with_multiple_separate_EC = testCase name asser
     desc = "for takeBetween (1==) (1==) [2,1,2,3,1,2,1,8,9,7,1,3] return only the first inclusive EC: [1,2,3,1]"
     assert = [1,2,3,1]
     func = (takeBetween (1==) (1==) [2,1,2,3,1,2,1,8,9,7,1,3])
+
 
 -- | Unit tests for Token.Util.EagerCollapsible.dropBetween as dB
 dBTests = testGroup "dropBetween" testList where
