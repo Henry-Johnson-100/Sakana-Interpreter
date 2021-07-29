@@ -1,5 +1,6 @@
 module Lexer (
     Token(..),
+    tokenize,
     like,
     fromToken,
     filterLike,
@@ -8,11 +9,11 @@ module Lexer (
 
 import Data.List
 import Token.Util.Like
-import qualified Token.Bracket  as B
-import qualified Token.Control  as C
-import qualified Token.Data     as D
-import qualified Token.Keyword  as K
-import qualified Token.Operator as O
+import qualified Token.Bracket    as B
+import qualified Token.Control    as C
+import qualified Token.Data       as D
+import qualified Token.Keyword    as K
+import qualified Token.Operator   as O
 
 data Token = Bracket B.Bracket | Control C.Control | Data D.Data | Keyword K.Keyword | Operator O.Operator deriving (Show,Read,Eq)
 
@@ -46,7 +47,7 @@ filterLike :: Token -> [Token] -> [Token]
 filterLike t ts = filter (\x -> x `like` t) ts
 
 filterNotLike :: Token -> [Token] -> [Token]
-filterNotLike t ts = filter (\x -> not (x `like` t)) ts
+filterNotLike t ts = filter (\x -> x `notLike` t) ts
 
 fromToken :: Token -> String
 fromToken (Bracket bracket)       = B.fromBracket bracket
@@ -64,5 +65,5 @@ readTokenFromWord str
     | otherwise       = Data          (D.readData    str)
 
 -- | tokenize a list of strings, each element in the string is an individual representation of a token eg ">(" or "," or "fish" for example.
-tokenize :: [String] -> [Token]
-tokenize strs = map (readTokenFromWord) strs
+tokenize :: String -> [Token]
+tokenize strs = map (readTokenFromWord) $ words strs

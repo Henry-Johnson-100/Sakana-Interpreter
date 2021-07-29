@@ -5,13 +5,14 @@ fromOp,
 repr
 ) where
 
-data Operator = Eq | Gt | Lt | Add | Sub | Mult | Div | Mod | GtEq | LtEq deriving (Show, Read, Eq)
+data Operator = Eq | NEq | Gt | Lt | Add | Sub | Mult | Div | Mod | GtEq | LtEq deriving (Show, Read, Eq)
 
 repr :: [String]
-repr = ["==","+","-","*","/","%",">=","<=","<",">"]
+repr = ["==","/=","+","-","*","/","%",">=","<=","<",">"]
 
 readOp :: String -> Operator
-readOp "=="  = Eq
+readOp "==" = Eq
+readOp "/=" = NEq
 readOp ">"  = Gt
 readOp "<"  = Lt
 readOp "+"  = Add
@@ -24,6 +25,7 @@ readOp "<=" = LtEq
 
 fromOp :: Operator -> String
 fromOp Eq   = "=="
+fromOp NEq  = "/="
 fromOp Gt   = ">"
 fromOp Lt   = "<"
 fromOp Add  = "+"
