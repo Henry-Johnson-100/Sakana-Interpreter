@@ -27,9 +27,6 @@ instance Like Data where
     a           `notLike` b           = not $ like a b
 
 
-test = [Int 5, String "\"Hello ", Other "dumb ", String "world\"", Int 5, String "\"Another ", Other "dumb ", Other "consolidate ", String "test\"", Int 5 ]
-
-
 fromData :: Data -> String
 fromData (String a)  = a
 fromData (Int a)     = show a
@@ -48,6 +45,10 @@ mapToString :: [Data] -> [Data]
 mapToString xs = map (convertToDataString) xs
 
 
+strip :: String -> String
+strip str = reverse $ dropWhile (isSpace) $ reverse $ dropWhile (isSpace) str
+
+
 allDigits :: String -> Bool
 allDigits str = all (isDigit) str
 
@@ -56,8 +57,24 @@ allPunct :: String -> Bool
 allPunct str = all (isPunctuation) str
 
 
+allAlphaNum :: String -> Bool
+allAlphaNum str = (any (isDigit) str && any (isAlpha) str) && all (isAlphaNum) str
+
+
+allAlpha :: String -> Bool
+allAlpha str = all (isAlpha) str
+
+
 isFloatStr :: String -> Bool
 isFloatStr str = (elem '.' str) && (allDigits (filter ('.' /=) str))
+
+
+couldBeId :: String -> Bool
+couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNoDigits
+    where
+        maybeContainsSnakeCaseOrDot = ((elem '.' str) || (elem '_' str)) || (allAlpha str)
+        isOtherWiseAllAlpha         = (allAlpha (filter (\x -> ('.' /= x) && ('_' /= x)) str))
+        containsNoDigits            = not $ any (isDigit) str
 
 
 isStringPrefix :: Data -> Bool
@@ -81,11 +98,15 @@ consolidateStrings (d:ds)
 
 
 readData :: String -> Data
-readData str
+readData pstr
     | null str                        = Other ""
-    | allDigits str                   = Int (read str :: Int)
-    | isFloatStr str                  = Float (read str :: Float)
-    | allPunct str                    = Punct str
+    | allAlphaNum $ strip str                 = Other str
+    | allDigits $ strip str                   = Int (read str :: Int)
+    | isFloatStr $ strip str                  = Float (read str :: Float)
+    | allPunct $ strip str                    = Punct str
     | elem '\"' str                   = String str --Don't like this one
     | str == "True" || str == "False" = Boolean ( read str :: Bool )
-    | otherwise                       = Id str
+    | couldBeId $ strip str                   = Id str
+    | otherwise                       = Other str
+    where
+        str = strip pstr

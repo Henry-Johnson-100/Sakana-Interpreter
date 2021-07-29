@@ -160,7 +160,7 @@ rD_reads_comma_with_whitespace_padding_as_Punct = testCase name assertion where
     name      = "Reading commas as punctuation type"
     assertion = assertEqual d a f
     d         = "Reading punctuation"
-    a         = Punct " , "
+    a         = Punct ","
     f         = readData " , "
 
 rD_reads_unidentified_alpha_strings_as_Id = testCase name assertion where
