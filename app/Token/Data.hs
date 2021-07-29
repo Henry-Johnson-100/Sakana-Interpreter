@@ -12,13 +12,16 @@ import Token.Util.Like
 import Token.Util.EagerCollapsible
 
 
-data Data = Int Int | String String | Boolean Bool | Other String deriving (Show,Read,Eq,Ord)
+data Data = Int Int | Float Float | String String | Boolean Bool | Id String | Punct String | Other String deriving (Show,Read,Eq,Ord)
 
 
 instance Like Data where
     (Int a)     `like`    (Int b)     = True
+    (Float _)   `like`    (Float _)   = True
     (String a)  `like`    (String b)  = True
     (Boolean a) `like`    (Boolean b) = True
+    (Id _)      `like`    (Id _)      = True
+    (Punct _)   `like`    (Punct _)   = True
     (Other a)   `like`    (Other b)   = True
     _           `like`    _           = False
     a           `notLike` b           = not $ like a b
@@ -30,7 +33,10 @@ test = [Int 5, String "\"Hello ", Other "dumb ", String "world\"", Int 5, String
 fromData :: Data -> String
 fromData (String a)  = a
 fromData (Int a)     = show a
+fromData (Float a)   = show a
 fromData (Boolean a) = show a
+fromData (Id a)      = a
+fromData (Punct a)   = a
 fromData (Other a)   = a
 
 
@@ -44,6 +50,14 @@ mapToString xs = map (convertToDataString) xs
 
 allDigits :: String -> Bool
 allDigits str = all (isDigit) str
+
+
+allPunct :: String -> Bool
+allPunct str = all (isPunctuation) str
+
+
+isFloatStr :: String -> Bool
+isFloatStr str = (elem '.' str) && (allDigits (filter ('.' /=) str))
 
 
 isStringPrefix :: Data -> Bool
@@ -70,6 +84,8 @@ readData :: String -> Data
 readData str
     | null str                        = Other ""
     | allDigits str                   = Int (read str :: Int)
+    | isFloatStr str                  = Float (read str :: Float)
+    | allPunct str                    = Punct str
     | elem '\"' str                   = String str --Don't like this one
     | str == "True" || str == "False" = Boolean ( read str :: Bool )
-    | otherwise                       = Other str
+    | otherwise                       = Id str
