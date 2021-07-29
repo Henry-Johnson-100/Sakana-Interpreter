@@ -73,7 +73,16 @@ readDataTests = testGroup "readData" testList where
             rD_reads_alphanumeric_string_as_Other,
             rD_reads_string_with_escaped_quote_as_String,
             rD_reads_string_true_to_Boolean_true,
-            rD_reads_string_true_to_Boolean_false
+            rD_reads_string_true_to_Boolean_false,
+            rD_reads_simple_float,
+            rD_reads_a_float_with_some_whitespace_padding,
+            rD_reads_comma_as_Punct,
+            rD_reads_comma_with_whitespace_padding_as_Punct,
+            rD_reads_unidentified_alpha_strings_as_Id,
+            rD_reads_snake_case_alpha_string_as_Id,
+            rD_reads_alpha_string_containing_point_punctuation_as_id,
+            rD_reads_alpha_snake_case_string_containing_point_punctuation_as_id,
+            rD_reads_string_punct_numeric_string_as_Other
         ]
 
 rD_reads_null_string_to_Other = testCase name assertion where
@@ -117,3 +126,66 @@ rD_reads_string_true_to_Boolean_false = testCase name assertion where
     d         = "Read a string with capitalized boolean to return a Boolean Data"
     a         = Boolean False
     f         = readData "False"
+
+rD_reads_simple_float = testCase name assertion where
+    name      = "Read a simple float as a Float Data"
+    assertion = assertEqual d a f
+    d         = "A floating point string is a string of all digits and exactly one point char"
+    a         = Float 5.0
+    f         = readData "5.0"
+
+rD_reads_a_float_with_some_whitespace_padding = testCase name assertion where
+    name      = "a number with whitespace padding should still be typable"
+    assertion = assertEqual d a f
+    d         = "Read a number with leading and/or trailing whitespace"
+    a         = Float 5.0
+    f         = readData " 5.0 "
+
+rD_reads_comma_as_Punct = testCase name assertion where
+    name      = "Reading commas as punctuation type"
+    assertion = assertEqual d a f
+    d         = "Reading punctuation"
+    a         = Punct ","
+    f         = readData ","
+
+rD_reads_comma_with_whitespace_padding_as_Punct = testCase name assertion where
+    name      = "Reading commas as punctuation type"
+    assertion = assertEqual d a f
+    d         = "Reading punctuation"
+    a         = Punct " , "
+    f         = readData " , "
+
+rD_reads_unidentified_alpha_strings_as_Id = testCase name assertion where
+    name      = "for function naming"
+    assertion = assertEqual d a f
+    d         = "Identify words that aren't data types as ID's"
+    a         = Id "factorial"
+    f         = readData "factorial"
+
+rD_reads_snake_case_alpha_string_as_Id = testCase name asssertion where
+    name      = "for function naming"
+    assertion = assertEqual d a f
+    d         = "should be able to name functions with snake case"
+    a         = Id "some_func"
+    f         = readData "some_func"
+
+rD_reads_alpha_string_containing_point_punctuation_as_id = testCase name assertion where
+    name      = "function call dot notation"
+    assertion = assertEqual d a f
+    d         = "potentially using dot function to call functions from other schools or modules"
+    a         = Id "Some.factorial"
+    f         = readData "Some.factorial"
+
+rD_reads_alpha_snake_case_string_containing_point_punctuation_as_id = testCase name assertion where
+    name      = "function call dot notation"
+    assertion = assertEqual d a f
+    d         = "potentially using dot function to call functions from other schools or modules"
+    a         = Id "Some.some_func"
+    f         = readData "Some.some_func"
+
+rD_reads_string_punct_numeric_string_as_Other = testCase name assertion where
+    name      = "Read string made up of only punctuation and digits"
+    assertion = assertEqual d a f
+    d         = "Read a strings of punctuation and digits as other type"
+    a         = Other "5.89_6,4"
+    f         = readData "5.89_6,4"
