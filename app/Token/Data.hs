@@ -58,10 +58,11 @@ isStringSuffix _          = False
 consolidateStrings :: [Data] -> [Data]
 consolidateStrings [] = []
 consolidateStrings (d:ds)
-    | isStringPrefix d && isEagerCollapsible isStringPrefix isStringSuffix (d:ds) = (mapTakeBetween (d:ds)) ++ consolidateStrings (dropBetween isStringPrefix isStringSuffix (d:ds))
+    | isStringPrefix d && isEagerCollapsible isStringPrefix isStringSuffix (d:ds) = (mapToConsolidatedStringData (d:ds)) ++ consolidateStrings (dropBetween isStringPrefix isStringSuffix (d:ds))
     | otherwise                                                                   = d : consolidateStrings ds
     where
         mapTakeBetween xs = mapToString $ takeBetween isStringPrefix isStringSuffix xs
+        mapToConsolidatedStringData xs = String (concat ( map (fromData) (mapTakeBetween xs))) : []
 
 
 readData :: String -> Data
