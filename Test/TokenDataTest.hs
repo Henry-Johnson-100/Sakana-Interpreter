@@ -24,7 +24,8 @@ consolidateStringsTests = testGroup "Token.Data.consolidateString tests" testLis
             cS_does_not_consolidate_incomplete_strings,
             cS_consolidates_one_string,
             cS_consolidates_two_strings_separately,
-            cS_consolidates_three_strings_separately
+            cS_consolidates_three_strings_separately,
+            cS_consolidates_string_containing_previously_identified_id_or_punct_or_other_types
         ]
 
 cS_returns_empty_list_for_empty_arg = standardTimeout 5 $ testCase name assertion where
@@ -62,6 +63,12 @@ cS_consolidates_three_strings_separately = standardTimeout 5 $ testCase name ass
     assert    = [Int 5, String "\"stringonecase\"", Int 0, String "\"stringtwocase\"", Boolean False, String "\"stringthreecase\"", Boolean False, Boolean True]
     func      = consolidateStrings [Int 5, String "\"string", Other "one", String "case\"", Int 0, String "\"string", Other "two", String "case\"", Boolean False, String "\"string", Other "three", String "case\"", Boolean False, Boolean True]
 
+cS_consolidates_string_containing_previously_identified_id_or_punct_or_other_types = standardTimeout 5 $ testCase name assertion where
+    name      = "consolidate string still works for all data types inside a string EC"
+    assertion = assertEqual d a f
+    d         = "some data may be initially identified as Punct or Id, even if inside a String EC, when consolidated, this shouldn't matter"
+    a         = [Int 5, Float 4.3, String "\"Please enter function name like: Some.factorial then try using a float like 4.3\"", Boolean False, Int 42]
+    f         = consolidateStrings [Int 5, Float 4.3, String "\"Please ", Other "enter ", Id "function ", Id "name ", Other "like", Punct ":", Other " ", Id "Some.factorial", Other " ", Id "then ", Other "try ", Other "using ", Other "a ", Id "float ", Id "like ", String "4.3\"", Boolean False, Int 42 ]
 
 
 -- | Token.Data.readData tests as rD
@@ -82,7 +89,8 @@ readDataTests = testGroup "readData" testList where
             rD_reads_snake_case_alpha_string_as_Id,
             rD_reads_alpha_string_containing_point_punctuation_as_id,
             rD_reads_alpha_snake_case_string_containing_point_punctuation_as_id,
-            rD_reads_string_punct_numeric_string_as_Other
+            rD_reads_string_punct_numeric_string_as_Other,
+            rD_reads_identifiable_data_type_as_String_if_beginning_or_ending_in_escaped_quote
         ]
 
 rD_reads_null_string_to_Other = testCase name assertion where
@@ -162,7 +170,7 @@ rD_reads_unidentified_alpha_strings_as_Id = testCase name assertion where
     a         = Id "factorial"
     f         = readData "factorial"
 
-rD_reads_snake_case_alpha_string_as_Id = testCase name asssertion where
+rD_reads_snake_case_alpha_string_as_Id = testCase name assertion where
     name      = "for function naming"
     assertion = assertEqual d a f
     d         = "should be able to name functions with snake case"
@@ -189,3 +197,10 @@ rD_reads_string_punct_numeric_string_as_Other = testCase name assertion where
     d         = "Read a strings of punctuation and digits as other type"
     a         = Other "5.89_6,4"
     f         = readData "5.89_6,4"
+
+rD_reads_identifiable_data_type_as_String_if_beginning_or_ending_in_escaped_quote = testCase name assertion where
+    name      = "read string numbers or other typable data as a string if beginning or end of quote"
+    assertion = assertEqual d a f
+    d         = "The string \"\"4.3\" should be a String and not identified as anything else"
+    a         = String "\"4.3"
+    f         = readData "\"4.3"
