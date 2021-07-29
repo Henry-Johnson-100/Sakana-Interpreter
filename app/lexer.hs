@@ -1,11 +1,5 @@
 module Lexer (
     Token(..),
-    module B,
-    module C,
-    module D,
-    module K,
-    module O,
-    readStrTokens,
     like,
     fromToken,
     filterLike,

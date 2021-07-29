@@ -1,7 +1,8 @@
 module Token.Data (
     Data(..),
     consolidateStrings,
-    readData
+    readData,
+    fromData
 ) where
 
 
