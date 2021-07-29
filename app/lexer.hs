@@ -64,6 +64,11 @@ readTokenFromWord str
     | elem str O.repr = Operator      (O.readOp      str)
     | otherwise       = Data          (D.readData    str)
 
+
+--addSpaces :: String -> String
+--addSpaces str
+
+
 -- | tokenize a list of strings, each element in the string is an individual representation of a token eg ">(" or "," or "fish" for example.
 tokenize :: String -> [Token]
 tokenize strs = map (readTokenFromWord) $ words strs
