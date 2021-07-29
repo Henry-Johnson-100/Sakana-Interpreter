@@ -34,8 +34,8 @@ baseBracket (Bracket b) = b
 baseControl :: Token -> C.Control
 baseControl (Lexer.Control c) = c
 
-baseDataString :: Token -> String
-baseDataString (Data d) = D.fromData d
+baseData :: Token -> D.Data
+baseData (Data d) = d
 
 baseKeyword :: Token -> K.Keyword
 baseKeyword (Keyword k) = k
