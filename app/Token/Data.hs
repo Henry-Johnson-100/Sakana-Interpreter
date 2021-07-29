@@ -100,13 +100,13 @@ consolidateStrings (d:ds)
 readData :: String -> Data
 readData pstr
     | null str                        = Other ""
-    | allAlphaNum $ strip str                 = Other str
-    | allDigits $ strip str                   = Int (read str :: Int)
-    | isFloatStr $ strip str                  = Float (read str :: Float)
-    | allPunct $ strip str                    = Punct str
+    | allAlphaNum $ strip str         = Other str
+    | allDigits $ strip str           = Int (read str :: Int)
+    | isFloatStr $ strip str          = Float (read str :: Float)
+    | allPunct $ strip str            = Punct str
     | elem '\"' str                   = String str --Don't like this one
     | str == "True" || str == "False" = Boolean ( read str :: Bool )
-    | couldBeId $ strip str                   = Id str
+    | couldBeId $ strip str           = Id str
     | otherwise                       = Other str
     where
         str = strip pstr

@@ -90,7 +90,8 @@ readDataTests = testGroup "readData" testList where
             rD_reads_alpha_string_containing_point_punctuation_as_id,
             rD_reads_alpha_snake_case_string_containing_point_punctuation_as_id,
             rD_reads_string_punct_numeric_string_as_Other,
-            rD_reads_identifiable_data_type_as_String_if_beginning_or_ending_in_escaped_quote
+            rD_reads_identifiable_data_type_as_String_if_beginning_or_ending_in_escaped_quote,
+            rD_reads_string_that_looks_like_function_but_contains_digits_as_Other
         ]
 
 rD_reads_null_string_to_Other = testCase name assertion where
@@ -204,3 +205,10 @@ rD_reads_identifiable_data_type_as_String_if_beginning_or_ending_in_escaped_quot
     d         = "The string \"\"4.3\" should be a String and not identified as anything else"
     a         = String "\"4.3"
     f         = readData "\"4.3"
+
+rD_reads_string_that_looks_like_function_but_contains_digits_as_Other = testCase name assertion where
+    name      = "function-like string with digits can only be Other"
+    assertion = assertEqual d a f 
+    d         = "functions can only contain alphabetic characters and '.' and/or '_'"
+    a         = Other "Some.some_fun5"
+    f         = readData "Some.some_fun5"
