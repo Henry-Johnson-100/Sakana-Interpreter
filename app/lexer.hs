@@ -9,6 +9,7 @@ module Lexer (
 
 import Data.List
 import Token.Util.Like
+import Token.Util.String
 import qualified Token.Bracket    as B
 import qualified Token.Control    as C
 import qualified Token.Data       as D
@@ -65,10 +66,30 @@ readTokenFromWord str
     | otherwise       = Data          (D.readData    str)
 
 
---addSpaces :: String -> String
---addSpaces str
+addSpaces :: String -> String --LOOOOOOOL
+addSpaces str
+    | null str = ""
+    | isPrefixOf ">(" headGroup                                                                       = " >( " ++ addSpaces (drop 2 str)
+    | isPrefixOf ")>" headGroup                                                                       = " )> " ++ addSpaces (drop 2 str)
+    | isPrefixOf "<(" headGroup                                                                       = " <( " ++ addSpaces (drop 2 str)
+    | isPrefixOf ")<" headGroup                                                                       = " )< " ++ addSpaces (drop 2 str)
+    | isPrefixOf ","  headGroup                                                                       = " , "  ++ addSpaces (drop 1 str)
+    | isPrefixOf "<"  headGroup && not (isPrefixOf "<(" headGroup) && not (isPrefixOf "<=" headGroup) = " < "  ++ addSpaces (drop 1 str)
+    | isPrefixOf ">"  headGroup && not (isPrefixOf ">(" headGroup) && not (isPrefixOf ">=" headGroup) = " > "  ++ addSpaces (drop 1 str)
+    | isPrefixOf "<=" headGroup                                                                       = " <= " ++ addSpaces (drop 2 str)
+    | isPrefixOf ">=" headGroup                                                                       = " >= " ++ addSpaces (drop 2 str)
+    | isPrefixOf "==" headGroup                                                                       = " == " ++ addSpaces (drop 2 str)
+    | isPrefixOf "/=" headGroup                                                                       = " /= " ++ addSpaces (drop 2 str)
+    | isPrefixOf "+"  headGroup                                                                       = " + "  ++ addSpaces (drop 1 str)
+    | isPrefixOf "-"  headGroup                                                                       = " - "  ++ addSpaces (drop 1 str)
+    | isPrefixOf "*"  headGroup                                                                       = " * "  ++ addSpaces (drop 1 str)
+    | isPrefixOf "/"  headGroup && not (isPrefixOf "/=" headGroup)                                    = " / "  ++ addSpaces (drop 1 str)
+    | isPrefixOf "%"  headGroup                                                                       = " % "  ++ addSpaces (drop 1 str)
+    | otherwise = (head str) : addSpaces (tail str)
+    where
+        headGroup = take 3 str
 
 
 -- | tokenize a list of strings, each element in the string is an individual representation of a token eg ">(" or "," or "fish" for example.
 tokenize :: String -> [Token]
-tokenize strs = map (readTokenFromWord) $ words strs
+tokenize strs = map (readTokenFromWord) $ words $ addSpaces strs
