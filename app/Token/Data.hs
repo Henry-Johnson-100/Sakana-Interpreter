@@ -54,7 +54,7 @@ allDigits str = all (isDigit) str
 
 
 allPunct :: String -> Bool
-allPunct str = all (isPunctuation) str
+allPunct str = all (isPunctuation) str && str /= "\""
 
 
 allAlphaNum :: String -> Bool
@@ -78,12 +78,12 @@ couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNo
 
 
 isStringPrefix :: Data -> Bool
-isStringPrefix (String a) = (isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)
+isStringPrefix (String a) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
 isStringPrefix _          = False
 
 
 isStringSuffix :: Data -> Bool
-isStringSuffix (String a) = (isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)
+isStringSuffix (String a) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
 isStringSuffix _          = False
 
 

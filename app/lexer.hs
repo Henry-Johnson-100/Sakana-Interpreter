@@ -100,9 +100,10 @@ consolidateStringsIfPossible (t:ts)
     | otherwise                    = t : consolidateStringsIfPossible ts
     where
         droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
-        consolidatedTokenDataList = map (tokenFromData) $ D.consolidateStrings $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts))
+        consolidatedTokenDataList = map (tokenFromData) $ filter ((D.Other " ")/=) $ D.consolidateStrings $ intersperse (D.Other " ") $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts))
+
 
 
 -- | tokenize a list of strings, each element in the string is an individual representation of a token eg ">(" or "," or "fish" for example.
 tokenize :: String -> [Token]
-tokenize strs = map (readTokenFromWord) $ words $ addSpaces strs
+tokenize strs = consolidateStringsIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
