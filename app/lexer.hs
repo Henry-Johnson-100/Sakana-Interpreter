@@ -38,6 +38,9 @@ baseControl (Lexer.Control c) = c
 baseData :: Token -> D.Data
 baseData (Data d) = d
 
+tokenFromData :: D.Data -> Token
+tokenFromData d = Data d
+
 baseKeyword :: Token -> K.Keyword
 baseKeyword (Keyword k) = k
 
@@ -88,6 +91,16 @@ addSpaces str
     | otherwise = (head str) : addSpaces (tail str)
     where
         headGroup = take 3 str
+
+
+consolidateStringsIfPossible :: [Token] -> [Token]
+consolidateStringsIfPossible [] = []
+consolidateStringsIfPossible (t:ts)
+    | t `like` (Data (D.Other "")) = consolidatedTokenDataList ++ consolidateStringsIfPossible (droppedTokenDataList)
+    | otherwise                    = t : consolidateStringsIfPossible ts
+    where
+        droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
+        consolidatedTokenDataList = map (tokenFromData) $ D.consolidateStrings $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts))
 
 
 -- | tokenize a list of strings, each element in the string is an individual representation of a token eg ">(" or "," or "fish" for example.
