@@ -4,10 +4,10 @@ module AbstractSyntaxTree(
 
 import Lexer
 
-data Tree a = Empty | Leaf a (Tree a) (Tree a) deriving (Show,Read,Eq)
+data Tree a = Empty | Node a (Tree a) (Tree a) deriving (Show,Read,Eq)
 
-testTree = (Leaf 1 (Leaf 2 (Leaf 3 Empty Empty) Empty) (Leaf 4 (Leaf 5 Empty Empty) Empty))
+testTree = (Node 1 (Node 2 (Node 3 Empty Empty) Empty) (Node 4 (Node 5 Empty Empty) Empty))
 
 instance Functor Tree where
     fmap _ Empty                   = Empty
-    fmap f (Leaf a (left) (right)) = (Leaf (f a) (fmap f left) (fmap f right))
+    fmap f (Node a (left) (right)) = (Node (f a) (fmap f left) (fmap f right))
