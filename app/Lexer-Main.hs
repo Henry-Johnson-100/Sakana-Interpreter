@@ -1,9 +1,12 @@
 import System.IO
+import System.Environment
 import Lexer
 
+printTokens xs = concat $ map (show) $ tokenize xs
+
 main = do
-    handle <- openFile "G:/FishShit/FISH/Test/Lexer-MainTest.fish" ReadMode
+    args <- getArgs
+    handle <- openFile (head args) ReadMode
     contents <- hGetContents handle
-    putStr contents
-    putStr $ concat $ map (show) $ tokenize contents
+    putStr $ printTokens contents
     hClose handle
