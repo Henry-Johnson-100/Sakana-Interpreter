@@ -9,7 +9,6 @@ module Lexer (
 
 import Data.List
 import Token.Util.Like
-import Token.Util.String
 import qualified Token.Bracket    as B
 import qualified Token.Control    as C
 import qualified Token.Data       as D
@@ -27,7 +26,6 @@ instance Like Token where
     like _                 _            = False
     notLike a              b            = not $ like a b
 
-testStrAssign = "fish some_func >( n , m )> <( fish nested_func >( )> <( m - 1 )< fin >( n == <( nested_func >( )> )< , \"Hello World\" )> <( \"Goodbye World\" )<"
 
 baseBracket :: Token -> B.Bracket
 baseBracket (Bracket b) = b
@@ -103,7 +101,5 @@ consolidateStringsIfPossible (t:ts)
         consolidatedTokenDataList = map (tokenFromData) $ filter ((D.Other " ")/=) $ D.consolidateStrings $ intersperse (D.Other " ") $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts))
 
 
-
--- | tokenize a list of strings, each element in the string is an individual representation of a token eg ">(" or "," or "fish" for example.
 tokenize :: String -> [Token]
 tokenize strs = consolidateStringsIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
