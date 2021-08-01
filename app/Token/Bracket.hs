@@ -4,7 +4,8 @@ Scope(..),
 validBracket,
 fromBracket,
 readBracket,
-repr
+repr,
+scope
 ) where
 
 data Bracket = Send Scope | Return Scope deriving (Show, Read, Eq, Ord)

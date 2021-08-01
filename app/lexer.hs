@@ -4,7 +4,8 @@ module Lexer (
     like,
     fromToken,
     filterLike,
-    filterNotLike
+    filterNotLike,
+    baseBracket
 ) where
 
 import Data.List
