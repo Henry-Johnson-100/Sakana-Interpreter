@@ -13,5 +13,5 @@ import Token.Operator
 data ParseTree a = Empty | Node a (ParseTree a) (ParseTree a) deriving (Show, Read, Eq)
 
 instance Functor ParseTree where
-    fmap f Empty = f Empty
+    fmap _ Empty                  = Empty
     fmap f (Node base left right) = Node (f base) (fmap f left) (fmap f right)
