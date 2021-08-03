@@ -14,6 +14,9 @@ import Data.List
 
 data ParseTree a = Empty | Node a (ParseTree a) (ParseTree a) deriving (Show, Read, Eq)
 
+type ScopedToken = (Token, Int)
+type ScopedTree = ParseTree ScopedToken
+
 node :: a -> ParseTree a
 node x = Node x Empty Empty
 
@@ -31,20 +34,20 @@ scanTokenScope ts = tail $ scanl (scanf) 0 ts
             | t `like` (Bracket (Send Open)) && ((scope (baseBracket t)) == Close) = i - 1
             | otherwise                                                            = i
 
-zipTokenScope :: [Token] -> [(Token, Int)]
+zipTokenScope :: [Token] -> [ScopedToken]
 zipTokenScope ts = zip (ts) (scanTokenScope ts)
 
-filterBracketFromZippedScope :: [(Token, Int)] -> [(Token, Int)]
-filterBracketFromZippedScope tss = filter (\x-> not ((fst x) `like` Bracket (Send Open))) tss
+filterNotBracket :: [ScopedToken] -> [ScopedToken]
+filterNotBracket tss = filter (\x-> not ((fst x) `like` Bracket (Send Open))) tss
 
-insertScopedToken :: (Token,Int) -> ParseTree (Token,Int) -> ParseTree (Token,Int)
+insertScopedToken :: ScopedToken -> ScopedTree -> ScopedTree
 insertScopedToken ti Empty = node ti
 insertScopedToken ti (Node base left right)
-    | (snd ti) > (snd base) = insertScopedToken ti left
-    | otherwise             = insertScopedToken ti right
+    | (snd ti) > (snd base) = Node base (insertScopedToken ti left) right
+    | otherwise             = Node base left (insertScopedToken ti right)
 
-foldToScopedTree :: [(Token, Int)] -> ParseTree (Token,Int)
-foldToScopedTree tis = foldr (insertScopedToken) Empty tis
+foldToScopedTree :: [ScopedToken] -> ScopedTree
+foldToScopedTree tis = foldl' (flip (insertScopedToken)) Empty tis
 
-generateScopedTreeFromTokens :: [Token] -> ParseTree (Token,Int)
-generateScopedTreeFromTokens ts = foldToScopedTree $ filterBracketFromZippedScope $ zipTokenScope ts
+generateScopedTreeFromTokens :: [Token] -> ScopedTree
+generateScopedTreeFromTokens ts = foldToScopedTree $ filterNotBracket $ zipTokenScope ts
