@@ -6,7 +6,6 @@ import Lexer
 import Token.Bracket
 import Token.Control
 import Token.Data
-import Token.Identifier
 import Token.Keyword
 import Token.Operator
 
