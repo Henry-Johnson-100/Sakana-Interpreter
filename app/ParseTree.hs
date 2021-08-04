@@ -1,5 +1,6 @@
 module ParseTree(
-
+ParseTree(..),
+generateScopedTreeFromTokens
 ) where
 
 import Lexer
