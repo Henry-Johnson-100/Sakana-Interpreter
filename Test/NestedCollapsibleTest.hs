@@ -26,7 +26,8 @@ applicativeLaws = testGroup "Applicative laws" testList where
             applicative_identity,
             applicative_homomorphism,
             applicative_interchange,
-            applicative_composition
+            applicative_composition,
+            additional_composition
         ]
 
 applicative_identity = testCase name assertion where
@@ -57,6 +58,12 @@ applicative_composition = testCase name assertion where
     a         = (NBase [(1+)]) <*> ((NBase [(1+)]) <*> (NBase [1]))
     f         = pure (.) <*> (NBase [(1+)]) <*> (NBase [(1+)]) <*> (NBase [1])
 
+additional_composition = testCase name assertion where
+    name      = "Another test case with more complex Nested data"
+    assertion = assertEqual d a f
+    d         = "pure (.) <*> u <*> v <*> w == u <*> (v <*> w)"
+    a         = (Nest (NBase [(1+)])) <*> ((NBase [(1+)]) <*> (Nest (Nest (NBase [1]))))
+    f         = pure (.) <*> (Nest (NBase [(1+)])) <*> (NBase [(1+)]) <*> (Nest (Nest (NBase [1])))
 {-
 monadLaws = testGroup "Monad laws" testList where
     testList = 
