@@ -1,6 +1,6 @@
 module ParseTree(
 ParseTree(..),
-generateScopedTreeFromTokens
+generateParseTree
 ) where
 
 import Lexer
@@ -51,3 +51,6 @@ foldToScopedTree tis = foldl' (flip (insertScopedToken)) Empty tis
 
 generateScopedTreeFromTokens :: [Token] -> ScopedTree
 generateScopedTreeFromTokens ts = foldToScopedTree $ filterNotBracket $ zipTokenScope ts
+
+generateParseTree :: [Token] -> ParseTree Token
+generateParseTree ts = Empty
