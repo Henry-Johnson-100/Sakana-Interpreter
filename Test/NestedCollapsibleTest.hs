@@ -36,26 +36,26 @@ applicative_identity = testCase name assertion where
     a         = NBase [1,2,3]
     f         = pure id <*> (NBase [1,2,3])
 
-applicative_homomorphism = testCase name assertion w
+applicative_homomorphism = testCase name assertion where
     name      = "The homomorphism property of applicatives"
     assertion = assertEqual d a f
     d         = "pure f <*> pure x == pure (f x)"
     a         = pure ((1+) 1) :: Nested Int
-    f         = (pure (1+) :: Nested Int) <*> pure (1) :: Nested Int
+    f         = (pure (1+)) <*> pure (1) :: Nested Int
 
 applicative_interchange = testCase name assertion where
     name      = "The interchange property of applicatives"
     assertion = assertEqual d a f
     d         = "u <*> pure y == pure ($ y) <*> u"
-    a         = (pure ($ 1) :: Nested Int) <*> (NBase [(1+)])
+    a         = (pure ($ 1)) <*> (NBase [(1+)])
     f         = (NBase [(1+)]) <*> pure 1 :: Nested Int
 
 applicative_composition = testCase name assertion where
     name      = "The composition property of applicatives"
     assertion = assertEqual d a f
     d         = "pure (.) <*> u <*> v <*> w == u <*> (v <*> w)"
-    a         = (NBase [(1+)]) <*> ((NBase [(1+)]) <*> (NBase [(1+)]))
-    f         = pure (.) <*> (NBase [(1+)]) <*> (NBase [(1+)]) <*> (NBase [(1+)])
+    a         = (NBase [(1+)]) <*> ((NBase [(1+)]) <*> (NBase [1]))
+    f         = pure (.) <*> (NBase [(1+)]) <*> (NBase [(1+)]) <*> (NBase [1])
 
 {-
 monadLaws = testGroup "Monad laws" testList where
