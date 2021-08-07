@@ -1,5 +1,5 @@
 module Token.Util.NestedCollapsible (
-
+    Nested(..)
 ) where
 
 import Data.List
