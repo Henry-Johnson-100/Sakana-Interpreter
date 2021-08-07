@@ -109,3 +109,18 @@ test-suite ParseTree
         base ^>=4.15.0.0
       , tasty >= 0.7 && < 1.4.1
       , tasty-hunit ^>=0.10.0.3
+
+test-suite Token_Util_NestedCollapsible
+    default-language:
+        Haskell2010
+    type:
+        exitcode-stdio-1.0
+    hs-source-dirs:
+        Test
+        app
+    main-is:
+        NestedCollapsibleTest.hs
+    build-depends:
+        base ^>=4.15.0.0
+      , tasty >= 0.7 && < 1.4.1
+      , tasty-hunit ^>=0.10.0.3
