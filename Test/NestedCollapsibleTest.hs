@@ -16,8 +16,8 @@ tests = testGroup "Token.Util.NestedCollapsible Tests" testList where
 instanceVerifyTests = testGroup "Instance law verification tests" testList where
     testList =
         [
-            applicativeLaws
-            --monadLaws
+            applicativeLaws,
+            monadLaws
         ]
 
 applicativeLaws = testGroup "Applicative laws" testList where
@@ -64,10 +64,32 @@ additional_composition = testCase name assertion where
     d         = "pure (.) <*> u <*> v <*> w == u <*> (v <*> w)"
     a         = (Nest (NBase [(1+)])) <*> ((NBase [(1+)]) <*> (Nest (Nest (NBase [1]))))
     f         = pure (.) <*> (Nest (NBase [(1+)])) <*> (NBase [(1+)]) <*> (Nest (Nest (NBase [1])))
-{-
+
 monadLaws = testGroup "Monad laws" testList where
     testList = 
         [
-        
+            monad_left_identity,
+            monad_right_identity,
+            monad_associativity
         ]
-        -}
+
+monad_left_identity = testCase name assertion where
+    name      = "The left identity monad law"
+    assertion = assertEqual d a f
+    d         = "return a >>= h == h a"
+    a         = NBase [2]
+    f         = return 1 >>= (\x -> NBase ((1+x):[]))
+
+monad_right_identity = testCase name assertion where
+    name      = "The right identity monad law"
+    assertion = assertEqual d a f
+    d         = "m >>= return == m"
+    a         = NBase [1 :: Int]
+    f         = (NBase [1 :: Int]) >>= return
+
+monad_associativity = testCase name assertion where
+    name      = "The associativity monad law"
+    assertion = assertEqual d a f
+    d         = "(m >>= g) >>= h == m >>= (\\x -> g x >>= h)"
+    a         = (NBase [1]) >>= (\x -> (NBase ((1 + x) : [])) >>= (\z -> NBase ((1+z):[])))
+    f         = (NBase [1] >>= (\x -> NBase ((1+x):[]))) >>= (\x -> NBase ((1+x):[]))
