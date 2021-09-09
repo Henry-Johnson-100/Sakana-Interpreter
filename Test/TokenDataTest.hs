@@ -86,7 +86,7 @@ cD_consolidates_two_comments_separately = standardTimeout 5 $ testCase name asse
     name      = "Consolidate two comments"
     assertion = assertEqual d a f
     d         = "Two separate, complete comment EC's are consolidated appropriately"
-    a         = [Int 5, Comment "/*first comment*/", Boolean True, Comment "second other comment*/", Int 10]
+    a         = [Int 5, Comment "/*first comment*/", Boolean True, Comment "/*second other comment*/", Int 10]
     f         = consolidateEagerCollapsibleData [Int 5, Comment "/*first ", Comment "comment*/", Boolean True, Comment "/*second ", Other "other ", Comment "comment*/", Int 10]
 
 cD_consolidates_EC_data_containing_String_and_Comment = standardTimeout 5 $ testCase name assertion where
@@ -101,14 +101,14 @@ cD_consolidates_EC_data_containing_String_in_a_Comment_as_Comment = standardTime
     assertion = assertEqual d a f
     d         = "Nested EagerCollapsible Data should be consolidated as the type first encountered in the list"
     a         = [Int 5, Comment "/*start middle \"Hello dumb world\" end*/", Float 4.3]
-    f         = consolidateEagerCollapsibleData [Int 5, Comment "/*start ", Other "middle ", String "\"Hello ", Other "dumb ", String "world\"", Comment "end*/", Float 4.3]
+    f         = consolidateEagerCollapsibleData [Int 5, Comment "/*start ", Other "middle ", String "\"Hello ", Other "dumb ", String "world\" ", Comment "end*/", Float 4.3]
 
 cD_consolidates_EC_data_containing_Comment_in_a_String_as_String = standardTimeout 5 $ testCase name assertion where
     name      = "Consolidates a Data list with a complete Comment inside of a complete String as a String"
     assertion = assertEqual d a f
     d         = "Nested EagerCollapsible Data should be consolidated as the type first encountered in the list"
     a         = [Int 5, String "\"Hello dumb /*start middle end*/ world\"", Float 4.3]
-    f         = consolidateEagerCollapsibleData [Int 5, String "\"Hello ", Other "dumb ", Comment "/*start ", Other "middle ", Comment "end*/", String "world\"", Float 4.3]
+    f         = consolidateEagerCollapsibleData [Int 5, String "\"Hello ", Other "dumb ", Comment "/*start ", Other "middle ", Comment "end*/ ", String "world\"", Float 4.3]
 
 
 -- | Token.Data.readData tests as rD
