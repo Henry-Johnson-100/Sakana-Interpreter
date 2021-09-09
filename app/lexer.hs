@@ -73,10 +73,10 @@ readToken str
 addSpaces :: String -> String
 addSpaces str
     | null str = ""
-    | isAnyReprInHeadGroup B.repr                                                                     = (padReprElemFromHeadGroup B.repr 1)      ++ (addSpaces $ dropReprElemFromHeadGroup B.repr str)
-    | isAnyReprInHeadGroup D.miscRepr                                                                = (padReprElemFromHeadGroup D.miscRepr 1) ++ (addSpaces $ dropReprElemFromHeadGroup D.miscRepr str)
-    | isAnyReprInHeadGroup O.repr                                                                     = case length (filterReprElemsInHeadGroup O.repr) == 1 of True  -> (padReprElemFromHeadGroup O.repr 1)                                         ++ (addSpaces $ dropReprElemFromHeadGroup O.repr str)
-                                                                                                                                                                False -> (padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.repr)) 1) ++ (addSpaces $ drop (maximum (map (length) (filterReprElemsInHeadGroup O.repr))) str )
+    | isAnyReprInHeadGroup B.repr     = (padReprElemFromHeadGroup B.repr 1)      ++ (addSpaces $ dropReprElemFromHeadGroup B.repr str)
+    | isAnyReprInHeadGroup D.miscRepr = (padReprElemFromHeadGroup D.miscRepr 1) ++ (addSpaces $ dropReprElemFromHeadGroup D.miscRepr str)
+    | isAnyReprInHeadGroup O.repr     = case length (filterReprElemsInHeadGroup O.repr) == 1 of True  -> (padReprElemFromHeadGroup O.repr 1)                                         ++ (addSpaces $ dropReprElemFromHeadGroup O.repr str)
+                                                                                                False -> (padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.repr)) 1) ++ (addSpaces $ drop (maximum (map (length) (filterReprElemsInHeadGroup O.repr))) str )
     | otherwise = (head str) : addSpaces (tail str)
     where
         headGroup :: String
