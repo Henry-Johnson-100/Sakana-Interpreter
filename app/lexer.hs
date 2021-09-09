@@ -94,16 +94,6 @@ addSpaces str
         getLongestStringFromList :: [String] -> String
         getLongestStringFromList strs = head $ filter (\x -> length x == maximum (map length strs)) strs
 
-{-
-consolidateStringsIfPossible :: [Token] -> [Token]
-consolidateStringsIfPossible [] = []
-consolidateStringsIfPossible (t:ts)
-    | t `like` (Data (D.Other "")) = consolidatedTokenDataList ++ consolidateStringsIfPossible (droppedTokenDataList)
-    | otherwise                    = t : consolidateStringsIfPossible ts
-    where
-        droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
-        consolidatedTokenDataList = map (tokenFromData) $ filter ((D.Other " ")/=) $ D.consolidateStrings $ intersperse (D.Other " ") $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts))
--}
 
 isStringPrefix :: Token -> Bool
 isStringPrefix (Data (D.String a)) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
@@ -146,19 +136,6 @@ consolidateEagerCollapsibleTokens (t:ts)
         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
         constructDataToken (Data (D.Comment _)) str = (Data (D.Comment str))
 
--- consolidateDataIfPossible :: [Token] -> [Token]
--- consolidateDataIfPossible [] = []
--- consolidateDataIfPossible (t:ts)
---     | t `like` (Data (D.Comment "")) = consolidatedTokenDataList ++ consolidateDataIfPossible (droppedTokenDataList)
---     | otherwise                      = t : consolidateDataIfPossible ts
---     where
---         droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
---         consolidatedTokenDataList = removeRemainingSpaceOtherTypes $ consolidateEagerCollapsibleTokens $ intersperseSpaceOtherTypes (t:ts)
---         intersperseSpaceOtherTypes xs = intersperse (Data (D.Other " ")) xs
---         removeRemainingSpaceOtherTypes xs = filter ((/=) (Data (D.Other " "))) xs
-
--- tokenIsString :: Token -> Bool
--- tokenIsString t = t `like` (Data (D.Other "")) && (baseData t) `like` (D.String "")
 
 intersperseSpaceOtherTypes :: [Token] -> [Token]
 intersperseSpaceOtherTypes [] = []
@@ -167,20 +144,20 @@ intersperseSpaceOtherTypes (t:ts)
     | otherwise                            = t : spaceOtherType : intersperseSpaceOtherTypes ts
     where spaceOtherType = Data (D.Other " ")
 
+
 removeSpaceOtherTypes :: [Token] -> [Token]
 removeSpaceOtherTypes [] = []
 removeSpaceOtherTypes ts = filter ((/=) (Data (D.Other " "))) ts
 
+
 tokenIsComment :: Token -> Bool
 tokenIsComment t = t `like` (Data (D.Other "")) && (baseData t) `like` (D.Comment "")
+
 
 ignoreComments :: [Token] -> [Token]
 ignoreComments [] = []
 ignoreComments ts = filter (\t -> not (tokenIsComment t)) ts
 
-str' = "\"beginning second \" + middle + \" end\""
-
-test' = wordsPreserveStringSpacing [] str'
 
 wordsPreserveStringSpacing :: [String] -> String -> [String]
 wordsPreserveStringSpacing strs "" = strs
@@ -193,6 +170,7 @@ wordsPreserveStringSpacing strs (s:str)
         buildPreservedString str = "\"" ++ (takeWhile ((/=) '\"') str ) ++ "\""
         buildWord            :: String -> String
         buildWord str = (takeWhile (\s -> not (isSpace s)) str)
+
 
 tokenize :: String -> [Token]
 tokenize strs = ignoreComments $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs

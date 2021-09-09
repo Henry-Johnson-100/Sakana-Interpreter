@@ -1,6 +1,5 @@
 module Token.Data (
     Data(..),
-    --consolidateEagerCollapsibleData,
     readData,
     fromData,
     miscRepr
@@ -72,48 +71,6 @@ couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNo
         isOtherWiseAllAlpha         = (allAlpha (filter (\x -> ('.' /= x) && ('_' /= x)) str))
         containsNoDigits            = not $ any (isDigit) str
 
-
--- isStringPrefix :: Data -> Bool
--- isStringPrefix (String a) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
--- isStringPrefix _          = False
-
-
--- isStringSuffix :: Data -> Bool
--- isStringSuffix (String a) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
--- isStringSuffix _          = False
-
-
--- isCommentPrefix :: Data -> Bool
--- isCommentPrefix (Comment a) = isPrefixOf "/*" a
--- isCommentPrefix _         = False
-
-
--- isCommentSuffix :: Data -> Bool
--- isCommentSuffix (Comment a) = isSuffixOf "*/" a
--- isCommentSuffix _         = False
-
-{-
-consolidateEagerCollapsibleData :: [Data] -> [Data]
-consolidateEagerCollapsibleData [] = []
-consolidateEagerCollapsibleData (d:ds)
-    | isStringPrefix  d && isEagerCollapsible isStringPrefix  isStringSuffix  (d:ds) = (mapToConsolidatedData (String "") (d:ds))  ++ consolidateEagerCollapsibleData (dropBetween (isStringPrefix)  (isStringSuffix)  (d:ds))
-    | isCommentPrefix d && isEagerCollapsible isCommentPrefix isCommentSuffix (d:ds) = (mapToConsolidatedData (Comment "") (d:ds)) ++ consolidateEagerCollapsibleData (dropBetween (isCommentPrefix) (isCommentSuffix) (d:ds))
-    | otherwise                                                                      = d : consolidateEagerCollapsibleData ds
-    where
-        mapTakeBetween :: Data -> [Data] -> [Data]
-        mapTakeBetween emptyDataType xs = map (\d -> (getDataTypeConstructor emptyDataType) (fromData d)) $ takeBetween (isDataTypePrefix emptyDataType) (isDataTypeSuffix emptyDataType) xs
-        mapToConsolidatedData :: Data -> [Data] -> [Data]
-        mapToConsolidatedData emptyDataType xs = (getDataTypeConstructor emptyDataType) (concat (map (fromData) (mapTakeBetween emptyDataType xs))) : []
-        isDataTypePrefix :: Data -> Data -> Bool
-        isDataTypePrefix (String  _) = isStringPrefix
-        isDataTypePrefix (Comment _) = isCommentPrefix
-        isDataTypeSuffix :: Data -> Data -> Bool
-        isDataTypeSuffix (String  _) = isStringSuffix
-        isDataTypeSuffix (Comment _) = isCommentSuffix
-        getDataTypeConstructor :: Data -> String -> Data
-        getDataTypeConstructor (String  _) = String
-        getDataTypeConstructor (Comment _) = Comment
--}
 
 readData :: String -> Data --These guards are order dependent which is annoying
 readData paddedStr
