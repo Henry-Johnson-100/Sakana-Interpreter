@@ -31,7 +31,7 @@ instance Like Data where
 
 
 miscRepr :: [String]
-miscRepr = [",", "/*", "*/"]
+miscRepr = [",", "/*", "*/", "\""]
 
 
 fromData :: Data -> String
