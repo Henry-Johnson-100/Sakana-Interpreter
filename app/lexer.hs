@@ -78,7 +78,7 @@ addSpaces str
     | otherwise = (head str) : addSpaces (tail str)
     where
         headGroup :: String
-        headGroup = take 3 str
+        headGroup = take 5 str
         isAnyReprInHeadGroup :: [String] -> Bool
         isAnyReprInHeadGroup reprList = any (\reprElem -> isPrefixOf reprElem headGroup) reprList
         filterReprElemsInHeadGroup :: [String] -> [String]
