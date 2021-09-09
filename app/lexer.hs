@@ -71,7 +71,7 @@ readTokenFromWord str
 addSpaces :: String -> String
 addSpaces str
     | null str = ""
-    | any (\x -> bracketInHeadGroup x) B.repr                                                         = (padEqual getBracketInHeadGroup 1) ++ addSpaces (drop (length getBracketInHeadGroup) str)
+    | isAnyReprInHeadGroup B.repr                                                                     = (padEqual (getReprElemInHeadGroup B.repr) 1) ++ addSpaces (drop (length (getReprElemInHeadGroup B.repr)) str)
     | isPrefixOf ","  headGroup                                                                       = " , "  ++ addSpaces (drop 1 str)
     | isPrefixOf "<"  headGroup && not (isPrefixOf "<(" headGroup) && not (isPrefixOf "<=" headGroup) = " < "  ++ addSpaces (drop 1 str)
     | isPrefixOf ">"  headGroup && not (isPrefixOf ">(" headGroup) && not (isPrefixOf ">=" headGroup) = " > "  ++ addSpaces (drop 1 str)
@@ -87,8 +87,10 @@ addSpaces str
     | otherwise = (head str) : addSpaces (tail str)
     where
         headGroup = take 3 str
-        bracketInHeadGroup bracket = isPrefixOf bracket headGroup
-        getBracketInHeadGroup = head $ filter (bracketInHeadGroup) B.repr
+        isAnyReprInHeadGroup :: [String] -> Bool
+        isAnyReprInHeadGroup reprList = any (\reprElem -> isPrefixOf reprElem headGroup) reprList
+        getReprElemInHeadGroup :: [String] -> String
+        getReprElemInHeadGroup reprList = head $ filter (\reprElem -> isPrefixOf reprElem headGroup) reprList
 
 
 consolidateStringsIfPossible :: [Token] -> [Token]
