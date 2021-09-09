@@ -73,21 +73,8 @@ addSpaces str
     | null str = ""
     | isAnyReprInHeadGroup B.repr                                                                     = (padReprElemFromHeadGroup B.repr 1)      ++ (addSpaces $ dropReprElemFromHeadGroup B.repr str)
     | isAnyReprInHeadGroup D.punctRepr                                                                = (padReprElemFromHeadGroup D.punctRepr 1) ++ (addSpaces $ dropReprElemFromHeadGroup D.punctRepr str)
-    | isAnyReprInHeadGroup O.repr                                                                     = case length (filterReprElemsInHeadGroup O.repr) == 1 of True  -> (padReprElemFromHeadGroup O.repr 1) ++ (addSpaces $ dropReprElemFromHeadGroup O.repr str)
+    | isAnyReprInHeadGroup O.repr                                                                     = case length (filterReprElemsInHeadGroup O.repr) == 1 of True  -> (padReprElemFromHeadGroup O.repr 1)                                         ++ (addSpaces $ dropReprElemFromHeadGroup O.repr str)
                                                                                                                                                                 False -> (padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.repr)) 1) ++ (addSpaces $ drop (maximum (map (length) (filterReprElemsInHeadGroup O.repr))) str )
-    {-
-    | isPrefixOf "<"  headGroup && not (isPrefixOf "<=" headGroup)                                    = " < "  ++ addSpaces (drop 1 str)
-    | isPrefixOf ">"  headGroup && not (isPrefixOf ">=" headGroup)                                    = " > "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "<=" headGroup                                                                       = " <= " ++ addSpaces (drop 2 str)
-    | isPrefixOf ">=" headGroup                                                                       = " >= " ++ addSpaces (drop 2 str)
-    -}
-    | isPrefixOf "==" headGroup                                                                       = " == " ++ addSpaces (drop 2 str)
-    | isPrefixOf "/=" headGroup                                                                       = " /= " ++ addSpaces (drop 2 str)
-    | isPrefixOf "+"  headGroup                                                                       = " + "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "-"  headGroup                                                                       = " - "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "*"  headGroup                                                                       = " * "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "/"  headGroup && not (isPrefixOf "/=" headGroup)                                    = " / "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "%"  headGroup                                                                       = " % "  ++ addSpaces (drop 1 str)
     | otherwise = (head str) : addSpaces (tail str)
     where
         headGroup :: String
