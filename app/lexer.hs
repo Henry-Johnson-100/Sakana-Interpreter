@@ -178,5 +178,21 @@ ignoreComments :: [Token] -> [Token]
 ignoreComments [] = []
 ignoreComments ts = filter (\t -> not (tokenIsComment t)) ts
 
+str' = "\"beginning second \" + middle + \" end\""
+
+test' = wordsPreserveStringSpacing [] str'
+
+wordsPreserveStringSpacing :: [String] -> String -> [String]
+wordsPreserveStringSpacing strs "" = strs
+wordsPreserveStringSpacing strs (s:str)
+    | s == '"' = wordsPreserveStringSpacing (strs ++ ((buildPreservedString str) : [])) (dropInfix (buildPreservedString str) (s:str))
+    | isSpace s = wordsPreserveStringSpacing strs str
+    | otherwise = wordsPreserveStringSpacing (strs ++ ((buildWord (s:str)) : [])) (dropInfix (buildWord (s:str)) (s:str))
+    where
+        buildPreservedString :: String -> String
+        buildPreservedString str = "\"" ++ (takeWhile ((/=) '\"') str ) ++ "\""
+        buildWord            :: String -> String
+        buildWord str = (takeWhile (\s -> not (isSpace s)) str)
+
 tokenize :: String -> [Token]
-tokenize strs = ignoreComments $ consolidateEagerCollapsibleTokens $ map (readToken) $ words $ addSpaces strs
+tokenize strs = ignoreComments $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
