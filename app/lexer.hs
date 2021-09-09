@@ -129,7 +129,7 @@ consolidateEagerCollapsibleTokens [] = []
 consolidateEagerCollapsibleTokens (t:ts)
     | isStringPrefix  t && isEagerCollapsible isStringPrefix  isStringSuffix  (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (isStringPrefix)  (isStringSuffix)  (t:ts))
     | isCommentPrefix t && isEagerCollapsible isCommentPrefix isCommentSuffix (t:ts) = (mapToConsolidatedData (Data (D.Comment "")) (t:ts)) ++ consolidateEagerCollapsibleTokens (dropBetween (isCommentPrefix) (isCommentSuffix) (t:ts))
-    | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ds
+    | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ts
     where
         mapTakeBetween :: Token -> [Token] -> [Token]
         mapTakeBetween emptyTokenDataType xs = map (\t -> (getDataTokenConstructor emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
@@ -162,4 +162,4 @@ ignoreComments [] = []
 ignoreComments ts = filter (\t -> not (tokenIsComment t)) ts
 
 tokenize :: String -> [Token]
-tokenize strs = ignoreComments $ consolidateDataIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
+tokenize strs = consolidateDataIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
