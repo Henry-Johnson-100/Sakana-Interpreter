@@ -101,17 +101,17 @@ consolidateEagerCollapsibleData (d:ds)
     | otherwise                                                                      = d : consolidateEagerCollapsibleData ds
     where
         mapTakeBetween :: Data -> [Data] -> [Data]
-        mapTakeBetween        emptyDataType xs = map (\d -> (getDataTypeConstructor emptyDataType) (fromData d)) $ takeBetween (isDataTypePrefix emptyDataType) (isDataTypeSuffix emptyDataType) xs
+        mapTakeBetween emptyDataType xs = map (\d -> (getDataTypeConstructor emptyDataType) (fromData d)) $ takeBetween (isDataTypePrefix emptyDataType) (isDataTypeSuffix emptyDataType) xs
         mapToConsolidatedData :: Data -> [Data] -> [Data]
         mapToConsolidatedData emptyDataType xs = (getDataTypeConstructor emptyDataType) (concat (map (fromData) (mapTakeBetween emptyDataType xs))) : []
         isDataTypePrefix :: Data -> Data -> Bool
-        isDataTypePrefix (String _)  = isStringPrefix
+        isDataTypePrefix (String  _) = isStringPrefix
         isDataTypePrefix (Comment _) = isCommentPrefix
         isDataTypeSuffix :: Data -> Data -> Bool
-        isDataTypeSuffix (String _)  = isStringSuffix
+        isDataTypeSuffix (String  _) = isStringSuffix
         isDataTypeSuffix (Comment _) = isCommentSuffix
         getDataTypeConstructor :: Data -> String -> Data
-        getDataTypeConstructor (String _)  = String
+        getDataTypeConstructor (String  _) = String
         getDataTypeConstructor (Comment _) = Comment
 
 
