@@ -9,6 +9,7 @@ module Lexer (
 
 import Data.List
 import Token.Util.Like
+import Token.Util.String
 import qualified Token.Bracket    as B
 import qualified Token.Control    as C
 import qualified Token.Data       as D
