@@ -68,16 +68,10 @@ readTokenFromWord str
     | otherwise       = Data          (D.readData    str)
 
 
-addSpaces :: String -> String --LOOOOOOOL
+addSpaces :: String -> String
 addSpaces str
     | null str = ""
-    | any (\x -> bracketInHeadGroup x) B.repr = padEqual getBracketInHeadGroup 1 ++ addSpaces (drop (length getBracketInHeadGroup) str)
-    {-
-    | isPrefixOf ">(" headGroup                                                                       = " >( " ++ addSpaces (drop 2 str)
-    | isPrefixOf ")>" headGroup                                                                       = " )> " ++ addSpaces (drop 2 str)
-    | isPrefixOf "<(" headGroup                                                                       = " <( " ++ addSpaces (drop 2 str)
-    | isPrefixOf ")<" headGroup                                                                       = " )< " ++ addSpaces (drop 2 str)
-    -}
+    | any (\x -> bracketInHeadGroup x) B.repr                                                         = (padEqual getBracketInHeadGroup 1) ++ addSpaces (drop (length getBracketInHeadGroup) str)
     | isPrefixOf ","  headGroup                                                                       = " , "  ++ addSpaces (drop 1 str)
     | isPrefixOf "<"  headGroup && not (isPrefixOf "<(" headGroup) && not (isPrefixOf "<=" headGroup) = " < "  ++ addSpaces (drop 1 str)
     | isPrefixOf ">"  headGroup && not (isPrefixOf ">(" headGroup) && not (isPrefixOf ">=" headGroup) = " > "  ++ addSpaces (drop 1 str)
