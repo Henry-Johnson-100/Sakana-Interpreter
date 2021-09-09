@@ -8,6 +8,7 @@ module Lexer (
 ) where
 
 import Data.List
+import Data.Char (isSpace)
 import Token.Util.Like
 import Token.Util.String
 import Token.Util.EagerCollapsible
@@ -60,8 +61,8 @@ fromToken (Data d)                = D.fromData    d
 fromToken (Keyword keyword)       = K.fromKeyword keyword
 fromToken (Operator operator)     = O.fromOp      operator
 
-readTokenFromWord :: String -> Token
-readTokenFromWord str
+readToken :: String -> Token
+readToken str
     | elem str K.repr = Keyword       (K.readKeyword str)
     | elem str B.repr = Bracket       (B.readBracket str)
     | elem str C.repr = Lexer.Control (C.readControl str)
@@ -145,17 +146,30 @@ consolidateEagerCollapsibleTokens (t:ts)
         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
         constructDataToken (Data (D.Comment _)) str = (Data (D.Comment str))
 
-consolidateDataIfPossible :: [Token] -> [Token]
-consolidateDataIfPossible [] = []
-consolidateDataIfPossible (t:ts)
-    | t `like` (Data (D.Comment "")) = consolidatedTokenDataList ++ consolidateDataIfPossible (droppedTokenDataList)
-    | otherwise                      = t : consolidateDataIfPossible ts
-    where
-        droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
-        consolidatedTokenDataList = removeRemainingSpaceOtherTypes $ consolidateEagerCollapsibleTokens $ intersperseSpaceOtherTypes (t:ts)
-        intersperseSpaceOtherTypes xs = intersperse (Data (D.Other " ")) xs
-        removeRemainingSpaceOtherTypes xs = filter ((/=) (Data (D.Other " "))) xs
+-- consolidateDataIfPossible :: [Token] -> [Token]
+-- consolidateDataIfPossible [] = []
+-- consolidateDataIfPossible (t:ts)
+--     | t `like` (Data (D.Comment "")) = consolidatedTokenDataList ++ consolidateDataIfPossible (droppedTokenDataList)
+--     | otherwise                      = t : consolidateDataIfPossible ts
+--     where
+--         droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
+--         consolidatedTokenDataList = removeRemainingSpaceOtherTypes $ consolidateEagerCollapsibleTokens $ intersperseSpaceOtherTypes (t:ts)
+--         intersperseSpaceOtherTypes xs = intersperse (Data (D.Other " ")) xs
+--         removeRemainingSpaceOtherTypes xs = filter ((/=) (Data (D.Other " "))) xs
 
+-- tokenIsString :: Token -> Bool
+-- tokenIsString t = t `like` (Data (D.Other "")) && (baseData t) `like` (D.String "")
+
+intersperseSpaceOtherTypes :: [Token] -> [Token]
+intersperseSpaceOtherTypes [] = []
+intersperseSpaceOtherTypes (t:ts)
+    | isStringPrefix t || isStringSuffix t = t : (head ts)  : intersperseSpaceOtherTypes (tail ts)
+    | otherwise                            = t : spaceOtherType : intersperseSpaceOtherTypes ts
+    where spaceOtherType = Data (D.Other " ")
+
+removeSpaceOtherTypes :: [Token] -> [Token]
+removeSpaceOtherTypes [] = []
+removeSpaceOtherTypes ts = filter ((/=) (Data (D.Other " "))) ts
 
 tokenIsComment :: Token -> Bool
 tokenIsComment t = t `like` (Data (D.Other "")) && (baseData t) `like` (D.Comment "")
