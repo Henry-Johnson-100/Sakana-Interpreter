@@ -71,12 +71,16 @@ readTokenFromWord str
 addSpaces :: String -> String
 addSpaces str
     | null str = ""
-    | isAnyReprInHeadGroup B.repr                                                                     = (padReprElemFromHeadGroup B.repr 1) ++ (addSpaces (dropReprElemFromHeadGroup B.repr str))
-    | isPrefixOf ","  headGroup                                                                       = " , "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "<"  headGroup && not (isPrefixOf "<(" headGroup) && not (isPrefixOf "<=" headGroup) = " < "  ++ addSpaces (drop 1 str)
-    | isPrefixOf ">"  headGroup && not (isPrefixOf ">(" headGroup) && not (isPrefixOf ">=" headGroup) = " > "  ++ addSpaces (drop 1 str)
+    | isAnyReprInHeadGroup B.repr                                                                     = (padReprElemFromHeadGroup B.repr 1)      ++ (addSpaces $ dropReprElemFromHeadGroup B.repr str)
+    | isAnyReprInHeadGroup D.punctRepr                                                                = (padReprElemFromHeadGroup D.punctRepr 1) ++ (addSpaces $ dropReprElemFromHeadGroup D.punctRepr str)
+    | isAnyReprInHeadGroup O.repr                                                                     = case length (filterReprElemsInHeadGroup O.repr) == 1 of True  -> (padReprElemFromHeadGroup O.repr 1) ++ (addSpaces $ dropReprElemFromHeadGroup O.repr str)
+                                                                                                                                                                False -> (padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.repr)) 1) ++ (addSpaces $ drop (maximum (map (length) (filterReprElemsInHeadGroup O.repr))) str )
+    {-
+    | isPrefixOf "<"  headGroup && not (isPrefixOf "<=" headGroup)                                    = " < "  ++ addSpaces (drop 1 str)
+    | isPrefixOf ">"  headGroup && not (isPrefixOf ">=" headGroup)                                    = " > "  ++ addSpaces (drop 1 str)
     | isPrefixOf "<=" headGroup                                                                       = " <= " ++ addSpaces (drop 2 str)
     | isPrefixOf ">=" headGroup                                                                       = " >= " ++ addSpaces (drop 2 str)
+    -}
     | isPrefixOf "==" headGroup                                                                       = " == " ++ addSpaces (drop 2 str)
     | isPrefixOf "/=" headGroup                                                                       = " /= " ++ addSpaces (drop 2 str)
     | isPrefixOf "+"  headGroup                                                                       = " + "  ++ addSpaces (drop 1 str)
@@ -86,15 +90,20 @@ addSpaces str
     | isPrefixOf "%"  headGroup                                                                       = " % "  ++ addSpaces (drop 1 str)
     | otherwise = (head str) : addSpaces (tail str)
     where
+        headGroup :: String
         headGroup = take 3 str
         isAnyReprInHeadGroup :: [String] -> Bool
         isAnyReprInHeadGroup reprList = any (\reprElem -> isPrefixOf reprElem headGroup) reprList
+        filterReprElemsInHeadGroup :: [String] -> [String]
+        filterReprElemsInHeadGroup reprList = filter (\reprElem -> isPrefixOf reprElem headGroup) reprList
         getReprElemInHeadGroup :: [String] -> String
-        getReprElemInHeadGroup reprList = head $ filter (\reprElem -> isPrefixOf reprElem headGroup) reprList
+        getReprElemInHeadGroup reprList = head $ filterReprElemsInHeadGroup reprList
         padReprElemFromHeadGroup :: [String] -> Int -> String
         padReprElemFromHeadGroup reprList space = padEqual (getReprElemInHeadGroup reprList) space
         dropReprElemFromHeadGroup :: [String] -> String -> String
         dropReprElemFromHeadGroup reprList str = drop (length (getReprElemInHeadGroup reprList)) str
+        getLongestStringFromList :: [String] -> String
+        getLongestStringFromList strs = head $ filter (\x -> length x == maximum (map length strs)) strs
 
 
 consolidateStringsIfPossible :: [Token] -> [Token]
