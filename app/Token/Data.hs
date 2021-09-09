@@ -1,6 +1,6 @@
 module Token.Data (
     Data(..),
-    consolidateEagerCollapsibleData,
+    --consolidateEagerCollapsibleData,
     readData,
     fromData,
     miscRepr
@@ -73,26 +73,26 @@ couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNo
         containsNoDigits            = not $ any (isDigit) str
 
 
-isStringPrefix :: Data -> Bool
-isStringPrefix (String a) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
-isStringPrefix _          = False
+-- isStringPrefix :: Data -> Bool
+-- isStringPrefix (String a) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
+-- isStringPrefix _          = False
 
 
-isStringSuffix :: Data -> Bool
-isStringSuffix (String a) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
-isStringSuffix _          = False
+-- isStringSuffix :: Data -> Bool
+-- isStringSuffix (String a) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
+-- isStringSuffix _          = False
 
 
-isCommentPrefix :: Data -> Bool
-isCommentPrefix (Comment a) = isPrefixOf "/*" a
-isCommentPrefix _         = False
+-- isCommentPrefix :: Data -> Bool
+-- isCommentPrefix (Comment a) = isPrefixOf "/*" a
+-- isCommentPrefix _         = False
 
 
-isCommentSuffix :: Data -> Bool
-isCommentSuffix (Comment a) = isSuffixOf "*/" a
-isCommentSuffix _         = False
+-- isCommentSuffix :: Data -> Bool
+-- isCommentSuffix (Comment a) = isSuffixOf "*/" a
+-- isCommentSuffix _         = False
 
-
+{-
 consolidateEagerCollapsibleData :: [Data] -> [Data]
 consolidateEagerCollapsibleData [] = []
 consolidateEagerCollapsibleData (d:ds)
@@ -113,7 +113,7 @@ consolidateEagerCollapsibleData (d:ds)
         getDataTypeConstructor :: Data -> String -> Data
         getDataTypeConstructor (String  _) = String
         getDataTypeConstructor (Comment _) = Comment
-
+-}
 
 readData :: String -> Data --These guards are order dependent which is annoying
 readData paddedStr

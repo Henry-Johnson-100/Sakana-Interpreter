@@ -10,105 +10,105 @@ main = do
 tests = testGroup "Token.Data tests" testList where
     testList =
         [
-            consolidateEagerCollapsibleDataTests,
+            --consolidateEagerCollapsibleDataTests,
             readDataTests
         ]
 
 standardTimeout timeS= localOption (Timeout (timeS * 1000000) (concat [show timeS, "s"]))
 
--- | Token.Data.consolidateEagerCollapsibleData tests as cD
-consolidateEagerCollapsibleDataTests = testGroup "Token.Data.consolidateString tests" testList where
-    testList =
-        [
-            cD_returns_empty_list_for_empty_arg,
-            cD_does_not_consolidate_incomplete_strings,
-            cD_consolidates_one_string,
-            cD_consolidates_two_strings_separately,
-            cD_consolidates_three_strings_separately,
-            cD_consolidates_string_containing_previously_identified_id_or_punct_or_other_types,
-            cD_consolidates_one_comment,
-            cD_consolidates_two_comments_separately,
-            cD_consolidates_EC_data_containing_String_and_Comment,
-            cD_consolidates_EC_data_containing_String_in_a_Comment_as_Comment,
-            cD_consolidates_EC_data_containing_Comment_in_a_String_as_String
-        ]
+-- -- | Token.Data.consolidateEagerCollapsibleData tests as cD
+-- consolidateEagerCollapsibleDataTests = testGroup "Token.Data.consolidateString tests" testList where
+--     testList =
+--         [
+--             cD_returns_empty_list_for_empty_arg,
+--             cD_does_not_consolidate_incomplete_strings,
+--             cD_consolidates_one_string,
+--             cD_consolidates_two_strings_separately,
+--             cD_consolidates_three_strings_separately,
+--             cD_consolidates_string_containing_previously_identified_id_or_punct_or_other_types,
+--             cD_consolidates_one_comment,
+--             cD_consolidates_two_comments_separately,
+--             cD_consolidates_EC_data_containing_String_and_Comment,
+--             cD_consolidates_EC_data_containing_String_in_a_Comment_as_Comment,
+--             cD_consolidates_EC_data_containing_Comment_in_a_String_as_String
+--         ]
 
-cD_returns_empty_list_for_empty_arg = standardTimeout 5 $ testCase name assertion where
-    name      = "An empty data list can not be consolidated"
-    assertion = assertEqual desc assert func
-    desc      = "consolidateEagerCollapsibleData [] == []"
-    assert    = []
-    func      = consolidateEagerCollapsibleData []
+-- cD_returns_empty_list_for_empty_arg = standardTimeout 5 $ testCase name assertion where
+--     name      = "An empty data list can not be consolidated"
+--     assertion = assertEqual desc assert func
+--     desc      = "consolidateEagerCollapsibleData [] == []"
+--     assert    = []
+--     func      = consolidateEagerCollapsibleData []
 
-cD_does_not_consolidate_incomplete_strings = standardTimeout 5 $ testCase name assertion where
-    name      = "If there is not a complete String EC in a data list, then nothing is consolidated"
-    assertion = assertEqual desc assert func
-    desc      = "Data lists with an incomplete String EC should not be consolidated since the string is not completed"
-    assert    = [Int 5, String "\"beginning", Other "middle", Other "not", Other "the", Other "end", Boolean True]
-    func      = consolidateEagerCollapsibleData [Int 5, String "\"beginning", Other "middle", Other "not", Other "the", Other "end", Boolean True]
+-- cD_does_not_consolidate_incomplete_strings = standardTimeout 5 $ testCase name assertion where
+--     name      = "If there is not a complete String EC in a data list, then nothing is consolidated"
+--     assertion = assertEqual desc assert func
+--     desc      = "Data lists with an incomplete String EC should not be consolidated since the string is not completed"
+--     assert    = [Int 5, String "\"beginning", Other "middle", Other "not", Other "the", Other "end", Boolean True]
+--     func      = consolidateEagerCollapsibleData [Int 5, String "\"beginning", Other "middle", Other "not", Other "the", Other "end", Boolean True]
 
-cD_consolidates_one_string = standardTimeout 5 $ testCase name assertion where
-    name      = "Consolidate Data list containing one string"
-    assertion = assertEqual desc assert func
-    desc      = "For consolidateString containing one string collapsible instance ([String \"\"Hello \", Other \"dumb \", String \"world\"\"] return that instance consolidated into a list of Data.String(s)"
-    assert    = [String "\"Hello dumb world\""]
-    func      = consolidateEagerCollapsibleData [String "\"Hello ", Other "dumb ", String "world\""]
+-- cD_consolidates_one_string = standardTimeout 5 $ testCase name assertion where
+--     name      = "Consolidate Data list containing one string"
+--     assertion = assertEqual desc assert func
+--     desc      = "For consolidateString containing one string collapsible instance ([String \"\"Hello \", Other \"dumb \", String \"world\"\"] return that instance consolidated into a list of Data.String(s)"
+--     assert    = [String "\"Hello dumb world\""]
+--     func      = consolidateEagerCollapsibleData [String "\"Hello ", Other "dumb ", String "world\""]
 
-cD_consolidates_two_strings_separately = standardTimeout 5 $ testCase name assertion where
-    name      = "consolidate two or more separate instances of strings in a data list"
-    assertion = assertEqual desc assert func
-    desc      = "For consolidateString containing two string collapsible instances ([\"String \"\"Hello \", Other \"dumb \", String \"world\"\", Int 5, String \"\"Another \", Other \"dumb \", Other \"consolidate \", String \"test\"\"] return a list of [Data] appropriately consolidated)"
-    assert    = [String "\"Hello dumb world\"", Int 5, String "\"Another dumb consolidate test\""]
-    func      = consolidateEagerCollapsibleData [String "\"Hello ", Other "dumb ", String "world\"", Int 5, String "\"Another ", Other "dumb ", Other "consolidate ", String "test\""]
+-- cD_consolidates_two_strings_separately = standardTimeout 5 $ testCase name assertion where
+--     name      = "consolidate two or more separate instances of strings in a data list"
+--     assertion = assertEqual desc assert func
+--     desc      = "For consolidateString containing two string collapsible instances ([\"String \"\"Hello \", Other \"dumb \", String \"world\"\", Int 5, String \"\"Another \", Other \"dumb \", Other \"consolidate \", String \"test\"\"] return a list of [Data] appropriately consolidated)"
+--     assert    = [String "\"Hello dumb world\"", Int 5, String "\"Another dumb consolidate test\""]
+--     func      = consolidateEagerCollapsibleData [String "\"Hello ", Other "dumb ", String "world\"", Int 5, String "\"Another ", Other "dumb ", Other "consolidate ", String "test\""]
 
-cD_consolidates_three_strings_separately = standardTimeout 5 $ testCase name assertion where
-    name      = "consolidate three or more separate instances of String EC's in a data list"
-    assertion = assertEqual desc assert func
-    desc      = "This test, in conjunction with the two preceding, should prove that consolidateEagerCollapsibleData works for n number of complete String EC instances in a [Data]"
-    assert    = [Int 5, String "\"stringonecase\"", Int 0, String "\"stringtwocase\"", Boolean False, String "\"stringthreecase\"", Boolean False, Boolean True]
-    func      = consolidateEagerCollapsibleData [Int 5, String "\"string", Other "one", String "case\"", Int 0, String "\"string", Other "two", String "case\"", Boolean False, String "\"string", Other "three", String "case\"", Boolean False, Boolean True]
+-- cD_consolidates_three_strings_separately = standardTimeout 5 $ testCase name assertion where
+--     name      = "consolidate three or more separate instances of String EC's in a data list"
+--     assertion = assertEqual desc assert func
+--     desc      = "This test, in conjunction with the two preceding, should prove that consolidateEagerCollapsibleData works for n number of complete String EC instances in a [Data]"
+--     assert    = [Int 5, String "\"stringonecase\"", Int 0, String "\"stringtwocase\"", Boolean False, String "\"stringthreecase\"", Boolean False, Boolean True]
+--     func      = consolidateEagerCollapsibleData [Int 5, String "\"string", Other "one", String "case\"", Int 0, String "\"string", Other "two", String "case\"", Boolean False, String "\"string", Other "three", String "case\"", Boolean False, Boolean True]
 
-cD_consolidates_string_containing_previously_identified_id_or_punct_or_other_types = standardTimeout 5 $ testCase name assertion where
-    name      = "consolidate string still works for all data types inside a string EC"
-    assertion = assertEqual d a f
-    d         = "some data may be initially identified as Punct or Id, even if inside a String EC, when consolidated, this shouldn't matter"
-    a         = [Int 5, Float 4.3, String "\"Please enter function name like: Some.factorial then try using a float like 4.3\"", Boolean False, Int 42]
-    f         = consolidateEagerCollapsibleData [Int 5, Float 4.3, String "\"Please ", Other "enter ", Id "function ", Id "name ", Other "like", Punct ":", Other " ", Id "Some.factorial", Other " ", Id "then ", Other "try ", Other "using ", Other "a ", Id "float ", Id "like ", String "4.3\"", Boolean False, Int 42 ]
+-- cD_consolidates_string_containing_previously_identified_id_or_punct_or_other_types = standardTimeout 5 $ testCase name assertion where
+--     name      = "consolidate string still works for all data types inside a string EC"
+--     assertion = assertEqual d a f
+--     d         = "some data may be initially identified as Punct or Id, even if inside a String EC, when consolidated, this shouldn't matter"
+--     a         = [Int 5, Float 4.3, String "\"Please enter function name like: Some.factorial then try using a float like 4.3\"", Boolean False, Int 42]
+--     f         = consolidateEagerCollapsibleData [Int 5, Float 4.3, String "\"Please ", Other "enter ", Id "function ", Id "name ", Other "like", Punct ":", Other " ", Id "Some.factorial", Other " ", Id "then ", Other "try ", Other "using ", Other "a ", Id "float ", Id "like ", String "4.3\"", Boolean False, Int 42 ]
 
-cD_consolidates_one_comment = standardTimeout 5 $ testCase name assertion where
-    name      = "Consolidate one comment"
-    assertion = assertEqual d a f
-    d         = "One complete comment EC is consolidated appropriately"
-    a         = [Int 5, Comment "/*start middle end*/", Float 4.3]
-    f         = consolidateEagerCollapsibleData [Int 5, Comment "/*start ", Other "middle ", Comment "end*/", Float 4.3]
+-- cD_consolidates_one_comment = standardTimeout 5 $ testCase name assertion where
+--     name      = "Consolidate one comment"
+--     assertion = assertEqual d a f
+--     d         = "One complete comment EC is consolidated appropriately"
+--     a         = [Int 5, Comment "/*start middle end*/", Float 4.3]
+--     f         = consolidateEagerCollapsibleData [Int 5, Comment "/*start ", Other "middle ", Comment "end*/", Float 4.3]
 
-cD_consolidates_two_comments_separately = standardTimeout 5 $ testCase name assertion where
-    name      = "Consolidate two comments"
-    assertion = assertEqual d a f
-    d         = "Two separate, complete comment EC's are consolidated appropriately"
-    a         = [Int 5, Comment "/*first comment*/", Boolean True, Comment "/*second other comment*/", Int 10]
-    f         = consolidateEagerCollapsibleData [Int 5, Comment "/*first ", Comment "comment*/", Boolean True, Comment "/*second ", Other "other ", Comment "comment*/", Int 10]
+-- cD_consolidates_two_comments_separately = standardTimeout 5 $ testCase name assertion where
+--     name      = "Consolidate two comments"
+--     assertion = assertEqual d a f
+--     d         = "Two separate, complete comment EC's are consolidated appropriately"
+--     a         = [Int 5, Comment "/*first comment*/", Boolean True, Comment "/*second other comment*/", Int 10]
+--     f         = consolidateEagerCollapsibleData [Int 5, Comment "/*first ", Comment "comment*/", Boolean True, Comment "/*second ", Other "other ", Comment "comment*/", Int 10]
 
-cD_consolidates_EC_data_containing_String_and_Comment = standardTimeout 5 $ testCase name assertion where
-    name      = "Consolidates a Data list with both a string and a comment"
-    assertion = assertEqual d a f
-    d         = "consolidateEagerCollapsibleData should be able to handle a Data list with both cases"
-    a         = [Int 0, String "\"Hello dumb world\"", Int 5, Comment "/*start middle end*/", Float 4.3]
-    f         = consolidateEagerCollapsibleData [Int 0, String "\"Hello ", Other "dumb ", String "world\"", Int 5, Comment "/*start ", Other "middle ", Comment "end*/", Float 4.3]
+-- cD_consolidates_EC_data_containing_String_and_Comment = standardTimeout 5 $ testCase name assertion where
+--     name      = "Consolidates a Data list with both a string and a comment"
+--     assertion = assertEqual d a f
+--     d         = "consolidateEagerCollapsibleData should be able to handle a Data list with both cases"
+--     a         = [Int 0, String "\"Hello dumb world\"", Int 5, Comment "/*start middle end*/", Float 4.3]
+--     f         = consolidateEagerCollapsibleData [Int 0, String "\"Hello ", Other "dumb ", String "world\"", Int 5, Comment "/*start ", Other "middle ", Comment "end*/", Float 4.3]
 
-cD_consolidates_EC_data_containing_String_in_a_Comment_as_Comment = standardTimeout 5 $ testCase name assertion where
-    name      = "Consolidates a Data list with a complete String inside of a complete Comment as a Comment"
-    assertion = assertEqual d a f
-    d         = "Nested EagerCollapsible Data should be consolidated as the type first encountered in the list"
-    a         = [Int 5, Comment "/*start middle \"Hello dumb world\" end*/", Float 4.3]
-    f         = consolidateEagerCollapsibleData [Int 5, Comment "/*start ", Other "middle ", String "\"Hello ", Other "dumb ", String "world\" ", Comment "end*/", Float 4.3]
+-- cD_consolidates_EC_data_containing_String_in_a_Comment_as_Comment = standardTimeout 5 $ testCase name assertion where
+--     name      = "Consolidates a Data list with a complete String inside of a complete Comment as a Comment"
+--     assertion = assertEqual d a f
+--     d         = "Nested EagerCollapsible Data should be consolidated as the type first encountered in the list"
+--     a         = [Int 5, Comment "/*start middle \"Hello dumb world\" end*/", Float 4.3]
+--     f         = consolidateEagerCollapsibleData [Int 5, Comment "/*start ", Other "middle ", String "\"Hello ", Other "dumb ", String "world\" ", Comment "end*/", Float 4.3]
 
-cD_consolidates_EC_data_containing_Comment_in_a_String_as_String = standardTimeout 5 $ testCase name assertion where
-    name      = "Consolidates a Data list with a complete Comment inside of a complete String as a String"
-    assertion = assertEqual d a f
-    d         = "Nested EagerCollapsible Data should be consolidated as the type first encountered in the list"
-    a         = [Int 5, String "\"Hello dumb /*start middle end*/ world\"", Float 4.3]
-    f         = consolidateEagerCollapsibleData [Int 5, String "\"Hello ", Other "dumb ", Comment "/*start ", Other "middle ", Comment "end*/ ", String "world\"", Float 4.3]
+-- cD_consolidates_EC_data_containing_Comment_in_a_String_as_String = standardTimeout 5 $ testCase name assertion where
+--     name      = "Consolidates a Data list with a complete Comment inside of a complete String as a String"
+--     assertion = assertEqual d a f
+--     d         = "Nested EagerCollapsible Data should be consolidated as the type first encountered in the list"
+--     a         = [Int 5, String "\"Hello dumb /*start middle end*/ world\"", Float 4.3]
+--     f         = consolidateEagerCollapsibleData [Int 5, String "\"Hello ", Other "dumb ", Comment "/*start ", Other "middle ", Comment "end*/ ", String "world\"", Float 4.3]
 
 
 -- | Token.Data.readData tests as rD

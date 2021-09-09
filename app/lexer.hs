@@ -10,6 +10,7 @@ module Lexer (
 import Data.List
 import Token.Util.Like
 import Token.Util.String
+import Token.Util.EagerCollapsible
 import qualified Token.Bracket    as B
 import qualified Token.Control    as C
 import qualified Token.Data       as D
@@ -102,6 +103,47 @@ consolidateStringsIfPossible (t:ts)
         droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
         consolidatedTokenDataList = map (tokenFromData) $ filter ((D.Other " ")/=) $ D.consolidateStrings $ intersperse (D.Other " ") $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts))
 -}
+
+isStringPrefix :: Token -> Bool
+isStringPrefix (Data (D.String a)) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
+isStringPrefix _                   = False
+
+
+isStringSuffix :: Token -> Bool
+isStringSuffix (Data (D.String a)) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
+isStringSuffix _          = False
+
+
+isCommentPrefix :: Token -> Bool
+isCommentPrefix (Data (D.Comment a)) = isPrefixOf "/*" a
+isCommentPrefix _         = False
+
+
+isCommentSuffix :: Token -> Bool
+isCommentSuffix (Data (D.Comment a)) = isSuffixOf "*/" a
+isCommentSuffix _         = False
+
+
+consolidateEagerCollapsibleTokens :: [Token] -> [Token]
+consolidateEagerCollapsibleTokens [] = []
+consolidateEagerCollapsibleTokens (t:ts)
+    | isStringPrefix  t && isEagerCollapsible isStringPrefix  isStringSuffix  (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (isStringPrefix)  (isStringSuffix)  (t:ts))
+    | isCommentPrefix t && isEagerCollapsible isCommentPrefix isCommentSuffix (t:ts) = (mapToConsolidatedData (Data (D.Comment "")) (t:ts)) ++ consolidateEagerCollapsibleTokens (dropBetween (isCommentPrefix) (isCommentSuffix) (t:ts))
+    | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ds
+    where
+        mapTakeBetween :: Token -> [Token] -> [Token]
+        mapTakeBetween emptyTokenDataType xs = map (\t -> (getDataTokenConstructor emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
+        mapToConsolidatedData :: Token -> [Token] -> [Token]
+        mapToConsolidatedData emptyTokenDataType xs = (getDataTokenConstructor emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
+        isDataTypePrefix :: Token -> Token -> Bool
+        isDataTypePrefix (Data (D.String  _)) = isStringPrefix
+        isDataTypePrefix (Data (D.Comment _)) = isCommentPrefix
+        isDataTypeSuffix :: Token -> Token -> Bool
+        isDataTypeSuffix (Data (D.String  _)) = isStringSuffix
+        isDataTypeSuffix (Data (D.Comment _)) = isCommentSuffix
+        getDataTokenConstructor :: Token -> String -> Token
+        getDataTokenConstructor (Data (D.String  _)) = Data (D.String)
+        getDataTokenConstructor (Data (D.Comment _)) = Data (D.Comment)
 
 consolidateDataIfPossible :: [Token] -> [Token]
 consolidateDataIfPossible [] = []
