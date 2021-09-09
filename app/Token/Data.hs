@@ -84,6 +84,7 @@ couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNo
         isOtherWiseAllAlpha         = (allAlpha (filter (\x -> ('.' /= x) && ('_' /= x)) str))
         containsNoDigits            = not $ any (isDigit) str
 
+{-
 --isEagerCollapsibleDataTypePrefix :: (String -> Data) -> (Data -> Bool)
 isEagerCollapsibleDataTypePrefix (String _)  = isStringPrefix
 isEagerCollapsibleDataTypePrefix (Comment _) = isCommentPrefix
@@ -91,6 +92,7 @@ isEagerCollapsibleDataTypePrefix (Comment _) = isCommentPrefix
 
 isEagerCollapsibleDataTypeSuffix (String _)  = isStringSuffix
 isEagerCollapsibleDataTypeSuffix (Comment _) = isCommentSuffix
+-}
 
 isStringPrefix :: Data -> Bool
 isStringPrefix (String a) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
@@ -111,12 +113,23 @@ isCommentSuffix _         = False
 consolidateEagerCollapsibleData :: [Data] -> [Data]
 consolidateEagerCollapsibleData [] = []
 consolidateEagerCollapsibleData (d:ds)
-    | isStringPrefix  d && isEagerCollapsible isStringPrefix  isStringSuffix  (d:ds) = (mapToConsolidatedData (String "") (d:ds))  ++ consolidateEagerCollapsibleData (dropBetween (isEagerCollapsibleDataTypePrefix (String ""))  (isEagerCollapsibleDataTypeSuffix (String ""))  (d:ds))
-    | isCommentPrefix d && isEagerCollapsible isCommentPrefix isCommentSuffix (d:ds) = (mapToConsolidatedData (Comment "") (d:ds)) ++ consolidateEagerCollapsibleData (dropBetween (isEagerCollapsibleDataTypePrefix (Comment "")) (isEagerCollapsibleDataTypeSuffix (Comment "")) (d:ds))
+    | isStringPrefix  d && isEagerCollapsible isStringPrefix  isStringSuffix  (d:ds) = (mapToConsolidatedData (String "") (d:ds))  ++ consolidateEagerCollapsibleData (dropBetween (isStringPrefix)  (isStringSuffix)  (d:ds))
+    | isCommentPrefix d && isEagerCollapsible isCommentPrefix isCommentSuffix (d:ds) = (mapToConsolidatedData (Comment "") (d:ds)) ++ consolidateEagerCollapsibleData (dropBetween (isCommentPrefix) (isCommentSuffix) (d:ds))
     | otherwise                                                                      = d : consolidateEagerCollapsibleData ds
     where
-        mapTakeBetween        emptyDataType xs = map (\d -> emptyDataType (fromData d)) $ takeBetween (isEagerCollapsibleDataTypePrefix emptyDataType) (isEagerCollapsibleDataTypeSuffix emptyDataType) xs
-        mapToConsolidatedData emptyDataType xs = emptyDataType (concat (map (fromData) (mapTakeBetween emptyDataType xs))) : []
+        mapTakeBetween :: Data -> [Data] -> [Data]
+        mapTakeBetween        emptyDataType xs = map (\d -> (getDataTypeConstructor emptyDataType) (fromData d)) $ takeBetween (isDataTypePrefix emptyDataType) (isDataTypeSuffix emptyDataType) xs
+        mapToConsolidatedData :: Data -> [Data] -> [Data]
+        mapToConsolidatedData emptyDataType xs = (getDataTypeConstructor emptyDataType) (concat (map (fromData) (mapTakeBetween emptyDataType xs))) : []
+        isDataTypePrefix :: Data -> Data -> Bool
+        isDataTypePrefix (String _)  = isStringPrefix
+        isDataTypePrefix (Comment _) = isCommentPrefix
+        isDataTypeSuffix :: Data -> Data -> Bool
+        isDataTypeSuffix (String _)  = isStringSuffix
+        isDataTypeSuffix (Comment _) = isCommentSuffix
+        getDataTypeConstructor :: Data -> String -> Data
+        getDataTypeConstructor (String _)  = String
+        getDataTypeConstructor (Comment _) = Comment
 
 {-
 consolidateStrings :: [Data] -> [Data]
