@@ -29,8 +29,10 @@ instance Like Data where
     _           `like`    _           = False
     a           `notLike` b           = not $ like a b
 
+
 punctRepr :: [String]
 punctRepr = [","]
+
 
 fromData :: Data -> String
 fromData (String a)  = a
@@ -42,20 +44,6 @@ fromData (Punct a)   = a
 fromData (Other a)   = a
 fromData (Comment a) = a
 
-{-
-convertToDataString :: Data -> Data
-convertToDataString d = String (fromData d)
-
-convertToDataComment :: Data -> Data
-convertToDataComment d = Comment (fromData d)
-
-
-mapToString :: [Data] -> [Data]
-mapToString xs = map (convertToDataString) xs
-
-mapToComment :: [Data] -> [Data]
-mapToComment xs = map (convertToDataComment) xs
--}
 
 allDigits :: String -> Bool
 allDigits str = all (isDigit) str
@@ -84,31 +72,26 @@ couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNo
         isOtherWiseAllAlpha         = (allAlpha (filter (\x -> ('.' /= x) && ('_' /= x)) str))
         containsNoDigits            = not $ any (isDigit) str
 
-{-
---isEagerCollapsibleDataTypePrefix :: (String -> Data) -> (Data -> Bool)
-isEagerCollapsibleDataTypePrefix (String _)  = isStringPrefix
-isEagerCollapsibleDataTypePrefix (Comment _) = isCommentPrefix
---isEagerCollapsibleDataTypePrefix _       = False
-
-isEagerCollapsibleDataTypeSuffix (String _)  = isStringSuffix
-isEagerCollapsibleDataTypeSuffix (Comment _) = isCommentSuffix
--}
 
 isStringPrefix :: Data -> Bool
 isStringPrefix (String a) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
 isStringPrefix _          = False
 
+
 isStringSuffix :: Data -> Bool
 isStringSuffix (String a) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
 isStringSuffix _          = False
+
 
 isCommentPrefix :: Data -> Bool
 isCommentPrefix (Comment a) = isPrefixOf "/*" a
 isCommentPrefix _         = False
 
+
 isCommentSuffix :: Data -> Bool
 isCommentSuffix (Comment a) = isSuffixOf "*/" a
 isCommentSuffix _         = False
+
 
 consolidateEagerCollapsibleData :: [Data] -> [Data]
 consolidateEagerCollapsibleData [] = []
@@ -131,25 +114,7 @@ consolidateEagerCollapsibleData (d:ds)
         getDataTypeConstructor (String _)  = String
         getDataTypeConstructor (Comment _) = Comment
 
-{-
-consolidateStrings :: [Data] -> [Data]
-consolidateStrings [] = []
-consolidateStrings (d:ds)
-    | isStringPrefix d && isEagerCollapsible isStringPrefix isStringSuffix (d:ds) = (mapToConsolidatedStringData (d:ds)) ++ consolidateStrings (dropBetween isStringPrefix isStringSuffix (d:ds))
-    | otherwise                                                                   = d : consolidateStrings ds
-    where
-        mapTakeBetween xs = mapToString $ takeBetween isStringPrefix isStringSuffix xs
-        mapToConsolidatedStringData xs = String (concat ( map (fromData) (mapTakeBetween xs))) : []
 
-consolidateComments :: [Data] -> [Data] --Type error on first guard btw
-consolidateComments [] = []
-consolidateComments ds
-    | isCommentPrefix ds && isEagerCollapsible isCommentPrefix isCommentSuffix ds = (mapToConsolidatedCommentData (ds)) ++ consolidateComments (dropBetween isCommentPrefix isCommentSuffix ds)
-    | otherwise                                                                   = (head ds) : consolidateComments (tail ds)
-    where
-        mapTakeBetween xs = mapToComment $ takeBetween isCommentPrefix isCommentSuffix xs
-        mapToConsolidatedCommentData xs = Comment (concat (map (fromData) (mapTakeBetween xs))) : []
--}
 readData :: String -> Data --These guards are order dependent which is annoying
 readData paddedStr
     | null str                                   = Other ""
