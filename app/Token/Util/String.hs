@@ -3,10 +3,12 @@ module Token.Util.String(
     genSpace,
     padFront,
     padRear,
-    padEqual
+    padEqual,
+    strip
 ) where
 
 import Data.List
+import Data.Char
 import Token.Util.EagerCollapsible
 
 replaceAll :: String -> String -> String -> String
@@ -26,3 +28,6 @@ padRear str space = str ++ (genSpace space)
 
 padEqual :: String -> Int -> String
 padEqual str space = padRear (padFront str space) space
+
+strip :: String -> String
+strip str = reverse $ dropWhile (isSpace) $ reverse $ dropWhile (isSpace) str

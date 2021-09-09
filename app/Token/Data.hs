@@ -48,10 +48,6 @@ mapToString :: [Data] -> [Data]
 mapToString xs = map (convertToDataString) xs
 
 
-strip :: String -> String
-strip str = reverse $ dropWhile (isSpace) $ reverse $ dropWhile (isSpace) str
-
-
 allDigits :: String -> Bool
 allDigits str = all (isDigit) str
 
