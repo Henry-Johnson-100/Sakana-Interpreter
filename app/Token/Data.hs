@@ -3,7 +3,7 @@ module Token.Data (
     consolidateEagerCollapsibleData,
     readData,
     fromData,
-    punctRepr
+    miscRepr
 ) where
 
 
@@ -30,8 +30,8 @@ instance Like Data where
     a           `notLike` b           = not $ like a b
 
 
-punctRepr :: [String]
-punctRepr = [","]
+miscRepr :: [String]
+miscRepr = [",", "/*", "*/"]
 
 
 fromData :: Data -> String

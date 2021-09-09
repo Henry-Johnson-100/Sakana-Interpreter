@@ -72,7 +72,7 @@ addSpaces :: String -> String
 addSpaces str
     | null str = ""
     | isAnyReprInHeadGroup B.repr                                                                     = (padReprElemFromHeadGroup B.repr 1)      ++ (addSpaces $ dropReprElemFromHeadGroup B.repr str)
-    | isAnyReprInHeadGroup D.punctRepr                                                                = (padReprElemFromHeadGroup D.punctRepr 1) ++ (addSpaces $ dropReprElemFromHeadGroup D.punctRepr str)
+    | isAnyReprInHeadGroup D.miscRepr                                                                = (padReprElemFromHeadGroup D.miscRepr 1) ++ (addSpaces $ dropReprElemFromHeadGroup D.miscRepr str)
     | isAnyReprInHeadGroup O.repr                                                                     = case length (filterReprElemsInHeadGroup O.repr) == 1 of True  -> (padReprElemFromHeadGroup O.repr 1)                                         ++ (addSpaces $ dropReprElemFromHeadGroup O.repr str)
                                                                                                                                                                 False -> (padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.repr)) 1) ++ (addSpaces $ drop (maximum (map (length) (filterReprElemsInHeadGroup O.repr))) str )
     | otherwise = (head str) : addSpaces (tail str)
@@ -92,7 +92,7 @@ addSpaces str
         getLongestStringFromList :: [String] -> String
         getLongestStringFromList strs = head $ filter (\x -> length x == maximum (map length strs)) strs
 
-
+{-
 consolidateStringsIfPossible :: [Token] -> [Token]
 consolidateStringsIfPossible [] = []
 consolidateStringsIfPossible (t:ts)
@@ -101,7 +101,23 @@ consolidateStringsIfPossible (t:ts)
     where
         droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
         consolidatedTokenDataList = map (tokenFromData) $ filter ((D.Other " ")/=) $ D.consolidateStrings $ intersperse (D.Other " ") $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts))
+-}
 
+consolidateDataIfPossible :: [Token] -> [Token]
+consolidateDataIfPossible [] = []
+consolidateDataIfPossible (t:ts)
+    | t `like` (Data (D.Comment "")) = consolidatedTokenDataList ++ consolidateDataIfPossible (droppedTokenDataList)
+    | otherwise                      = t : consolidateDataIfPossible ts
+    where
+        droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
+        consolidatedTokenDataList = map (tokenFromData) $ filter ((D.Other " ") /=) $ D.consolidateEagerCollapsibleData $ intersperse (D.Other " ") $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts)) --This line is greek to me
+
+tokenIsComment :: Token -> Bool
+tokenIsComment t = t `like` (Data (D.Other "")) && (baseData t) `like` (D.Comment "")
+
+ignoreComments :: [Token] -> [Token]
+ignoreComments [] = []
+ignoreComments ts = filter (\t -> not (tokenIsComment t)) ts
 
 tokenize :: String -> [Token]
-tokenize strs = consolidateStringsIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
+tokenize strs = ignoreComments $ consolidateDataIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
