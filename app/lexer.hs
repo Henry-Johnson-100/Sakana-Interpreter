@@ -132,18 +132,18 @@ consolidateEagerCollapsibleTokens (t:ts)
     | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ts
     where
         mapTakeBetween :: Token -> [Token] -> [Token]
-        mapTakeBetween emptyTokenDataType xs = map (\t -> (getDataTokenConstructor emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
+        mapTakeBetween emptyTokenDataType xs = map (\t -> (constructDataToken emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
         mapToConsolidatedData :: Token -> [Token] -> [Token]
-        mapToConsolidatedData emptyTokenDataType xs = (getDataTokenConstructor emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
+        mapToConsolidatedData emptyTokenDataType xs = (constructDataToken emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
         isDataTypePrefix :: Token -> Token -> Bool
         isDataTypePrefix (Data (D.String  _)) = isStringPrefix
         isDataTypePrefix (Data (D.Comment _)) = isCommentPrefix
         isDataTypeSuffix :: Token -> Token -> Bool
         isDataTypeSuffix (Data (D.String  _)) = isStringSuffix
         isDataTypeSuffix (Data (D.Comment _)) = isCommentSuffix
-        getDataTokenConstructor :: Token -> String -> Token
-        getDataTokenConstructor (Data (D.String  _)) = Data (D.String)
-        getDataTokenConstructor (Data (D.Comment _)) = Data (D.Comment)
+        constructDataToken :: Token -> String -> Token
+        constructDataToken (Data (D.String  _)) str = (Data (D.String str))
+        constructDataToken (Data (D.Comment _)) str = (Data (D.Comment str))
 
 consolidateDataIfPossible :: [Token] -> [Token]
 consolidateDataIfPossible [] = []
@@ -152,7 +152,10 @@ consolidateDataIfPossible (t:ts)
     | otherwise                      = t : consolidateDataIfPossible ts
     where
         droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
-        consolidatedTokenDataList = map (tokenFromData) $ filter ((D.Other " ") /=) $ D.consolidateEagerCollapsibleData $ intersperse (D.Other " ") $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts)) --This line is greek to me
+        consolidatedTokenDataList = removeRemainingSpaceOtherTypes $ consolidateEagerCollapsibleTokens $ intersperseSpaceOtherTypes (t:ts)
+        intersperseSpaceOtherTypes xs = intersperse (Data (D.Other " ")) xs
+        removeRemainingSpaceOtherTypes xs = filter ((/=) (Data (D.Other " "))) xs
+
 
 tokenIsComment :: Token -> Bool
 tokenIsComment t = t `like` (Data (D.Other "")) && (baseData t) `like` (D.Comment "")
@@ -162,4 +165,4 @@ ignoreComments [] = []
 ignoreComments ts = filter (\t -> not (tokenIsComment t)) ts
 
 tokenize :: String -> [Token]
-tokenize strs = consolidateDataIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
+tokenize strs = ignoreComments $ consolidateDataIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
