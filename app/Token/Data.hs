@@ -2,7 +2,8 @@ module Token.Data (
     Data(..),
     consolidateStrings,
     readData,
-    fromData
+    fromData,
+    punctRepr
 ) where
 
 
@@ -26,6 +27,8 @@ instance Like Data where
     _           `like`    _           = False
     a           `notLike` b           = not $ like a b
 
+punctRepr :: [String]
+punctRepr = [","]
 
 fromData :: Data -> String
 fromData (String a)  = a
