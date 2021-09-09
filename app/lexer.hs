@@ -179,4 +179,4 @@ ignoreComments [] = []
 ignoreComments ts = filter (\t -> not (tokenIsComment t)) ts
 
 tokenize :: String -> [Token]
-tokenize strs = ignoreComments $ consolidateDataIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
+tokenize strs = ignoreComments $ consolidateEagerCollapsibleTokens$ map (readToken) $ words $ addSpaces strs
