@@ -21,7 +21,8 @@ tests = testGroup "Lexer Tests" testList where
             tokenize_add_one,
             tokenize_factorial,
             tokenize_factorial_unoptimal_spacing,
-            tokenizer_also_auto_consolidates_string_data
+            tokenizer_also_auto_consolidates_string_data,
+            new_keywords_and_type_symbol_are_tokenized_correctly
         ]
 
 -- | Lexer.tokenize tests as t
