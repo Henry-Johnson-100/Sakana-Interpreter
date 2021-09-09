@@ -2,7 +2,8 @@ module Token.Util.String(
     replaceAll,
     genSpace,
     padFront,
-    padRear
+    padRear,
+    padEqual
 ) where
 
 import Data.List
@@ -22,3 +23,6 @@ padFront str space = (genSpace space) ++ str
 
 padRear :: String -> Int -> String
 padRear str space = str ++ (genSpace space)
+
+padEqual :: String -> Int -> String
+padEqual str space = padRear (padFront str space) space
