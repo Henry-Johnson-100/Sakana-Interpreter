@@ -11,7 +11,8 @@ tests = testGroup "Token.Util.NestedCollapsible Tests" testList where
     testList =
         [
             iCNC_tests,
-            hNC_tests
+            hNC_tests,
+            tN_tests
         ]
 
 -- | isCompleteNestedCollapsible Tests as iCNC
@@ -65,3 +66,49 @@ hNC_returns_true_for_list_with_one_complete_and_one_incomplete_NC = testCase nam
     d         = "hasNestedCollapsible is a more general function, that doesn't tell you if the first encountered NC is complete, just if there is a complete NC at some point."
     a         = True        
     f         = hasNestedCollapsible ('(' == ) ( ')' == ) "def some_func(a, (bc):"
+
+-- | takeNest tests as tN
+tN_tests = testGroup "takeNest Tests" testList where
+    testList =
+        [
+            tN_takes_one_unnested_NC,
+            tN_takes_most_unnested_NC_from_list_containing_two_complete_NCs,
+            tN_returns_empty_list_if_called_on_only_unnested_complete_NC,
+            tN_returns_next_NC_if_called_on_complete_NC_with_nest,
+            tN_returns_nearest_complete_NC_if_called_on_incomplete_NC
+        ]
+
+tN_takes_one_unnested_NC = testCase name assertion where
+    name      = "Takes one single NC list that is not nested and contains no nests"
+    assertion = assertEqual d a f
+    d         = "From 'def some(a,b)' return '(a,b)'"
+    a         = "(a,b)"
+    f         = takeNest ('(' == ) ( ')' == ) "def some(a,b)"
+
+tN_takes_most_unnested_NC_from_list_containing_two_complete_NCs = testCase name assertion where
+    name      = "The most unnested NC is taken"
+    assertion = assertEqual d a f
+    d         = "From 'def some(a,(b,c)):' return '(a,(b,c))'"
+    a         = "(a,(b,c))"
+    f         = takeNest ('(' == ) ( ')' == ) "def some(a,(b,c)):"
+
+tN_returns_empty_list_if_called_on_only_unnested_complete_NC = testCase name assertion where
+    name      = "takeNest returns empty list if called on a wholly complete NC with no nests"
+    assertion = assertEqual d a f
+    d         = "If called on the beginning of an NC, takeNest should return the next NC, if there is no NC, it should return nothing"
+    a         = ""
+    f         = takeNest ('(' == ) ( ')' == ) "(a, b)"
+
+tN_returns_next_NC_if_called_on_complete_NC_with_nest = testCase name assertion where
+    name      = "takeNest returns next NC if called on a wholly complete NC with one or more complete nests"
+    assertion = assertEqual d a f
+    d         = "If called on the beginning of an NC, takeNest should return the next NC, if there is no NC, it should return nothing"
+    a         = "(b,c)"
+    f         = takeNest ('(' == ) ( ')' == ) "(a, (b,c))"
+
+tN_returns_nearest_complete_NC_if_called_on_incomplete_NC = testCase name assertion where
+    name      = "takeNest returns nearest complete NC if called on a list that contains at least one complete NC"
+    assertion = assertEqual d a f
+    d         = "If called on the beginning of an NC, takeNest should return the next NC, if there is no NC, it should return nothing"
+    a         = "(b,c)"
+    f         = takeNest ('(' == ) ( ')' == ) "(a, (b,c)"
