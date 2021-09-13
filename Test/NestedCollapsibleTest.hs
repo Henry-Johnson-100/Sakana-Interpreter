@@ -10,7 +10,7 @@ main = do
 tests = testGroup "Token.Util.NestedCollapsible Tests" testList where
     testList =
         [
-            instanceVerifyTests
+            iNC_tests
         ]
 
 -- | isNestedCollapsible Tests as iNC
