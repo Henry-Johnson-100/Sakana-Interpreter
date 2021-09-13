@@ -10,7 +10,8 @@ main = do
 tests = testGroup "Token.Util.NestedCollapsible Tests" testList where
     testList =
         [
-            iCNC_tests
+            iCNC_tests,
+            hNC_tests
         ]
 
 -- | isCompleteNestedCollapsible Tests as iCNC
@@ -50,3 +51,17 @@ iCNC_returns_false_for_a_list_with_mismatched_terminal_counts = testCase name as
     d         = "def some_func(a, (bc):"
     a         = False
     f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) "def some_func(a, (bc):"
+
+-- | hasNestedCollapsible Tests as hNC
+hNC_tests = testGroup "Token.Util.NestedCollapsible.hasNestedCollapsible Tests" testList where
+    testList =
+        [
+            hNC_returns_true_for_list_with_one_complete_and_one_incomplete_NC
+        ]
+
+hNC_returns_true_for_list_with_one_complete_and_one_incomplete_NC = testCase name assertion where
+    name      = "A list with one complete and one incomplete NC returns True"
+    assertion = assertEqual d a f
+    d         = "hasNestedCollapsible is a more general function, that doesn't tell you if the first encountered NC is complete, just if there is a complete NC at some point."
+    a         = True        
+    f         = hasNestedCollapsible ('(' == ) ( ')' == ) "def some_func(a, (bc):"
