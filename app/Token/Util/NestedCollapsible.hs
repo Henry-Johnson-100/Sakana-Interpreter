@@ -1,14 +1,16 @@
 module Token.Util.NestedCollapsible (
+    isCompleteNestedCollapsible
 ) where
 
 import Data.List
 
-isNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
-isNestedCollapsible beginCase endCase xs = foldIsNC beginCase endCase 0 0 xs
+isCompleteNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
+isCompleteNestedCollapsible beginCase endCase xs = (fst terminations) == (snd terminations) && (fst terminations) /= 0 where 
+    terminations = numberOfTerminations beginCase endCase 0 0 xs
 
-foldIsNC :: (a -> Bool) -> (a -> Bool) -> Int -> Int -> [a] -> Bool
-foldIsNC _ _ begins ends [] = begins == ends && begins /= 0
-foldIsNC beginCase endCase begins ends (x:xs)
-    | ends > begins = False
-    | beginCase x   = foldIsNC beginCase endCase (begins + 1) ends xs
-    | endCase x     = foldIsNC beginCase endCase begins (ends + 1) xs
+numberOfTerminations :: (a -> Bool) -> (a -> Bool) -> Int -> Int -> [a] -> (Int,Int)
+numberOfTerminations _ _ begins ends [] = (begins, ends)
+numberOfTerminations beginCase endCase begins ends (x:xs)
+    | beginCase x = numberOfTerminations beginCase endCase (begins + 1) ends       xs
+    | endCase   x = numberOfTerminations beginCase endCase begins       (ends + 1) xs
+    | otherwise   = numberOfTerminations beginCase endCase begins       ends       xs
