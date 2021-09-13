@@ -1,8 +1,8 @@
 module Token.Data (
     Data(..),
-    consolidateStrings,
     readData,
-    fromData
+    fromData,
+    miscRepr
 ) where
 
 
@@ -10,21 +10,27 @@ import Data.Char
 import Data.List
 import Token.Util.Like
 import Token.Util.EagerCollapsible
+import Token.Util.String (strip)
 
 
-data Data = Int Int | Float Float | String String | Boolean Bool | Id String | Punct String | Other String deriving (Show,Read,Eq,Ord)
+data Data = Int Int | Float Float | String String | Boolean Bool | Id String | Punct String | Other String | Comment String deriving (Show,Read,Eq,Ord)
 
 
 instance Like Data where
-    (Int a)     `like`    (Int b)     = True
+    (Int _)     `like`    (Int _)     = True
     (Float _)   `like`    (Float _)   = True
-    (String a)  `like`    (String b)  = True
-    (Boolean a) `like`    (Boolean b) = True
+    (String _)  `like`    (String _)  = True
+    (Boolean _) `like`    (Boolean _) = True
     (Id _)      `like`    (Id _)      = True
     (Punct _)   `like`    (Punct _)   = True
-    (Other a)   `like`    (Other b)   = True
+    (Other _)   `like`    (Other _)   = True
+    (Comment _) `like`    (Comment _) = True
     _           `like`    _           = False
     a           `notLike` b           = not $ like a b
+
+
+miscRepr :: [String]
+miscRepr = [",", "/*", "*/"]
 
 
 fromData :: Data -> String
@@ -35,18 +41,7 @@ fromData (Boolean a) = show a
 fromData (Id a)      = a
 fromData (Punct a)   = a
 fromData (Other a)   = a
-
-
-convertToDataString :: Data -> Data
-convertToDataString d = String (fromData d)
-
-
-mapToString :: [Data] -> [Data]
-mapToString xs = map (convertToDataString) xs
-
-
-strip :: String -> String
-strip str = reverse $ dropWhile (isSpace) $ reverse $ dropWhile (isSpace) str
+fromData (Comment a) = a
 
 
 allDigits :: String -> Bool
@@ -77,36 +72,17 @@ couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNo
         containsNoDigits            = not $ any (isDigit) str
 
 
-isStringPrefix :: Data -> Bool
-isStringPrefix (String a) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
-isStringPrefix _          = False
-
-
-isStringSuffix :: Data -> Bool
-isStringSuffix (String a) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
-isStringSuffix _          = False
-
-
-consolidateStrings :: [Data] -> [Data]
-consolidateStrings [] = []
-consolidateStrings (d:ds)
-    | isStringPrefix d && isEagerCollapsible isStringPrefix isStringSuffix (d:ds) = (mapToConsolidatedStringData (d:ds)) ++ consolidateStrings (dropBetween isStringPrefix isStringSuffix (d:ds))
-    | otherwise                                                                   = d : consolidateStrings ds
+readData :: String -> Data --These guards are order dependent which is annoying
+readData paddedStr
+    | null str                                   = Other ""
+    | isPrefixOf "/*" str || isSuffixOf "*/" str = Comment str
+    | allAlphaNum $ strip str                    = Other str
+    | allDigits $ strip str                      = Int (read str :: Int)
+    | isFloatStr $ strip str                     = Float (read str :: Float)
+    | allPunct $ strip str                       = Punct str
+    | elem '\"' str                              = String str --Don't like this one
+    | str == "True" || str == "False"            = Boolean ( read str :: Bool )
+    | couldBeId $ strip str                      = Id str
+    | otherwise                                  = Other str
     where
-        mapTakeBetween xs = mapToString $ takeBetween isStringPrefix isStringSuffix xs
-        mapToConsolidatedStringData xs = String (concat ( map (fromData) (mapTakeBetween xs))) : []
-
-
-readData :: String -> Data
-readData pstr
-    | null str                        = Other ""
-    | allAlphaNum $ strip str         = Other str
-    | allDigits $ strip str           = Int (read str :: Int)
-    | isFloatStr $ strip str          = Float (read str :: Float)
-    | allPunct $ strip str            = Punct str
-    | elem '\"' str                   = String str --Don't like this one
-    | str == "True" || str == "False" = Boolean ( read str :: Bool )
-    | couldBeId $ strip str           = Id str
-    | otherwise                       = Other str
-    where
-        str = strip pstr
+        str = strip paddedStr

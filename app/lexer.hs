@@ -9,7 +9,10 @@ module Lexer (
 ) where
 
 import Data.List
+import Data.Char (isSpace)
 import Token.Util.Like
+import Token.Util.String
+import Token.Util.EagerCollapsible
 import qualified Token.Bracket    as B
 import qualified Token.Control    as C
 import qualified Token.Data       as D
@@ -59,8 +62,8 @@ fromToken (Data d)                = D.fromData    d
 fromToken (Keyword keyword)       = K.fromKeyword keyword
 fromToken (Operator operator)     = O.fromOp      operator
 
-readTokenFromWord :: String -> Token
-readTokenFromWord str
+readToken :: String -> Token
+readToken str
     | elem str K.repr = Keyword       (K.readKeyword str)
     | elem str B.repr = Bracket       (B.readBracket str)
     | elem str C.repr = Lexer.Control (C.readControl str)
@@ -68,39 +71,107 @@ readTokenFromWord str
     | otherwise       = Data          (D.readData    str)
 
 
-addSpaces :: String -> String --LOOOOOOOL
+addSpaces :: String -> String
 addSpaces str
     | null str = ""
-    | isPrefixOf ">(" headGroup                                                                       = " >( " ++ addSpaces (drop 2 str)
-    | isPrefixOf ")>" headGroup                                                                       = " )> " ++ addSpaces (drop 2 str)
-    | isPrefixOf "<(" headGroup                                                                       = " <( " ++ addSpaces (drop 2 str)
-    | isPrefixOf ")<" headGroup                                                                       = " )< " ++ addSpaces (drop 2 str)
-    | isPrefixOf ","  headGroup                                                                       = " , "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "<"  headGroup && not (isPrefixOf "<(" headGroup) && not (isPrefixOf "<=" headGroup) = " < "  ++ addSpaces (drop 1 str)
-    | isPrefixOf ">"  headGroup && not (isPrefixOf ">(" headGroup) && not (isPrefixOf ">=" headGroup) = " > "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "<=" headGroup                                                                       = " <= " ++ addSpaces (drop 2 str)
-    | isPrefixOf ">=" headGroup                                                                       = " >= " ++ addSpaces (drop 2 str)
-    | isPrefixOf "==" headGroup                                                                       = " == " ++ addSpaces (drop 2 str)
-    | isPrefixOf "/=" headGroup                                                                       = " /= " ++ addSpaces (drop 2 str)
-    | isPrefixOf "+"  headGroup                                                                       = " + "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "-"  headGroup                                                                       = " - "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "*"  headGroup                                                                       = " * "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "/"  headGroup && not (isPrefixOf "/=" headGroup)                                    = " / "  ++ addSpaces (drop 1 str)
-    | isPrefixOf "%"  headGroup                                                                       = " % "  ++ addSpaces (drop 1 str)
+    | isAnyReprInHeadGroup B.repr     = (padReprElemFromHeadGroup B.repr 1)     ++ (addSpaces $ dropReprElemFromHeadGroup B.repr str)
+    | isAnyReprInHeadGroup D.miscRepr = (padReprElemFromHeadGroup D.miscRepr 1) ++ (addSpaces $ dropReprElemFromHeadGroup D.miscRepr str)
+    | isAnyReprInHeadGroup O.repr     = case length (filterReprElemsInHeadGroup O.repr) == 1 of True  -> (padReprElemFromHeadGroup O.repr 1)                                         ++ (addSpaces $ dropReprElemFromHeadGroup O.repr str)
+                                                                                                False -> (padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.repr)) 1) ++ (addSpaces $ drop (maximum (map (length) (filterReprElemsInHeadGroup O.repr))) str )
     | otherwise = (head str) : addSpaces (tail str)
     where
-        headGroup = take 3 str
+        headGroup :: String
+        headGroup = take 5 str
+        isAnyReprInHeadGroup :: [String] -> Bool
+        isAnyReprInHeadGroup reprList = any (\reprElem -> isPrefixOf reprElem headGroup) reprList
+        filterReprElemsInHeadGroup :: [String] -> [String]
+        filterReprElemsInHeadGroup reprList = filter (\reprElem -> isPrefixOf reprElem headGroup) reprList
+        getReprElemInHeadGroup :: [String] -> String
+        getReprElemInHeadGroup reprList = head $ filterReprElemsInHeadGroup reprList
+        padReprElemFromHeadGroup :: [String] -> Int -> String
+        padReprElemFromHeadGroup reprList space = padEqual (getReprElemInHeadGroup reprList) space
+        dropReprElemFromHeadGroup :: [String] -> String -> String
+        dropReprElemFromHeadGroup reprList str = drop (length (getReprElemInHeadGroup reprList)) str
+        getLongestStringFromList :: [String] -> String
+        getLongestStringFromList strs = head $ filter (\x -> length x == maximum (map length strs)) strs
 
 
-consolidateStringsIfPossible :: [Token] -> [Token]
-consolidateStringsIfPossible [] = []
-consolidateStringsIfPossible (t:ts)
-    | t `like` (Data (D.Other "")) = consolidatedTokenDataList ++ consolidateStringsIfPossible (droppedTokenDataList)
-    | otherwise                    = t : consolidateStringsIfPossible ts
+isStringPrefix :: Token -> Bool
+isStringPrefix (Data (D.String a)) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
+isStringPrefix _                   = False
+
+
+isStringSuffix :: Token -> Bool
+isStringSuffix (Data (D.String a)) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
+isStringSuffix _          = False
+
+
+isCommentPrefix :: Token -> Bool
+isCommentPrefix (Data (D.Comment a)) = isPrefixOf "/*" a
+isCommentPrefix _         = False
+
+
+isCommentSuffix :: Token -> Bool
+isCommentSuffix (Data (D.Comment a)) = isSuffixOf "*/" a
+isCommentSuffix _         = False
+
+
+consolidateEagerCollapsibleTokens :: [Token] -> [Token]
+consolidateEagerCollapsibleTokens [] = []
+consolidateEagerCollapsibleTokens (t:ts)
+    | isStringPrefix  t && isEagerCollapsible isStringPrefix  isStringSuffix  (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (isStringPrefix)  (isStringSuffix)  (t:ts))
+    | isCommentPrefix t && isEagerCollapsible isCommentPrefix isCommentSuffix (t:ts) = (mapToConsolidatedData (Data (D.Comment "")) (t:ts)) ++ consolidateEagerCollapsibleTokens (dropBetween (isCommentPrefix) (isCommentSuffix) (t:ts))
+    | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ts
     where
-        droppedTokenDataList = dropWhile (like (Data (D.Other ""))) (t:ts)
-        consolidatedTokenDataList = map (tokenFromData) $ filter ((D.Other " ")/=) $ D.consolidateStrings $ intersperse (D.Other " ") $ map (baseData) (takeWhile (like (Data (D.Other ""))) (t:ts))
+        mapTakeBetween :: Token -> [Token] -> [Token]
+        mapTakeBetween emptyTokenDataType xs = map (\t -> (constructDataToken emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
+        mapToConsolidatedData :: Token -> [Token] -> [Token]
+        mapToConsolidatedData emptyTokenDataType xs = (constructDataToken emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
+        isDataTypePrefix :: Token -> Token -> Bool
+        isDataTypePrefix (Data (D.String  _)) = isStringPrefix
+        isDataTypePrefix (Data (D.Comment _)) = isCommentPrefix
+        isDataTypeSuffix :: Token -> Token -> Bool
+        isDataTypeSuffix (Data (D.String  _)) = isStringSuffix
+        isDataTypeSuffix (Data (D.Comment _)) = isCommentSuffix
+        constructDataToken :: Token -> String -> Token
+        constructDataToken (Data (D.String  _)) str = (Data (D.String str))
+        constructDataToken (Data (D.Comment _)) str = (Data (D.Comment str))
+
+
+intersperseSpaceOtherTypes :: [Token] -> [Token]
+intersperseSpaceOtherTypes [] = []
+intersperseSpaceOtherTypes (t:ts)
+    | isStringPrefix t || isStringSuffix t = t : (head ts)  : intersperseSpaceOtherTypes (tail ts)
+    | otherwise                            = t : spaceOtherType : intersperseSpaceOtherTypes ts
+    where spaceOtherType = Data (D.Other " ")
+
+
+removeSpaceOtherTypes :: [Token] -> [Token]
+removeSpaceOtherTypes [] = []
+removeSpaceOtherTypes ts = filter ((/=) (Data (D.Other " "))) ts
+
+
+tokenIsComment :: Token -> Bool
+tokenIsComment t = t `like` (Data (D.Other "")) && (baseData t) `like` (D.Comment "")
+
+
+ignoreComments :: [Token] -> [Token]
+ignoreComments [] = []
+ignoreComments ts = filter (\t -> not (tokenIsComment t)) ts
+
+
+wordsPreserveStringSpacing :: [String] -> String -> [String]
+wordsPreserveStringSpacing strs "" = strs
+wordsPreserveStringSpacing strs (s:str)
+    | s == '"' = wordsPreserveStringSpacing (strs ++ ((buildPreservedString str) : [])) (dropInfix (buildPreservedString str) (s:str))
+    | isSpace s = wordsPreserveStringSpacing strs str
+    | otherwise = wordsPreserveStringSpacing (strs ++ ((buildWord (s:str)) : [])) (dropInfix (buildWord (s:str)) (s:str))
+    where
+        buildPreservedString :: String -> String
+        buildPreservedString str = "\"" ++ (takeWhile ((/=) '\"') str ) ++ "\""
+        buildWord            :: String -> String
+        buildWord str = (takeWhile (\s -> not (isSpace s)) str)
 
 
 tokenize :: String -> [Token]
-tokenize strs = consolidateStringsIfPossible $ map (readTokenFromWord) $ words $ addSpaces strs
+tokenize strs = ignoreComments $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
