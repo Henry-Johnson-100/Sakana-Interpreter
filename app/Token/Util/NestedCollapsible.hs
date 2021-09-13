@@ -19,7 +19,7 @@ takeNest _ _ [] = []
 takeNest beginCase endCase (x:xs)
     | not (hNC (x:xs))  = []
     | not (iCNC (x:xs)) = takeNest beginCase endCase xs
-    | otherwise         = takeUntilTerminationLevel endCase (snd (numberOfTerminations beginCase endCase (x:xs))) (dropWhile (\xx -> not (beginCase xx)) (x:xs))
+    | otherwise         = takeUntilTerminationLevel endCase (snd (numberOfTerminations beginCase endCase 0 0 (x:xs))) (dropWhile (\xx -> not (beginCase xx)) (x:xs))
     where
         hNC ncs = hasNestedCollapsible beginCase endCase ncs
         iCNC ncs = isCompleteNestedCollapsible beginCase endCase ncs
