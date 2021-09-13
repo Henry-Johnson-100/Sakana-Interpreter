@@ -1,34 +1,14 @@
 module Token.Util.NestedCollapsible (
-    Nested(..)
 ) where
 
 import Data.List
 
-data Nested a = Inner [a] | Nest [Nested a] deriving (Show,Read,Eq)
+isNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
+isNestedCollapsible beginCase endCase xs = foldIsNC beginCase endCase 0 0 xs
 
-toInner :: [a] -> Nested a
-toInner xs = Inner xs
-
-nestSingleton :: Nested a -> Nested a
-nestSingleton nxs = Nest (nxs : [])
-
-instance Functor Nested where
-    fmap f (Inner xs) = Inner $ fmap f        xs
-    fmap f (Nest nxs) = Nest  $ fmap (fmap f) nxs
-
-{-
-instance Functor Nested where
-    fmap f (NBase xs) = nBase $ fmap f xs
-    fmap f (Nest nxs) = nest $ fmap f nxs
-
-instance Applicative Nested where
-    pure x = NBase (x:[])
-    (NBase fxs) <*> (NBase xs) = nBase (fxs <*> xs)
-    (Nest nfxs) <*> nbxs       = Nest $ nfxs <*> nbxs
-    nfxs        <*> (Nest bxs) = Nest $ nfxs <*> bxs
-
-instance Monad Nested where
-    return x = NBase (x:[])
-    (NBase xs) >>= f = NBase $ unNestAll $ map f xs
-    (Nest bxs) >>= f = Nest $ (bxs >>= f)
--}
+foldIsNC :: (a -> Bool) -> (a -> Bool) -> Int -> Int -> [a] -> Bool
+foldIsNC _ _ begins ends [] = begins == ends && begins /= 0
+foldIsNC beginCase endCase begins ends (x:xs)
+    | ends > begins = False
+    | beginCase x   = foldIsNC beginCase endCase (begins + 1) ends xs
+    | endCase x     = foldIsNC beginCase endCase begins (ends + 1) xs
