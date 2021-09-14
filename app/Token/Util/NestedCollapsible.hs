@@ -13,15 +13,13 @@ import Token.Util.EagerCollapsible (dropInfix)
 
 isCompleteNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
 isCompleteNestedCollapsible beginCase endCase xs = isCompleteNestedCollapsible' beginCase endCase 0 0 xs
-
-
-isCompleteNestedCollapsible' :: (a -> Bool) -> (a -> Bool) -> Int -> Int -> [a] -> Bool
-isCompleteNestedCollapsible' _ _ begins ends [] = begins == ends && all (0 < ) [begins, ends]
-isCompleteNestedCollapsible' beginCase endCase begins ends (x:xs)
-    | ends == begins && begins > 0          = False
-    | beginCase x                           = isCompleteNestedCollapsible' beginCase endCase (begins + 1) ends xs
-    | endCase x                             = isCompleteNestedCollapsible' beginCase endCase begins (ends + 1) xs
-    | otherwise                             = isCompleteNestedCollapsible' beginCase endCase begins ends xs
+    where
+        isCompleteNestedCollapsible' _ _ begins ends [] = begins == ends && all (0 < ) [begins, ends]
+        isCompleteNestedCollapsible' beginCase endCase begins ends (x:xs)
+            | ends == begins && begins > 0          = False
+            | beginCase x                           = isCompleteNestedCollapsible' beginCase endCase (begins + 1) ends xs
+            | endCase x                             = isCompleteNestedCollapsible' beginCase endCase begins (ends + 1) xs
+            | otherwise                             = isCompleteNestedCollapsible' beginCase endCase begins ends xs
 
 
 hasNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
@@ -72,12 +70,10 @@ getMaxNestedCollapsibleDepth beginCase endCase xs = minimum [fst depthTuple, snd
 
 
 numberOfTerminations :: (a -> Bool) -> (a -> Bool) -> [a] -> (Int, Int)
-numberOfTerminations beginCase endCase xs = numberOfTerminations' beginCase endCase 0 0 xs
-
-
-numberOfTerminations' :: (a -> Bool) -> (a -> Bool) -> Int -> Int -> [a] -> (Int,Int)
-numberOfTerminations' _ _ begins ends [] = (begins, ends)
-numberOfTerminations' beginCase endCase begins ends (x:xs)
-    | beginCase x = numberOfTerminations' beginCase endCase (begins + 1) ends       xs
-    | endCase   x = numberOfTerminations' beginCase endCase begins       (ends + 1) xs
-    | otherwise   = numberOfTerminations' beginCase endCase begins       ends       xs
+numberOfTerminations beginCase endCase xs = numberOfTerminations' beginCase endCase 0 0 xs where
+    numberOfTerminations' :: (a -> Bool) -> (a -> Bool) -> Int -> Int -> [a] -> (Int,Int)
+    numberOfTerminations' _ _ begins ends [] = (begins, ends)
+    numberOfTerminations' beginCase endCase begins ends (x:xs)
+        | beginCase x = numberOfTerminations' beginCase endCase (begins + 1) ends       xs
+        | endCase   x = numberOfTerminations' beginCase endCase begins       (ends + 1) xs
+        | otherwise   = numberOfTerminations' beginCase endCase begins       ends       xs
