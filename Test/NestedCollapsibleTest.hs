@@ -12,7 +12,8 @@ tests = testGroup "Token.Util.NestedCollapsible Tests" testList where
         [
             iCNC_tests,
             hNC_tests,
-            tN_tests
+            tN_tests,
+            tSD_tests
         ]
 
 -- | isCompleteNestedCollapsible Tests as iCNC
@@ -128,3 +129,17 @@ tDN_actually_returns_deepest_nest = testCase name assertion where
     d         = "A function for painlessly retrieving the deepest nested NC"
     a         = "(7 + 8)"
     f         = takeDeepestNest ('(' == ) ( ')' == ) "1 + (2 + (3 + 4 + ( 5 + 6 * (7 + 8)))))"
+
+-- | takeNextSameDepthNest as tSD
+tSD_tests = testGroup "takeNextSameDepthNest test" testList where
+    testList =
+        [
+
+        ]
+
+tSD_returns_first_top_level_nest_if_first_element_not_a_nest = testCase name assertion where
+    name      = "tSD returns the appropriate top-level nest"
+    assertion = assertEqual d a f
+    d         = "If the first elem of the given list is not a nest, then return the next complete nest"
+    a         = "(def(ghi))"
+    f         = takeSameDepth ('(' == ) ( ')' == ) "abc(def(ghi))lmn(opq)"

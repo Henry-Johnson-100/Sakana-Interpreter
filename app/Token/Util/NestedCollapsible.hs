@@ -2,11 +2,13 @@ module Token.Util.NestedCollapsible (
     isCompleteNestedCollapsible,
     hasNestedCollapsible,
     takeNest,
-    takeDeepestNest
+    takeDeepestNest,
+    takeSameDepth
 ) where
 
 
 import Data.List
+import Token.Util.EagerCollapsible (dropInfix)
 
 
 isCompleteNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
@@ -46,6 +48,13 @@ takeUntilTerminationLevel _ _ [] = []
 takeUntilTerminationLevel termCase termLevel (x:xs)
     | termCase x = x : takeUntilTerminationLevel termCase (termLevel - 1) xs
     | otherwise  = x : takeUntilTerminationLevel termCase termLevel xs
+
+
+takeSameDepth :: (Eq a) => (a -> Bool) -> (a -> Bool) -> [a] -> [a]
+takeSameDepth beginCase endCase xs
+    | not (hasNestedCollapsible beginCase endCase xs) = []
+    | not (beginCase (head xs))                       = takeNest beginCase endCase xs
+    | otherwise                                       = takeSameDepth beginCase endCase (dropInfix (takeNest beginCase endCase xs) (xs))
 
 
 getMaxNestedCollapsibleDepth :: (a -> Bool) -> (a -> Bool) -> [a] -> Int
