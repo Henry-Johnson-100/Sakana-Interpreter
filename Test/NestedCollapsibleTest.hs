@@ -99,7 +99,7 @@ tN_takes_one_unnested_NC = testCase name assertion where
     f         = takeNest ('(' == ) ( ')' == ) "def some(a,b)"
 
 tN_takes_one_unnested_NC_that_ends_in_non_terminal_character = testCase name assertion where
-    name      = "Takes one single NC list that is not nested and contains no nests"
+    name      = "Takes one single NC list that is not nested and contains no nests and ends with non-terminal character ':'"
     assertion = assertEqual d a f
     d         = "From 'def some(a,b):' return '(a,b)'"
     a         = "(a,b)"
