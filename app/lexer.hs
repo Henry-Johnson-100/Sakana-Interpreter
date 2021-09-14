@@ -13,6 +13,7 @@ import Data.Char (isSpace)
 import Token.Util.Like
 import Token.Util.String
 import Token.Util.EagerCollapsible
+import Token.Util.NestedCollapsible
 import qualified Token.Bracket    as B
 import qualified Token.Control    as C
 import qualified Token.Data       as D
@@ -120,7 +121,6 @@ consolidateEagerCollapsibleTokens :: [Token] -> [Token]
 consolidateEagerCollapsibleTokens [] = []
 consolidateEagerCollapsibleTokens (t:ts)
     | isStringPrefix  t && isEagerCollapsible isStringPrefix  isStringSuffix  (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (isStringPrefix)  (isStringSuffix)  (t:ts))
-    | isCommentPrefix t && isEagerCollapsible isCommentPrefix isCommentSuffix (t:ts) = (mapToConsolidatedData (Data (D.Comment "")) (t:ts)) ++ consolidateEagerCollapsibleTokens (dropBetween (isCommentPrefix) (isCommentSuffix) (t:ts))
     | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ts
     where
         mapTakeBetween :: Token -> [Token] -> [Token]
@@ -129,13 +129,17 @@ consolidateEagerCollapsibleTokens (t:ts)
         mapToConsolidatedData emptyTokenDataType xs = (constructDataToken emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
         isDataTypePrefix :: Token -> Token -> Bool
         isDataTypePrefix (Data (D.String  _)) = isStringPrefix
-        isDataTypePrefix (Data (D.Comment _)) = isCommentPrefix
         isDataTypeSuffix :: Token -> Token -> Bool
         isDataTypeSuffix (Data (D.String  _)) = isStringSuffix
-        isDataTypeSuffix (Data (D.Comment _)) = isCommentSuffix
         constructDataToken :: Token -> String -> Token
         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
-        constructDataToken (Data (D.Comment _)) str = (Data (D.Comment str))
+
+
+consolidateNestedCollapsibleTokens :: [Token] -> [Token]
+consolidateNestedCollapsibleTokens [] = []
+consolidateNestedCollapsibleTokens ts 
+    | hasNestedCollapsible isCommentPrefix isCommentSuffix ts = consolidateNestedCollapsibleTokens $ foldr (++) [] $ unwrapPartition $ partitionNests isCommentPrefix isCommentSuffix ts
+    | otherwise                                               = ts
 
 
 intersperseSpaceOtherTypes :: [Token] -> [Token]
@@ -174,4 +178,4 @@ wordsPreserveStringSpacing strs (s:str)
 
 
 tokenize :: String -> [Token]
-tokenize strs = ignoreComments $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
+tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
