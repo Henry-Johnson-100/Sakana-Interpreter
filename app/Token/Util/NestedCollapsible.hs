@@ -7,7 +7,7 @@ module Token.Util.NestedCollapsible (
 import Data.List
 
 isCompleteNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
-isCompleteNestedCollapsible beginCase endCase xs = (fst terminations) == (snd terminations) && (fst terminations) /= 0 where 
+isCompleteNestedCollapsible beginCase endCase xs = (fst terminations) == (snd terminations) && (fst terminations) /= 0 && (beginCase (head xs)) && (endCase (last xs)) where 
     terminations = numberOfTerminations beginCase endCase 0 0 xs
 
 hasNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool

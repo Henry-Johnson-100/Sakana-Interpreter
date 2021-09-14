@@ -33,25 +33,25 @@ iCNC_returns_false_for_empty_list = testCase name assertion where
     f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) ""
 
 iCNC_identifies_a_list_with_one_complete_unnested_NC = testCase name assertion where
-    name      = "A list containing a complete NC bounded by (, ) is returns True" 
+    name      = "A list consisting wholly of a single complete NC returns true" 
     assertion = assertEqual d a f
-    d         = "def some_func(a,b):"
+    d         = "(a,b)"
     a         = True
-    f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) "def some_func(a,b):"
+    f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) "(a,b)"
 
 iCNC_identifies_a_list_with_one_nested_NC = testCase name assertion where
     name      = "isCompleteNestedCollapsible returns True for a list with an NC nested in another NC"
     assertion = assertEqual d a f
     d         = "NestedCollapsibles can contain nested collapsibles"
     a         = True
-    f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) "def some_func(a,(dfjgj),sdjk):"
+    f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) "(a,(dfjgj),sdjk)"
 
 iCNC_returns_false_for_a_list_with_mismatched_terminal_counts = testCase name assertion where
     name      = "returns False for a list with mismatched number of terminal counts"
     assertion = assertEqual d a f
     d         = "def some_func(a, (bc):"
     a         = False
-    f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) "def some_func(a, (bc):"
+    f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) "(a, (bc)"
 
 -- | hasNestedCollapsible Tests as hNC
 hNC_tests = testGroup "Token.Util.NestedCollapsible.hasNestedCollapsible Tests" testList where
