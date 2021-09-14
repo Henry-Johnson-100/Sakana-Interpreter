@@ -12,7 +12,7 @@ import Token.Util.EagerCollapsible (dropInfix)
 
 
 isCompleteNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
-isCompleteNestedCollapsible beginCase endCase xs = isCompleteNestedCollapsible' beginCase endCase 0 0 xs
+isCompleteNestedCollapsible beginCase endCase xs = isCompleteNestedCollapsible' beginCase endCase 0 0 xs && (beginCase (head xs)) && (endCase (last xs))
     where
         isCompleteNestedCollapsible' _ _ begins ends [] = begins == ends && all (0 < ) [begins, ends]
         isCompleteNestedCollapsible' beginCase endCase begins ends (x:xs)
