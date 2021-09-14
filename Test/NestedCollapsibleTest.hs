@@ -86,7 +86,6 @@ tN_tests = testGroup "takeNest Tests" testList where
             tN_returns_next_NC_if_called_on_complete_NC_with_nest,
             tN_returns_nearest_complete_NC_if_called_on_incomplete_NC,
             tN_can_be_called_succesively_to_retrieve_nested_NCs,
-            tN_takes_first_nest_if_multiple_nests_of_the_same_depth,
             tDN_actually_returns_deepest_nest
         ]
 
@@ -138,13 +137,6 @@ tN_can_be_called_succesively_to_retrieve_nested_NCs = testCase name assertion wh
     d         = "NC can be nested to arbitrary levels, tNC should be able to retrieve them with successive calls"
     a         = "(7 + 8)"
     f         = takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) "1 + (2 + (3 + 4 + ( 5 + 6 * (7 + 8)))))"
-
-tN_takes_first_nest_if_multiple_nests_of_the_same_depth = testCase name assertion where
-    name      = "takeNest only returns the first nest of some arbitrary depth where multiple nests exist"
-    assertion = assertEqual d a f
-    d         = "Should only return the first complete nest and should not contain multiple parallel nests but rather only one nest containing an arbitrary number of nests"
-    a         = "(def(ghi))"
-    f         = takeSameDepth ('(' == ) ( ')' == ) "abc(def(ghi))lmn(opq)"
 
 tDN_actually_returns_deepest_nest = testCase name assertion where
     name      = "takeDeepestNest returns the deepest nest"
