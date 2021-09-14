@@ -23,7 +23,8 @@ iCNC_tests = testGroup "Token.Util.NestedCollapsible.isCompleteNestedCollapsible
             iCNC_returns_false_for_empty_list,
             iCNC_identifies_a_list_with_one_complete_unnested_NC,
             iCNC_identifies_a_list_with_one_nested_NC,
-            iCNC_returns_false_for_a_list_with_mismatched_terminal_counts
+            iCNC_returns_false_for_a_list_with_mismatched_terminal_counts,
+            iCNC_returns_false_for_list_containing_only_complete_NC_but_starting_and_ending_with_distinct_NC
         ]
 
 iCNC_returns_false_for_empty_list = testCase name assertion where
@@ -54,6 +55,13 @@ iCNC_returns_false_for_a_list_with_mismatched_terminal_counts = testCase name as
     a         = False
     f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) "(a, (bc)"
 
+iCNC_returns_false_for_list_containing_only_complete_NC_but_starting_and_ending_with_distinct_NC = testCase name assertion where
+    name      = "isCompleteNestedCollapsible should return True if and only if the entire given list is one complete NC and not multiple complete NC's"
+    assertion = assertEqual d a f
+    d         = "This function is used only to detect if the given list is one single unified complete NC"
+    a         = False
+    f         = isCompleteNestedCollapsible ('(' == ) ( ')' == ) "(def(ghi))lmn(opq)"
+
 -- | hasNestedCollapsible Tests as hNC
 hNC_tests = testGroup "Token.Util.NestedCollapsible.hasNestedCollapsible Tests" testList where
     testList =
@@ -78,6 +86,7 @@ tN_tests = testGroup "takeNest Tests" testList where
             tN_returns_next_NC_if_called_on_complete_NC_with_nest,
             tN_returns_nearest_complete_NC_if_called_on_incomplete_NC,
             tN_can_be_called_succesively_to_retrieve_nested_NCs,
+            tN_takes_first_nest_if_multiple_nests_of_the_same_depth,
             tDN_actually_returns_deepest_nest
         ]
 
@@ -123,6 +132,13 @@ tN_can_be_called_succesively_to_retrieve_nested_NCs = testCase name assertion wh
     a         = "(7 + 8)"
     f         = takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) "1 + (2 + (3 + 4 + ( 5 + 6 * (7 + 8)))))"
 
+tN_takes_first_nest_if_multiple_nests_of_the_same_depth = testCase name assertion where
+    name      = "takeNest only returns the first nest of some arbitrary depth where multiple nests exist"
+    assertion = assertEqual d a f
+    d         = "Should only return the first complete nest and should not contain multiple parallel nests but rather only one nest containing an arbitrary number of nests"
+    a         = "(def(ghi))"
+    f         = takeSameDepth ('(' == ) ( ')' == ) "abc(def(ghi))lmn(opq)"
+
 tDN_actually_returns_deepest_nest = testCase name assertion where
     name      = "takeDeepestNest returns the deepest nest"
     assertion = assertEqual d a f
@@ -134,7 +150,8 @@ tDN_actually_returns_deepest_nest = testCase name assertion where
 tSD_tests = testGroup "takeNextSameDepthNest test" testList where
     testList =
         [
-
+            tSD_returns_first_top_level_nest_if_first_element_not_a_nest,
+            tSD_returns_second_top_level_nest_if_on_first_nest
         ]
 
 tSD_returns_first_top_level_nest_if_first_element_not_a_nest = testCase name assertion where
@@ -142,4 +159,11 @@ tSD_returns_first_top_level_nest_if_first_element_not_a_nest = testCase name ass
     assertion = assertEqual d a f
     d         = "If the first elem of the given list is not a nest, then return the next complete nest"
     a         = "(def(ghi))"
+    f         = takeSameDepth ('(' == ) ( ')' == ) "abc(def(ghi))lmn(opq)"
+
+tSD_returns_second_top_level_nest_if_on_first_nest = testCase name assertion where
+    name      = "Returns the second nest of the same depth if on a nest"
+    assertion = assertEqual d a f 
+    d         = "If the first group in a list is an NC, return the next NC at the same depth"
+    a         = "(opq)"
     f         = takeSameDepth ('(' == ) ( ')' == ) "abc(def(ghi))lmn(opq)"
