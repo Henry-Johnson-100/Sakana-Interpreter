@@ -81,6 +81,7 @@ tN_tests = testGroup "takeNest Tests" testList where
     testList =
         [
             tN_takes_one_unnested_NC,
+            tN_takes_one_unnested_NC_that_ends_in_non_terminal_character,
             tN_takes_most_unnested_NC_from_list_containing_two_complete_NCs,
             tN_returns_empty_list_if_called_on_only_unnested_complete_NC,
             tN_returns_next_NC_if_called_on_complete_NC_with_nest,
@@ -96,6 +97,13 @@ tN_takes_one_unnested_NC = testCase name assertion where
     d         = "From 'def some(a,b)' return '(a,b)'"
     a         = "(a,b)"
     f         = takeNest ('(' == ) ( ')' == ) "def some(a,b)"
+
+tN_takes_one_unnested_NC_that_ends_in_non_terminal_character = testCase name assertion where
+    name      = "Takes one single NC list that is not nested and contains no nests"
+    assertion = assertEqual d a f
+    d         = "From 'def some(a,b):' return '(a,b)'"
+    a         = "(a,b)"
+    f         = takeNest ('(' == ) ( ')' == ) "def some(a,b):"
 
 tN_takes_most_unnested_NC_from_list_containing_two_complete_NCs = testCase name assertion where
     name      = "The most unnested NC is taken"
