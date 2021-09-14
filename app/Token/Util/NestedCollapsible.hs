@@ -57,7 +57,7 @@ takeNest beginCase endCase xs
         takeNest' _ _ _ [] = []
         takeNest' beginCase endCase terminations (x:xs)
             | beginCase x = x : takeNest' beginCase endCase (terminations + 1) xs
-            | endCase   x = case (terminations - 1) <= 0 of True -> x : [] -- <= here is weird and I'm not sure about it
+            | endCase   x = case (terminations - 1) <= 0 of True  -> [x] -- <= here is weird and I'm not sure about it
                                                             False -> x : takeNest' beginCase endCase (terminations - 1) xs
             | otherwise   = x : takeNest' beginCase endCase terminations xs
 
