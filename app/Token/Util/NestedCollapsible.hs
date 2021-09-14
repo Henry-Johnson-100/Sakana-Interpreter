@@ -17,7 +17,7 @@ isCompleteNestedCollapsible beginCase endCase xs = isCompleteNestedCollapsible' 
 isCompleteNestedCollapsible' :: (a -> Bool) -> (a -> Bool) -> Int -> Int -> [a] -> Bool
 isCompleteNestedCollapsible' _ _ begins ends [] = begins == ends && all (0 < ) [begins, ends]
 isCompleteNestedCollapsible' beginCase endCase begins ends (x:xs)
-    | endCase == beginCase && beginCase > 0 = False
+    | ends == begins && begins > 0          = False
     | beginCase x                           = isCompleteNestedCollapsible' beginCase endCase (begins + 1) ends xs
     | endCase x                             = isCompleteNestedCollapsible' beginCase endCase begins (ends + 1) xs
     | otherwise                             = isCompleteNestedCollapsible' beginCase endCase begins ends xs
