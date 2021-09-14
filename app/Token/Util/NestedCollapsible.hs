@@ -44,16 +44,20 @@ nestedCollapsibleIsPrefixOf beginCase endCase xs
 
 takeNest :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
 takeNest _ _ [] = []
-takeNest beginCase endCase (x:xs)
-    | not (hNC (x:xs))                        = []
-    | iCNC (x:xs)                             = takeNest beginCase endCase xs
-    | (fst terminations) > (snd terminations) = takeNest beginCase endCase xs
-    | otherwise                               = takeUntilTerminationLevel endCase (minTuple terminations) (dropWhile (\xx -> not (beginCase xx)) (x:xs))
+takeNest beginCase endCase xs
+    | not (hasNC xs)  = []
+    | isCompleteNC xs = takeNest beginCase endCase (tail xs)
+    | isNCPrefixed xs = takeNest' beginCase endCase 0 xs
     where
-        hNC ncs = hasNestedCollapsible beginCase endCase ncs
-        iCNC ncs = isCompleteNestedCollapsible beginCase endCase ncs
-        terminations = numberOfTerminations beginCase endCase (x:xs)
-        minTuple (a, b) = minimum [a, b]
+        hasNC xs' = hasNestedCollapsible beginCase endCase xs'
+        isCompleteNC xs' = isCompleteNestedCollapsible beginCase endCase xs'
+        isNCPrefixed xs' = nestedCollapsibleIsPrefixOf beginCase endCase xs'
+        takeNest' :: (a -> Bool) -> (a -> Bool) -> Int -> [a] -> [a]
+        takeNest' _ _ _ [] = []
+        takeNest' beginCase endCase terminations (x:xs)
+            | beginCase x = x : takeNest' beginCase endCase (terminations + 1) xs
+            | endCase   x = case (terminations - 1) <= 0 of True -> x : [] -- <= here is weird and I'm not sure about it
+                                                            False -> x : takeNest' beginCase endCase (terminations - 1) xs
 
 
 takeDeepestNest :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
@@ -62,14 +66,6 @@ takeDeepestNest beginCase endCase xs
     | otherwise     = takeDeepestNest beginCase endCase nextNest
     where
         nextNest = takeNest beginCase endCase xs
-
-
-takeUntilTerminationLevel :: (a -> Bool) -> Int -> [a] -> [a]
-takeUntilTerminationLevel _ 0 _ = []
-takeUntilTerminationLevel _ _ [] = []
-takeUntilTerminationLevel termCase termLevel (x:xs)
-    | termCase x = x : takeUntilTerminationLevel termCase (termLevel - 1) xs
-    | otherwise  = x : takeUntilTerminationLevel termCase termLevel xs
 
 
 takeSameDepth :: (Eq a) => (a -> Bool) -> (a -> Bool) -> [a] -> [a]
