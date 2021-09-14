@@ -12,8 +12,7 @@ tests = testGroup "Token.Util.NestedCollapsible Tests" testList where
         [
             iCNC_tests,
             hNC_tests,
-            tN_tests,
-            tSD_tests
+            tN_tests
         ]
 
 -- | isCompleteNestedCollapsible Tests as iCNC
@@ -154,24 +153,3 @@ tDN_actually_returns_deepest_nest = testCase name assertion where
     a         = "(7 + 8)"
     f         = takeDeepestNest ('(' == ) ( ')' == ) "1 + (2 + (3 + 4 + ( 5 + 6 * (7 + 8)))))"
 
--- | takeNextSameDepthNest as tSD
-tSD_tests = testGroup "takeNextSameDepthNest test" testList where
-    testList =
-        [
-            tSD_returns_first_top_level_nest_if_first_element_not_a_nest,
-            tSD_returns_second_top_level_nest_if_on_first_nest
-        ]
-
-tSD_returns_first_top_level_nest_if_first_element_not_a_nest = testCase name assertion where
-    name      = "tSD returns the appropriate top-level nest"
-    assertion = assertEqual d a f
-    d         = "If the first elem of the given list is not a nest, then return the next complete nest"
-    a         = "(def(ghi))"
-    f         = takeSameDepth ('(' == ) ( ')' == ) "abc(def(ghi))lmn(opq)"
-
-tSD_returns_second_top_level_nest_if_on_first_nest = testCase name assertion where
-    name      = "Returns the second nest of the same depth if on a nest"
-    assertion = assertEqual d a f 
-    d         = "If the first group in a list is an NC, return the next NC at the same depth"
-    a         = "(opq)"
-    f         = takeSameDepth ('(' == ) ( ')' == ) "abc(def(ghi))lmn(opq)"

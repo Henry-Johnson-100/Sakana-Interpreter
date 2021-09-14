@@ -2,8 +2,7 @@ module Token.Util.NestedCollapsible (
     isCompleteNestedCollapsible,
     hasNestedCollapsible,
     takeNest,
-    takeDeepestNest,
-    takeSameDepth
+    takeDeepestNest
 ) where
 
 
@@ -69,13 +68,6 @@ takeDeepestNest beginCase endCase xs
     | otherwise      = takeDeepestNest beginCase endCase nextNest
     where
         nextNest = takeNest beginCase endCase xs
-
-
-takeSameDepth :: (Eq a) => (a -> Bool) -> (a -> Bool) -> [a] -> [a]
-takeSameDepth beginCase endCase xs
-    | not (hasNestedCollapsible beginCase endCase xs) = []
-    | not (beginCase (head xs))                       = takeNest beginCase endCase xs
-    | otherwise                                       = takeSameDepth beginCase endCase (dropInfix (takeNest beginCase endCase xs) (xs))
 
 
 getMaxNestedCollapsibleDepth :: (a -> Bool) -> (a -> Bool) -> [a] -> Int
