@@ -27,6 +27,21 @@ hasNestedCollapsible beginCase endCase xs = all (0 < ) [fst terminations, snd te
     terminations = numberOfTerminations beginCase endCase xs
 
 
+nestedCollapsibleIsPrefixOf :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
+nestedCollapsibleIsPrefixOf _ _ [] = False
+nestedCollapsibleIsPrefixOf beginCase endCase xs
+    | not (beginCase (head xs)) = False
+    | otherwise                 = nestedCollapsibleIsPrefixOf' beginCase endCase 0 xs
+    where
+        nestedCollapsibleIsPrefixOf' :: (a -> Bool) -> (a -> Bool) -> Int -> [a] -> Bool
+        nestedCollapsibleIsPrefixOf' _ _ ignoreTerminations [] = ignoreTerminations == 0
+        nestedCollapsibleIsPrefixOf' beginCase endCase ignoreTerminations (x:xs)
+            | beginCase x = nestedCollapsibleIsPrefixOf' beginCase endCase (ignoreTerminations + 1) (xs)
+            | endCase x   = case ((ignoreTerminations - 1) == 0) of True  -> True
+                                                                    False -> nestedCollapsibleIsPrefixOf' beginCase endCase (ignoreTerminations - 1) xs
+            | otherwise   = nestedCollapsibleIsPrefixOf' beginCase endCase ignoreTerminations xs
+
+
 takeNest :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
 takeNest _ _ [] = []
 takeNest beginCase endCase (x:xs)
