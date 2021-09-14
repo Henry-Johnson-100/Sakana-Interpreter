@@ -45,10 +45,11 @@ nestedCollapsibleIsPrefixOf beginCase endCase xs
 takeNest :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
 takeNest _ _ [] = []
 takeNest beginCase endCase xs
-    | not (hasNC xs)  = []
-    | isCompleteNC xs = takeNest beginCase endCase (tail xs)
-    | isNCPrefixed xs = takeNest' beginCase endCase 0 xs
-    | otherwise       = takeNest beginCase endCase (tail xs)
+    | not (hasNC xs)                           = []
+    | isNCPrefixed xs && not (isCompleteNC xs) = takeNest' beginCase endCase 0 xs
+    | isCompleteNC xs && not (hasNC (tail xs)) = xs
+    | isCompleteNC xs && hasNC (tail xs)       = takeNest beginCase endCase (tail xs)
+    | otherwise                                = takeNest beginCase endCase (tail xs)
     where
         hasNC xs' = hasNestedCollapsible beginCase endCase xs'
         isCompleteNC xs' = isCompleteNestedCollapsible beginCase endCase xs'
@@ -62,10 +63,10 @@ takeNest beginCase endCase xs
             | otherwise   = x : takeNest' beginCase endCase terminations xs
 
 
-takeDeepestNest :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
+takeDeepestNest :: (Eq a) => (a -> Bool) -> (a -> Bool) -> [a] -> [a]
 takeDeepestNest beginCase endCase xs
-    | null nextNest = xs
-    | otherwise     = takeDeepestNest beginCase endCase nextNest
+    | xs == nextNest = xs
+    | otherwise      = takeDeepestNest beginCase endCase nextNest
     where
         nextNest = takeNest beginCase endCase xs
 
