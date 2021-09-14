@@ -112,3 +112,10 @@ tN_returns_nearest_complete_NC_if_called_on_incomplete_NC = testCase name assert
     d         = "If called on the beginning of an NC, takeNest should return the next NC, if there is no NC, it should return nothing"
     a         = "(b,c)"
     f         = takeNest ('(' == ) ( ')' == ) "(a, (b,c)"
+
+tN_can_be_called_succesively_to_retrieve_nested_NCs = testCase name assertion where
+    name      = "takeNest can be used to retrieve varying depths of NC"
+    assertion = assertEqual d a f
+    d         = "NC can be nested to arbitrary levels, tNC should be able to retrieve them with successive calls"
+    a         = "(7 + 8)"
+    f         = takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) "1 + (2 + (3 + 4 + ( 5 + 6 * (7 + 8)))))"

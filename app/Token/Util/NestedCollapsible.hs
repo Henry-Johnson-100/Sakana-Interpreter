@@ -4,15 +4,19 @@ module Token.Util.NestedCollapsible (
     takeNest
 ) where
 
+
 import Data.List
+
 
 isCompleteNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
 isCompleteNestedCollapsible beginCase endCase xs = (fst terminations) == (snd terminations) && (fst terminations) /= 0 && (beginCase (head xs)) && (endCase (last xs)) where 
-    terminations = numberOfTerminations beginCase endCase 0 0 xs
+    terminations = numberOfTerminations beginCase endCase xs
+
 
 hasNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
 hasNestedCollapsible beginCase endCase xs = all (0 < ) [fst terminations, snd terminations] where
-    terminations = numberOfTerminations beginCase endCase 0 0 xs
+    terminations = numberOfTerminations beginCase endCase xs
+
 
 takeNest :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
 takeNest _ _ [] = []
@@ -24,7 +28,9 @@ takeNest beginCase endCase (x:xs)
     where
         hNC ncs = hasNestedCollapsible beginCase endCase ncs
         iCNC ncs = isCompleteNestedCollapsible beginCase endCase ncs
-        terminations = numberOfTerminations beginCase endCase 0 0 (x:xs)
+        terminations = numberOfTerminations beginCase endCase (x:xs)
+        minTuple (a, b) = minimum [a, b]
+
 
 takeUntilTerminationLevel :: (a -> Bool) -> Int -> [a] -> [a]
 takeUntilTerminationLevel _ 0 _ = []
@@ -33,12 +39,19 @@ takeUntilTerminationLevel termCase termLevel (x:xs)
     | termCase x = x : takeUntilTerminationLevel termCase (termLevel - 1) xs
     | otherwise  = x : takeUntilTerminationLevel termCase termLevel xs
 
-minTuple :: (Int, Int) -> Int
-minTuple (a, b) = minimum [a,b]
 
-numberOfTerminations :: (a -> Bool) -> (a -> Bool) -> Int -> Int -> [a] -> (Int,Int)
-numberOfTerminations _ _ begins ends [] = (begins, ends)
-numberOfTerminations beginCase endCase begins ends (x:xs)
-    | beginCase x = numberOfTerminations beginCase endCase (begins + 1) ends       xs
-    | endCase   x = numberOfTerminations beginCase endCase begins       (ends + 1) xs
-    | otherwise   = numberOfTerminations beginCase endCase begins       ends       xs
+getMaxNestedCollapsibleDepth :: (a -> Bool) -> (a -> Bool) -> [a] -> Int
+getMaxNestedCollapsibleDepth beginCase endCase xs = minimum [fst depthTuple, snd depthTuple] where
+    depthTuple = numberOfTerminations beginCase endCase xs
+
+
+numberOfTerminations :: (a -> Bool) -> (a -> Bool) -> [a] -> (Int, Int)
+numberOfTerminations beginCase endCase xs = numberOfTerminations' beginCase endCase 0 0 xs
+
+
+numberOfTerminations' :: (a -> Bool) -> (a -> Bool) -> Int -> Int -> [a] -> (Int,Int)
+numberOfTerminations' _ _ begins ends [] = (begins, ends)
+numberOfTerminations' beginCase endCase begins ends (x:xs)
+    | beginCase x = numberOfTerminations' beginCase endCase (begins + 1) ends       xs
+    | endCase   x = numberOfTerminations' beginCase endCase begins       (ends + 1) xs
+    | otherwise   = numberOfTerminations' beginCase endCase begins       ends       xs
