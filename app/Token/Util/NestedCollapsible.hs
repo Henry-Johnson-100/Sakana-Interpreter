@@ -1,13 +1,27 @@
 module Token.Util.NestedCollapsible (
+    NestPartition(..),
+    unwrapPartition,
     isCompleteNestedCollapsible,
     hasNestedCollapsible,
     takeNest,
-    takeDeepestNest
+    takeDeepestNest,
+    partitionNests
 ) where
 
 
 import Data.List
 import Token.Util.EagerCollapsible (dropInfix)
+
+
+data NestPartition a = NestPartition {
+    partFst :: [a],
+    partSnd :: [a],
+    partThd :: [a]
+} deriving (Show, Read, Eq)
+
+
+unwrapPartition :: NestPartition a -> [[a]]
+unwrapPartition part = [partFst part, partSnd part, partThd part]
 
 
 isCompleteNestedCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
@@ -83,3 +97,17 @@ numberOfTerminations beginCase endCase xs = numberOfTerminations' beginCase endC
         | beginCase x = numberOfTerminations' beginCase endCase (begins + 1) ends       xs
         | endCase   x = numberOfTerminations' beginCase endCase begins       (ends + 1) xs
         | otherwise   = numberOfTerminations' beginCase endCase begins       ends       xs
+
+
+partitionNests :: (Eq a) => (a -> Bool) -> (a -> Bool) -> [a] -> NestPartition a
+partitionNests _ _ [] = NestPartition [] [] []
+partitionNests beginCase endCase xs = NestPartition (preNest xs) (nest xs) (postNest xs) where
+    --preNest :: [a] -> [a]
+    preNest [] = []
+    preNest xs'
+        | nestedCollapsibleIsPrefixOf beginCase endCase xs' = []
+        | otherwise                          = (head xs') : (preNest (tail xs'))
+    --nest :: [a] -> [a]
+    nest xs' = takeNest beginCase endCase (dropInfix (preNest xs') xs')
+    --postNest :: [a] -> [a]
+    postNest xs' = dropInfix ((preNest xs') ++ (nest xs')) xs'
