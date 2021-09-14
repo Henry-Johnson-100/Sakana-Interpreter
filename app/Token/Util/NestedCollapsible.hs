@@ -1,7 +1,8 @@
 module Token.Util.NestedCollapsible (
     isCompleteNestedCollapsible,
     hasNestedCollapsible,
-    takeNest
+    takeNest,
+    takeDeepestNest
 ) where
 
 
@@ -31,6 +32,13 @@ takeNest beginCase endCase (x:xs)
         terminations = numberOfTerminations beginCase endCase (x:xs)
         minTuple (a, b) = minimum [a, b]
 
+
+takeDeepestNest :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
+takeDeepestNest beginCase endCase xs
+    | null nextNest = xs
+    | otherwise     = takeDeepestNest beginCase endCase nextNest
+    where
+        nextNest = takeNest beginCase endCase xs
 
 takeUntilTerminationLevel :: (a -> Bool) -> Int -> [a] -> [a]
 takeUntilTerminationLevel _ 0 _ = []

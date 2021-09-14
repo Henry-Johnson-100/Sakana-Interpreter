@@ -75,7 +75,9 @@ tN_tests = testGroup "takeNest Tests" testList where
             tN_takes_most_unnested_NC_from_list_containing_two_complete_NCs,
             tN_returns_empty_list_if_called_on_only_unnested_complete_NC,
             tN_returns_next_NC_if_called_on_complete_NC_with_nest,
-            tN_returns_nearest_complete_NC_if_called_on_incomplete_NC
+            tN_returns_nearest_complete_NC_if_called_on_incomplete_NC,
+            tN_can_be_called_succesively_to_retrieve_nested_NCs,
+            tDN_actually_returns_deepest_nest
         ]
 
 tN_takes_one_unnested_NC = testCase name assertion where
@@ -119,3 +121,10 @@ tN_can_be_called_succesively_to_retrieve_nested_NCs = testCase name assertion wh
     d         = "NC can be nested to arbitrary levels, tNC should be able to retrieve them with successive calls"
     a         = "(7 + 8)"
     f         = takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) $ takeNest ('(' == ) ( ')' == ) "1 + (2 + (3 + 4 + ( 5 + 6 * (7 + 8)))))"
+
+tDN_actually_returns_deepest_nest = testCase name assertion where
+    name      = "takeDeepestNest returns the deepest nest"
+    assertion = assertEqual d a f
+    d         = "A function for painlessly retrieving the deepest nested NC"
+    a         = "(7 + 8)"
+    f         = takeDeepestNest ('(' == ) ( ')' == ) "1 + (2 + (3 + 4 + ( 5 + 6 * (7 + 8)))))"
