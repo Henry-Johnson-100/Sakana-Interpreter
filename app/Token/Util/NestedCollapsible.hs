@@ -48,6 +48,7 @@ takeNest beginCase endCase xs
     | not (hasNC xs)  = []
     | isCompleteNC xs = takeNest beginCase endCase (tail xs)
     | isNCPrefixed xs = takeNest' beginCase endCase 0 xs
+    | otherwise       = takeNest beginCase endCase (tail xs)
     where
         hasNC xs' = hasNestedCollapsible beginCase endCase xs'
         isCompleteNC xs' = isCompleteNestedCollapsible beginCase endCase xs'
@@ -58,6 +59,7 @@ takeNest beginCase endCase xs
             | beginCase x = x : takeNest' beginCase endCase (terminations + 1) xs
             | endCase   x = case (terminations - 1) <= 0 of True -> x : [] -- <= here is weird and I'm not sure about it
                                                             False -> x : takeNest' beginCase endCase (terminations - 1) xs
+            | otherwise   = x : takeNest' beginCase endCase terminations xs
 
 
 takeDeepestNest :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
