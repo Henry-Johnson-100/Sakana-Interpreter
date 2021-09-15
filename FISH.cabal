@@ -34,6 +34,7 @@ executable FISH
       , Token.Keyword
       , Token.Operator
       , Token.Util.EagerCollapsible
+      , Token.Util.NestedCollapsible
       , Token.Util.Like
       , EagerCollapsibleTest
       , EagerCollapsibleTest Token.Util.EagerCollapsible
