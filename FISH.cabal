@@ -96,6 +96,7 @@ test-suite Lexer
         Token.Keyword,
         Token.Operator,
         Token.Util.EagerCollapsible,
+        Token.Util.NestedCollapsible,
         Token.Util.Like,
         Token.Util.String
     build-depends:
@@ -113,6 +114,18 @@ test-suite ParseTree
         app
     main-is:
         ParseTreeTest.hs
+    other-modules:
+        Lexer,
+        ParseTree,
+        Token.Bracket,
+        Token.Control,
+        Token.Data,
+        Token.Keyword,
+        Token.Operator,
+        Token.Util.EagerCollapsible,
+        Token.Util.NestedCollapsible,
+        Token.Util.Like,
+        Token.Util.String
     build-depends:
         base ^>=4.15.0.0
       , tasty >= 0.7 && < 1.4.1
@@ -128,6 +141,9 @@ test-suite Token_Util_NestedCollapsible
         app
     main-is:
         NestedCollapsibleTest.hs
+    other-modules:
+        Token.Util.NestedCollapsible,
+        Token.Util.EagerCollapsible
     build-depends:
         base ^>=4.15.0.0
       , tasty >= 0.7 && < 1.4.1
