@@ -30,3 +30,6 @@ tree :: a -> ParseTree a
 tree x = ParseTree x []
 
 
+append :: a -> ParseTree a -> ParseTree a
+append x Empty = tree x
+append x (ParseTree b cs) = ParseTree b ((tree x) : cs)
