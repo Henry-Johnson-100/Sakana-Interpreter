@@ -1,6 +1,5 @@
 module ParseTree(
 ParseTree(..),
-generateParseTree
 ) where
 
 import Lexer
@@ -12,12 +11,22 @@ import Token.Operator
 import Token.Util.NestedCollapsible
 import Data.List
 
-data ParseTree a = Empty | Node a (ParseTree a) [ParseTree a] deriving (Show, Read, Eq)
-type TokenTree = ParseTree Token
+data ParseTree a = Empty | ParseTree {
+    body :: a,
+    children :: [ParseTree a]
+} deriving (Show, Read, Eq)
 
-node :: a -> ParseTree a
-node x = Node x Empty []
+
+instance Functor ParseTree where
+    fmap f (ParseTree b cs) = ParseTree (f b) (map (\c -> fmap f c) cs)
 
 
-generateParseTree :: [Token] -> ParseTree Token
-generateParseTree ts = Empty
+nullTree :: ParseTree a -> Bool
+nullTree Empty = True
+nullTree _     = False
+
+
+tree :: a -> ParseTree a
+tree x = ParseTree x []
+
+
