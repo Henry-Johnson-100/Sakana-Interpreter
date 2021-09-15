@@ -26,18 +26,8 @@ executable FISH
 
     --Modules included in this executable, other than Main.
     other-modules:
-        Lexer
-      , Token.Bracket
-      , Token.Control
-      , Token.Data
-      , Token.Identifier
-      , Token.Keyword
-      , Token.Operator
-      , Token.Util.EagerCollapsible
-      , Token.Util.NestedCollapsible
-      , Token.Util.Like
-      , EagerCollapsibleTest
-      , EagerCollapsibleTest Token.Util.EagerCollapsible
+        Token.Util.EagerCollapsible
+
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -61,6 +51,8 @@ test-suite Token_Util_EagerCollapsible
         app
     main-is:
         EagerCollapsibleTest.hs
+    other-modules:
+        Token.Util.EagerCollapsible
     build-depends:
         base ^>=4.15.0.0
       , tasty >= 0.7 && < 1.4.1
@@ -76,6 +68,11 @@ test-suite Token_Data
         app
     main-is:
         TokenDataTest.hs
+    other-modules:
+        Token.Data,
+        Token.Util.EagerCollapsible,
+        Token.Util.Like,
+        Token.Util.String
     build-depends:
         base ^>=4.15.0.0
       , tasty >= 0.7 && < 1.4.1
@@ -91,6 +88,16 @@ test-suite Lexer
         app
     main-is:
         LexerTest.hs
+    other-modules:
+        Lexer,
+        Token.Bracket,
+        Token.Control,
+        Token.Data,
+        Token.Keyword,
+        Token.Operator,
+        Token.Util.EagerCollapsible,
+        Token.Util.Like,
+        Token.Util.String
     build-depends:
         base ^>=4.15.0.0
       , tasty >= 0.7 && < 1.4.1
