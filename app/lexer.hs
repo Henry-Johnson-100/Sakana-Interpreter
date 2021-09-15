@@ -138,7 +138,7 @@ consolidateEagerCollapsibleTokens (t:ts)
 consolidateNestedCollapsibleTokens :: [Token] -> [Token]
 consolidateNestedCollapsibleTokens [] = []
 consolidateNestedCollapsibleTokens ts 
-    | null (partFst part) = ts
+    | all null (unwrapPartition part) = ts
     | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokens (partThd part))
     where
         part = partitionNests (NCCase isCommentPrefix isCommentSuffix) ts
