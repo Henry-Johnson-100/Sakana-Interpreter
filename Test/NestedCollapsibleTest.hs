@@ -82,7 +82,7 @@ tN_tests = testGroup "takeNest Tests" testList where
             tN_takes_one_unnested_NC,
             tN_takes_one_unnested_NC_that_ends_in_non_terminal_character,
             tN_takes_most_unnested_NC_from_list_containing_two_complete_NCs,
-            tN_returns_empty_list_if_called_on_only_unnested_complete_NC,
+            tN_returns_itself_if_called_on_only_unnested_complete_NC,
             tN_returns_next_NC_if_called_on_complete_NC_with_nest,
             tN_returns_nearest_complete_NC_if_called_on_incomplete_NC,
             tN_can_be_called_succesively_to_retrieve_nested_NCs,
@@ -110,11 +110,11 @@ tN_takes_most_unnested_NC_from_list_containing_two_complete_NCs = testCase name 
     a         = "(a,(b,c))"
     f         = takeNest ('(' == ) ( ')' == ) "def some(a,(b,c)):"
 
-tN_returns_empty_list_if_called_on_only_unnested_complete_NC = testCase name assertion where
+tN_returns_itself_if_called_on_only_unnested_complete_NC = testCase name assertion where
     name      = "takeNest returns empty list if called on a wholly complete NC with no nests"
     assertion = assertEqual d a f
     d         = "If called on the beginning of an NC, takeNest should return the next NC, if there is no NC, it should return nothing"
-    a         = ""
+    a         = "(a, b)"
     f         = takeNest ('(' == ) ( ')' == ) "(a, b)"
 
 tN_returns_next_NC_if_called_on_complete_NC_with_nest = testCase name assertion where
