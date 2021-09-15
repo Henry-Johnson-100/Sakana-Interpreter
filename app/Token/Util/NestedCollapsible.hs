@@ -37,9 +37,9 @@ isCompleteNestedCollapsible nCCase xs = isCompleteNestedCollapsible' nCCase 0 0 
         isCompleteNestedCollapsible' _ begins ends [] = begins == ends && all (0 < ) [begins, ends]
         isCompleteNestedCollapsible' nCCase' begins ends (x':xs')
             | ends == begins && begins > 0 = False
-            | (beginCase nCCase') x'       = isCompleteNestedCollapsible' nCCase' (begins + 1) ends       xs
-            | (endCase nCCase') x'         = isCompleteNestedCollapsible' nCCase' begins       (ends + 1) xs
-            | otherwise                    = isCompleteNestedCollapsible' nCCase' begins       ends       xs
+            | (beginCase nCCase') x'       = isCompleteNestedCollapsible' nCCase' (begins + 1) ends       xs'
+            | (endCase nCCase') x'         = isCompleteNestedCollapsible' nCCase' begins       (ends + 1) xs'
+            | otherwise                    = isCompleteNestedCollapsible' nCCase' begins       ends       xs'
 
 
 hasNestedCollapsible :: NCCase a -> [a] -> Bool
