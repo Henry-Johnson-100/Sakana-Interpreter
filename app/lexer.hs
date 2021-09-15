@@ -138,8 +138,11 @@ consolidateEagerCollapsibleTokens (t:ts)
 consolidateNestedCollapsibleTokens :: [Token] -> [Token]
 consolidateNestedCollapsibleTokens [] = []
 consolidateNestedCollapsibleTokens ts 
-    | hasNestedCollapsible isCommentPrefix isCommentSuffix ts = consolidateNestedCollapsibleTokens $ foldr (++) [] $ unwrapPartition $ partitionNests isCommentPrefix isCommentSuffix ts
-    | otherwise                                               = ts
+    | null (partFst part) = ts
+    | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokens (partThd part))
+    where
+        part = partitionNests isCommentPrefix isCommentSuffix ts
+        flattenedFstSnd part' = (partFst part') ++ ((Data (D.Comment (concat (map (fromToken) (partSnd part'))))) : [])
 
 
 intersperseSpaceOtherTypes :: [Token] -> [Token]
