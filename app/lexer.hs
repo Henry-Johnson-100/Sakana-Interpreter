@@ -141,7 +141,7 @@ consolidateNestedCollapsibleTokens ts
     | all null (unwrapPartition part) = ts
     | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokens (partThd part))
     where
-        part = partitionNests (NCCase isCommentPrefix isCommentSuffix) ts
+        part = breakByNest (NCCase isCommentPrefix isCommentSuffix) ts
         flattenedFstSnd part' = (partFst part') ++ ((Data (D.Comment (concat (map (fromToken) (partSnd part'))))) : [])
 
 

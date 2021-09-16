@@ -1,5 +1,6 @@
 module Token.Util.NestedCollapsible (
     NestPartition(..),
+    unwrapPartition,
     NCCase(..),
     isCompleteNestedCollapsible,
     hasNestedCollapsible,
@@ -23,6 +24,10 @@ data NestPartition a = NestPartition {
     partSnd :: [a],
     partThd :: [a]
 } deriving (Show, Read, Eq)
+
+
+unwrapPartition :: NestPartition a -> [[a]]
+unwrapPartition (NestPartition f s t) = [f, s, t]
 
 
 data NCCase a = NCCase {
