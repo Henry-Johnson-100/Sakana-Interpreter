@@ -11,7 +11,7 @@ testTerminals = NCCase ('('==) (')'==)
 
 standardTimeout timeS= localOption (Timeout (timeS * 1000000) (concat [show timeS, "s"]))
 
-nestPartitionLaw :: NCCase a -> [a] -> Bool
+--nestPartitionLaw :: (Eq a) => NCCase a -> [a] -> Bool
 nestPartitionLaw nc xs = ((partFst part) ++ (partSnd part) ++ (partThd part)) == xs where
     part = breakByNest nc xs
 
