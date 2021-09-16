@@ -3,7 +3,14 @@ module Token.Util.NestedCollapsible (
     NCCase(..),
     isCompleteNestedCollapsible,
     hasNestedCollapsible,
-    hasDeeperNest
+    hasDeeperNest,
+    nestedCollapsibleIsPrefixOf,
+    dropWhileList,
+    takeWhileList,
+    takeNestSameDepth,
+    takeNestDeeper,
+    takeNestFirstComplete,
+    breakByNest
 ) where
 
 
@@ -115,11 +122,6 @@ breakByNest nCCase xs = NestPartition first second third where
     first  = takeWhileList (\xs' -> nestedCollapsibleIsPrefixOf nCCase xs') xs
     second = takeNestFirstComplete nCCase xs
     third  = dropInfix (first ++ second) xs
-
-
-getMaxNestedCollapsibleDepth :: NCCase a -> [a] -> Int
-getMaxNestedCollapsibleDepth nCCase xs = minimum [fst depthTuple, snd depthTuple] where
-    depthTuple = numberOfTerminations nCCase xs
 
 
 numberOfTerminations :: NCCase a -> [a] -> (Int, Int)
