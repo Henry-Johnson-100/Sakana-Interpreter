@@ -10,6 +10,7 @@ import Token.Data
 import Token.Keyword
 import Token.Operator
 import Token.Util.NestedCollapsible
+import Token.Util.EagerCollapsible (dropInfix)
 import Data.List
 
 data ParseTree a = Empty | ParseTree {
@@ -25,23 +26,27 @@ data StratifiedParseTree a = StratEmpty | StratifiedParseTree {
 } deriving (Show, Read, Eq)
 
 
-type DepthZippedTokens = [(Token, Int)]
+type DepthZippedToken = (Token, Int)
 
 
-generateDZTFromTokens :: [Token] -> DepthZippedTokens
+generateDZTFromTokens :: [Token] -> [DepthZippedToken]
 generateDZTFromTokens [] = []
 generateDZTFromTokens ts = generateDZTFromTokens' ts 0 where
-    generateDZTFromTokens' :: [Token] -> Int -> DepthZippedTokens
+    generateDZTFromTokens' :: [Token] -> Int -> [DepthZippedToken]
     generateDZTFromTokens' [] _ = []
     generateDZTFromTokens' (x:xs) d
         | x `like` (Keyword Fish) && x /= (Keyword Hook)             = (x, d)       : generateDZTFromTokens' xs (d + 1)
         | any (x == ) [Bracket (Send Open), Bracket (Return Open)]   = (x, (d + 1)) : generateDZTFromTokens' xs (d + 1)
         | any (x == ) [Bracket (Send Close), Bracket (Return Close)] = (x, d)       : generateDZTFromTokens' xs (d - 1)
-        | otherwise                                                  = (x,d)        : generateDZTFromTokens' xs d
+        | otherwise                                                  = (x, d)       : generateDZTFromTokens' xs d
 
 
-unzipDZT :: DepthZippedTokens -> [Token]
+unzipDZT :: [DepthZippedToken] -> [Token]
 unzipDZT dzt = map fst dzt
+
+
+removeDZTBrackets :: [DepthZippedToken] -> [DepthZippedToken]
+removeDZTBrackets dzt = filter (\d -> not (like (fst d) (Bracket (Send Open)))) dzt
 
 
 class TreeIO r where
