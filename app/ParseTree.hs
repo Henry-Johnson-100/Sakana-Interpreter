@@ -12,7 +12,7 @@ import Token.Util.NestedCollapsible
 import Data.List
 
 data ParseTree a = Empty | ParseTree {
-    body :: a,
+    body     :: a,
     children :: [ParseTree a]
 } deriving (Show, Read, Eq)
 
@@ -31,7 +31,7 @@ tree x = ParseTree x []
 
 
 append :: a -> ParseTree a -> ParseTree a
-append x Empty = tree x
+append x Empty            = tree x
 append x (ParseTree b cs) = ParseTree b ((tree x) : cs)
 
 
