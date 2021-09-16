@@ -37,4 +37,4 @@ gST_generates_appopriate_tree_for_fish_factorial = testCase name assertion where
     assertion = assertEqual d a f
     d         = "Should generate an appropriate tree from only the information contained in the Token list from tokenizing the add_one function"
     a         = ParseTree (Data (Id "factorial")) [ParseTree (Data (Id "n")) [], ParseTree (Control Fin) [ParseTree (Operator Eq) [ParseTree (Data (Id "n")) [], ParseTree (Data (Int 0)) []], ParseTree (Data (Int 1)) []], ParseTree (Operator Mult) [ParseTree (Data (Id "n")) [ParseTree (Data (Id "factorial")) [ParseTree (Operator Sub) [ParseTree (Data (Id "n")) [], ParseTree (Data (Int 1)) []]]]]]
-    f         = generateParseTree $ L.tokenize "fish factorial >(n)> <(fin >(== <(n,0)<, 1)> <(* >(n, <(factorial >(<(- >(n,1)>)<)>)<)>)<)<"
+    f         = generateParseTree $ L.tokenize "fish factorial >(n)> <(fin >(== >(n,0)>, 1)> * >(n, <(factorial >(- >(n,1)>)>)<)>)<"
