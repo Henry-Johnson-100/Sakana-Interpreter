@@ -1,12 +1,9 @@
 module Token.Util.NestedCollapsible (
     NestPartition(..),
     NCCase(..),
-    unwrapPartition,
     isCompleteNestedCollapsible,
     hasNestedCollapsible,
-    takeNest,
-    takeDeepestNest,
-    partitionNests
+    hasDeeperNest
 ) where
 
 
@@ -26,10 +23,8 @@ data NCCase a = NCCase {
     endCase   :: (a -> Bool)
 }
 
-
-unwrapPartition :: NestPartition a -> [[a]]
-unwrapPartition part = [partFst part, partSnd part, partThd part]
-
+tnc = NCCase ('('==) (')'==)
+ts = "some (a,b) test (cd(ef(gh)))"
 
 isCompleteNestedCollapsible :: NCCase a -> [a] -> Bool
 isCompleteNestedCollapsible nCCase xs = isCompleteNestedCollapsible' nCCase 0 0 xs && ((beginCase nCCase) (head xs)) && ((endCase nCCase) (last xs))
@@ -104,14 +99,6 @@ takeNestFirstComplete nCCase xs
     | not (hasNestedCollapsible nCCase xs)  = []
     | nestedCollapsibleIsPrefixOf nCCase xs = takeNestFirstComplete' nCCase 0 xs
     | otherwise                             = takeNestFirstComplete nCCase (tail xs)
-takeNest :: NCCase a -> [a] -> [a]
-takeNest _ [] = []
-takeNest nCCase xs
-    | not (hasNC xs)                           = []
-    | isNCPrefixed xs && not (isCompleteNC xs) = takeNest' nCCase 0 xs
-    | isCompleteNC xs && not (hasNC (tail xs)) = xs
-    | isCompleteNC xs && hasNC (tail xs)       = takeNest nCCase (tail xs) --This line is causing bugs -> " test (fg,(hi(jk)))" returns (hi(jk)) instead of the entire first nest
-    | otherwise                                = takeNest nCCase (tail xs)
     where
         takeNestFirstComplete' :: NCCase a -> Int -> [a] -> [a]
         takeNestFirstComplete' _ _ [] = []
@@ -130,14 +117,6 @@ breakByNest nCCase xs = NestPartition first second third where
     third  = dropInfix (first ++ second) xs
 
 
-takeDeepestNest :: (Eq a) => NCCase a -> [a] -> [a]
-takeDeepestNest nCCase xs
-    | xs == nextNest = xs
-    | otherwise      = takeDeepestNest nCCase nextNest
-    where
-        nextNest = takeNest nCCase xs
-
-
 getMaxNestedCollapsibleDepth :: NCCase a -> [a] -> Int
 getMaxNestedCollapsibleDepth nCCase xs = minimum [fst depthTuple, snd depthTuple] where
     depthTuple = numberOfTerminations nCCase xs
@@ -151,25 +130,3 @@ numberOfTerminations ncCase xs = numberOfTerminations' ncCase 0 0 xs where
         | (beginCase nCCase') x = numberOfTerminations' nCCase' (begins + 1) ends       xs
         | (endCase nCCase')   x = numberOfTerminations' nCCase' begins       (ends + 1) xs
         | otherwise             = numberOfTerminations' nCCase' begins       ends       xs
-
-
-partitionNests :: (Eq a) => NCCase a -> [a] -> NestPartition a
-partitionNests _ [] = NestPartition [] [] []
-partitionNests nCCase xs = NestPartition (preNest xs) (nest xs) (postNest xs) where
-    --preNest :: [a] -> [a]
-    preNest [] = []
-    preNest xs'
-        | nestedCollapsibleIsPrefixOf nCCase xs' = []
-        | otherwise                          = (head xs') : (preNest (tail xs'))
-    --nest :: [a] -> [a]
-    nest xs' = takeNest nCCase (dropInfix (preNest xs') xs')
-    --postNest :: [a] -> [a]
-    postNest xs' = dropInfix ((preNest xs') ++ (nest xs')) xs'
-
-groupByNests :: (Eq a) => NCCase a -> [a] -> [[a]]
-groupByNests _ [] = [[]]
-groupByNests nCCase xs
-    | isCompleteNestedCollapsible nCCase xs || not (hasNestedCollapsible nCCase xs) = [xs]
-    | otherwise                                                                     = partFst part : partSnd part : (groupByNests nCCase (partThd part))
-    where
-        part = partitionNests nCCase xs
