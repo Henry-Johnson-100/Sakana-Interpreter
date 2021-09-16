@@ -68,7 +68,7 @@ takeNest nCCase xs
     | not (hasNC xs)                           = []
     | isNCPrefixed xs && not (isCompleteNC xs) = takeNest' nCCase 0 xs
     | isCompleteNC xs && not (hasNC (tail xs)) = xs
-    | isCompleteNC xs && hasNC (tail xs)       = takeNest nCCase (tail xs)
+    | isCompleteNC xs && hasNC (tail xs)       = takeNest nCCase (tail xs) --This line is causing bugs -> " test (fg,(hi(jk)))" returns (hi(jk)) instead of the entire first nest
     | otherwise                                = takeNest nCCase (tail xs)
     where
         hasNC xs' = hasNestedCollapsible nCCase xs'
@@ -118,3 +118,11 @@ partitionNests nCCase xs = NestPartition (preNest xs) (nest xs) (postNest xs) wh
     nest xs' = takeNest nCCase (dropInfix (preNest xs') xs')
     --postNest :: [a] -> [a]
     postNest xs' = dropInfix ((preNest xs') ++ (nest xs')) xs'
+
+groupByNests :: (Eq a) => NCCase a -> [a] -> [[a]]
+groupByNests _ [] = [[]]
+groupByNests nCCase xs
+    | isCompleteNestedCollapsible nCCase xs || not (hasNestedCollapsible nCCase xs) = [xs]
+    | otherwise                                                                     = partFst part : partSnd part : (groupByNests nCCase (partThd part))
+    where
+        part = partitionNests nCCase xs
