@@ -47,6 +47,11 @@ hasNestedCollapsible nCCase xs = all (0 < ) [fst terminations, snd terminations]
     terminations = numberOfTerminations nCCase xs
 
 
+hasDeeperNest :: NCCase a -> [a] -> Bool
+hasDeeperNest _ [] = False
+hasDeeperNest nCCase xs = hasNestedCollapsible nCCase (tail xs)
+
+
 nestedCollapsibleIsPrefixOf :: NCCase a -> [a] -> Bool
 nestedCollapsibleIsPrefixOf _ [] = False
 nestedCollapsibleIsPrefixOf nCCase xs
@@ -62,6 +67,43 @@ nestedCollapsibleIsPrefixOf nCCase xs
             | otherwise             = nestedCollapsibleIsPrefixOf' nCCase' ignoreTerminations xs
 
 
+dropWhileList :: ([a] -> Bool) -> [a] -> [a]
+dropWhileList _ [] = []
+dropWhileList f xs
+    | f xs = xs
+    | otherwise = dropWhileList f (tail xs)
+
+
+takeWhileList :: ([a] -> Bool) -> [a] -> [a]
+takeWhileList _ [] = []
+takeWhileList f (x:xs)
+    | f (x:xs) = []
+    | otherwise = x : (takeWhileList f xs)
+
+
+takeNestSameDepth :: (Eq a) => NCCase a -> [a] -> [a]
+takeNestSameDepth _ [] = []
+takeNestSameDepth nCCase xs
+    | not (hasNestedCollapsible nCCase xs)  = []
+    | nestedCollapsibleIsPrefixOf nCCase xs = takeNestSameDepth nCCase (dropInfix (takeNestFirstComplete nCCase xs) xs)
+    | otherwise                             = takeNestFirstComplete nCCase xs
+
+
+takeNestDeeper :: NCCase a -> [a] -> [a]
+takeNestDeeper _ [] = []
+takeNestDeeper nCCase xs
+    | not (hasNestedCollapsible nCCase xs)                             = []
+    | nestedCollapsibleIsPrefixOf nCCase xs && hasDeeperNest nCCase xs = takeNestFirstComplete nCCase (tail xs)
+    | otherwise                                                        = takeNestFirstComplete nCCase xs
+
+
+takeNestFirstComplete :: NCCase a -> [a] -> [a] --Whatever the very first complete nest encountered by this function is, it will return that one
+takeNestFirstComplete _ [] = []
+takeNestFirstComplete nCCase xs
+    | isCompleteNestedCollapsible nCCase xs = xs
+    | not (hasNestedCollapsible nCCase xs)  = []
+    | nestedCollapsibleIsPrefixOf nCCase xs = takeNestFirstComplete' nCCase 0 xs
+    | otherwise                             = takeNestFirstComplete nCCase (tail xs)
 takeNest :: NCCase a -> [a] -> [a]
 takeNest _ [] = []
 takeNest nCCase xs
@@ -71,16 +113,21 @@ takeNest nCCase xs
     | isCompleteNC xs && hasNC (tail xs)       = takeNest nCCase (tail xs) --This line is causing bugs -> " test (fg,(hi(jk)))" returns (hi(jk)) instead of the entire first nest
     | otherwise                                = takeNest nCCase (tail xs)
     where
-        hasNC xs' = hasNestedCollapsible nCCase xs'
-        isCompleteNC xs' = isCompleteNestedCollapsible nCCase xs'
-        isNCPrefixed xs' = nestedCollapsibleIsPrefixOf nCCase xs'
-        takeNest' :: NCCase a -> Int -> [a] -> [a]
-        takeNest' _ _ [] = []
-        takeNest' nCCase' terminations (x:xs)
-            | (beginCase nCCase') x = x : takeNest' nCCase' (terminations + 1) xs
+        takeNestFirstComplete' :: NCCase a -> Int -> [a] -> [a]
+        takeNestFirstComplete' _ _ [] = []
+        takeNestFirstComplete' nCCase' terminations (x:xs)
+            | (beginCase nCCase') x = x : takeNestFirstComplete' nCCase' (terminations + 1) xs
             | (endCase nCCase')   x = case (terminations - 1) <= 0 of True  -> [x] -- <= here is weird and I'm not sure about it
-                                                                      False -> x : takeNest' nCCase' (terminations - 1) xs
-            | otherwise             = x : takeNest' nCCase' terminations xs
+                                                                      False -> x : takeNestFirstComplete' nCCase' (terminations - 1) xs
+            | otherwise             = x : takeNestFirstComplete' nCCase' terminations xs
+
+
+breakByNest :: (Eq a) => NCCase a -> [a] -> NestPartition a --bBN law => partFst ++ partSnd ++ partThd == xs ALWAYS
+breakByNest _ [] = NestPartition [] [] []
+breakByNest nCCase xs = NestPartition first second third where
+    first  = takeWhileList (\xs' -> nestedCollapsibleIsPrefixOf nCCase xs') xs
+    second = takeNestFirstComplete nCCase xs
+    third  = dropInfix (first ++ second) xs
 
 
 takeDeepestNest :: (Eq a) => NCCase a -> [a] -> [a]
