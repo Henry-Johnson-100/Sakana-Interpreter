@@ -95,16 +95,19 @@ part_one = testCase name assertion where
     name      = "partition law test"
     assertion = assertEqual d a f
     d         = "partition law states that the three parts of the partition should always be equal to the original list"
+    a         = True
     f         = nestPartitionLaw testTerminals "some (a,b) test (gh,g(fghng)) (gjhf)"
 
 part_two = testCase name assertion where
     name      = "partition law test"
     assertion = assertEqual d a f
     d         = "partition law states that the three parts of the partition should always be equal to the original list"
+    a         = True
     f         = nestPartitionLaw testTerminals "(some (a,bgd) hjf(dkfgk)) fhjkd (fhjkfg)"
 
 part_three = testCase name assertion where
     name      = "partition law test"
     assertion = assertEqual d a f
     d         = "partition law states that the three parts of the partition should always be equal to the original list"
+    a         = True
     f         = nestPartitionLaw testTerminals "(fhjfksds  (fgjksd (fgjsk (gjrt( jsd)))))"
