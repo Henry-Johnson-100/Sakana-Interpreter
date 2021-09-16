@@ -11,12 +11,16 @@ testTerminals = NCCase ('('==) (')'==)
 
 standardTimeout timeS= localOption (Timeout (timeS * 1000000) (concat [show timeS, "s"]))
 
+nestPartitionLaw :: NCCase a -> [a] -> Bool
+nestPartitionLaw nc xs = ((partFst part) ++ (partSnd part) ++ (partThd part)) == xs where
+    part = breakByNest nc xs
+
 tests = testGroup "Token.Util.NestedCollapsible Tests" testList where
     testList =
         [
             iCNC_tests,
             hNC_tests,
-            tN_tests
+            partition_tests
         ]
 
 -- | isCompleteNestedCollapsible Tests as iCNC
@@ -79,3 +83,28 @@ hNC_returns_true_for_list_with_one_complete_and_one_incomplete_NC = standardTime
     a         = True        
     f         = hasNestedCollapsible testTerminals "def some_func(a, (bc):"
 
+partition_tests = testGroup "breakByNest tests" testList where
+    testList =
+        [
+            part_one,
+            part_two,
+            part_three
+        ]
+
+part_one = testCase name assertion where
+    name      = "partition law test"
+    assertion = assertEqual d a f
+    d         = "partition law states that the three parts of the partition should always be equal to the original list"
+    f         = nestPartitionLaw testTerminals "some (a,b) test (gh,g(fghng)) (gjhf)"
+
+part_two = testCase name assertion where
+    name      = "partition law test"
+    assertion = assertEqual d a f
+    d         = "partition law states that the three parts of the partition should always be equal to the original list"
+    f         = nestPartitionLaw testTerminals "(some (a,bgd) hjf(dkfgk)) fhjkd (fhjkfg)"
+
+part_three = testCase name assertion where
+    name      = "partition law test"
+    assertion = assertEqual d a f
+    d         = "partition law states that the three parts of the partition should always be equal to the original list"
+    f         = nestPartitionLaw testTerminals "(fhjfksds  (fgjksd (fgjsk (gjrt( jsd)))))"
