@@ -33,3 +33,11 @@ tree x = ParseTree x []
 append :: a -> ParseTree a -> ParseTree a
 append x Empty = tree x
 append x (ParseTree b cs) = ParseTree b ((tree x) : cs)
+
+
+fPrintTree :: (Show a) => Int -> ParseTree a -> String
+fPrintTree d (ParseTree b cs) = (concat (replicate ((d * 4) - 1) "-")) ++ ">" ++ show b ++ "\n" ++ (concat (map (\c -> fPrintTree (d + 1) c) cs))
+
+
+ioPrintTree :: (Show a) => ParseTree a -> IO ()
+ioPrintTree t = putStrLn $ fPrintTree 0 t
