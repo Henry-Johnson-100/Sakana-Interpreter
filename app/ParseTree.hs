@@ -1,6 +1,6 @@
 module ParseTree(
 ParseTree(..),
-generateParseTree
+-- generateParseTree
 ) where
 
 import Lexer
@@ -18,8 +18,72 @@ data ParseTree a = Empty | ParseTree {
 } deriving (Show, Read, Eq)
 
 
+data StratifiedParseTree a = StratEmpty | StratifiedParseTree {
+    stratBody :: a,
+    strata :: Int,
+    stratChildren :: [StratifiedParseTree a]
+} deriving (Show, Read, Eq)
+
+
+type DepthZippedTokens = [(Token, Int)]
+
+
+generateDZTFromTokens :: [Token] -> DepthZippedTokens
+generateDZTFromTokens [] = []
+generateDZTFromTokens ts = generateDZTFromTokens' ts 0 where
+    generateDZTFromTokens' :: [Token] -> Int -> DepthZippedTokens
+    generateDZTFromTokens' [] _ = []
+    generateDZTFromTokens' (x:xs) d
+        | x `like` (Keyword Fish) && x /= (Keyword Hook)             = (x, d)       : generateDZTFromTokens' xs (d + 1)
+        | any (x == ) [Bracket (Send Open), Bracket (Return Open)]   = (x, (d + 1)) : generateDZTFromTokens' xs (d + 1)
+        | any (x == ) [Bracket (Send Close), Bracket (Return Close)] = (x, d)       : generateDZTFromTokens' xs (d - 1)
+        | otherwise                                                  = (x,d)        : generateDZTFromTokens' xs d
+
+
+unzipDZT :: DepthZippedTokens -> [Token]
+unzipDZT dzt = map fst dzt
+
+
+class TreeIO r where
+    fPrintTree  :: (Show a) => Int -> r a -> String
+    ioPrintTree :: (Show a) => r a -> IO ()
+
+
+instance TreeIO ParseTree where
+    fPrintTree d (ParseTree b cs) = (concat (replicate ((d * 4) - 1) "-")) ++ ">" ++ show b ++ "\n" ++ (concat (map (\c -> fPrintTree (d + 1) c) cs))
+    ioPrintTree t = putStrLn $ fPrintTree 0 t
+
+
+instance TreeIO StratifiedParseTree where
+    fPrintTree d (StratifiedParseTree b depth cs) = (concat (replicate ((d * 4) - 1) "-")) ++ ">" ++ show b ++ "    " ++ show depth ++ "\n" ++ (concat (map (\c -> fPrintTree (d + 1) c) cs))
+    ioPrintTree t = putStrLn $ fPrintTree 0 t
+
+
 instance Functor ParseTree where
     fmap f (ParseTree b cs) = ParseTree (f b) (map (\c -> fmap f c) cs)
+
+
+instance Functor StratifiedParseTree where
+    fmap f (StratifiedParseTree b d cs) = StratifiedParseTree (f b) d (map (\c -> fmap f c) cs)
+
+
+deStratifyTree :: StratifiedParseTree a -> ParseTree a
+deStratifyTree StratEmpty = Empty
+deStratifyTree (StratifiedParseTree b d cs) = ParseTree b (map deStratifyTree cs)
+
+
+stratifyTree :: ParseTree a -> StratifiedParseTree a
+stratifyTree pt = stratifyTree' pt 0 where
+    stratifyTree' :: ParseTree a -> Int -> StratifiedParseTree a
+    stratifyTree' Empty _ = StratEmpty
+    stratifyTree' (ParseTree b cs) d = StratifiedParseTree b (d) (map (\t -> stratifyTree' t (d + 1)) cs)
+
+
+getStrataList :: StratifiedParseTree a -> Int -> [StratifiedParseTree a]
+getStrataList StratEmpty _ = []
+getStrataList spt toDepth
+    | toDepth == (strata spt) = spt : concat (map (\c -> getStrataList c toDepth) (stratChildren spt))
+    | otherwise               = concat $ map (\c -> getStrataList c toDepth) (stratChildren spt)
 
 
 -- sendBracketNC   = NCCase ((Bracket (Send Open)) ==) ((Bracket (Send Close)) ==)
@@ -49,22 +113,22 @@ extendChildren :: ParseTree a -> [ParseTree a] -> ParseTree a
 extendChildren (ParseTree b cs) pts = ParseTree b (cs ++ pts)
 
 
-fPrintTree :: (Show a) => Int -> ParseTree a -> String
-fPrintTree d (ParseTree b cs) = (concat (replicate ((d * 4) - 1) "-")) ++ ">" ++ show b ++ "\n" ++ (concat (map (\c -> fPrintTree (d + 1) c) cs))
+-- fPrintTree :: (Show a) => Int -> ParseTree a -> String
+-- fPrintTree d (ParseTree b cs) = (concat (replicate ((d * 4) - 1) "-")) ++ ">" ++ show b ++ "\n" ++ (concat (map (\c -> fPrintTree (d + 1) c) cs))
 
 
-ioPrintTree :: (Show a) => ParseTree a -> IO ()
-ioPrintTree t = putStrLn $ fPrintTree 0 t
+-- ioPrintTree :: (Show a) => ParseTree a -> IO ()
+-- ioPrintTree t = putStrLn $ fPrintTree 0 t
 
 
-generateParseTree :: [Token] -> ParseTree Token
-generateParseTree [] = Empty
-generateParseTree ts = generateParseTree' Empty ts where
-    generateParseTree' :: ParseTree Token -> [Token] -> ParseTree Token
-    generateParseTree' pt [] = pt
-    generateParseTree' Empty (t:ts) = generateParseTree' (tree t) ts
-    generateParseTree' pt ts
-        | isBracketPrefixed ts = generateParseTree' (extendChildren pt ()) (partThd (part ts))
-        where
-            isBracketPrefixed ts' = nestedCollapsibleIsPrefixOf bracketNC ts'
-            part ts' = breakByNest bracketNC ts'
+-- generateParseTree :: [Token] -> ParseTree Token
+-- generateParseTree [] = Empty
+-- generateParseTree ts = generateParseTree' Empty ts where
+--     generateParseTree' :: ParseTree Token -> [Token] -> ParseTree Token
+--     generateParseTree' pt [] = pt
+--     generateParseTree' Empty (t:ts) = generateParseTree' (tree t) ts
+--     generateParseTree' pt ts
+--         | isBracketPrefixed ts = generateParseTree' (extendChildren pt ()) (partThd (part ts))
+--         where
+--             isBracketPrefixed ts' = nestedCollapsibleIsPrefixOf bracketNC ts'
+--             part ts' = breakByNest bracketNC ts'
