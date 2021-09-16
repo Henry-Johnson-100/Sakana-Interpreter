@@ -1,5 +1,6 @@
 module ParseTree(
 ParseTree(..),
+generateParseTree
 ) where
 
 import Lexer
@@ -41,3 +42,7 @@ fPrintTree d (ParseTree b cs) = (concat (replicate ((d * 4) - 1) "-")) ++ ">" ++
 
 ioPrintTree :: (Show a) => ParseTree a -> IO ()
 ioPrintTree t = putStrLn $ fPrintTree 0 t
+
+
+generateParseTree :: [Token] -> ParseTree Token
+generateParseTree ts = Empty
