@@ -118,6 +118,16 @@ extendChildren :: ParseTree a -> [ParseTree a] -> ParseTree a
 extendChildren (ParseTree b cs) pts = ParseTree b (cs ++ pts)
 
 
+-- generateStratifiedParseTree :: [DepthZippedToken] -> StratifiedParseTree Token
+-- generateStratifiedParseTree dzt = generateStratifiedParseTree' dzt 0 StratEmpty where
+--     generateStratifiedParseTree' :: [DepthZippedToken] -> Int -> StratifiedParseTree Token -> StratifiedParseTree Token
+--     generateStratifiedParseTree' [] _ spt = spt
+--     generateStratifiedParseTree' (x:xs) depth StratEmpty = generateStratifiedParseTree' xs 1 (StratifiedParseTree (fst x) depth [])
+--     generateStratifiedParseTree' (x:xs) depth spt
+--         | (snd x) > depth  = appendChild spt (generateStratifiedParseTree' (x:xs) (depth + 1) StratEmpty)
+--         | (snd x) == depth = 
+
+
 -- fPrintTree :: (Show a) => Int -> ParseTree a -> String
 -- fPrintTree d (ParseTree b cs) = (concat (replicate ((d * 4) - 1) "-")) ++ ">" ++ show b ++ "\n" ++ (concat (map (\c -> fPrintTree (d + 1) c) cs))
 
