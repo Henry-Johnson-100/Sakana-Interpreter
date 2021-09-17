@@ -135,21 +135,13 @@ extendChildren (ParseTree b cs) pts = ParseTree b (cs ++ pts)
 -- ioPrintTree :: (Show a) => ParseTree a -> IO ()
 -- ioPrintTree t = putStrLn $ fPrintTree 0 t
 
+-- | Generates a ParseTree from a function
+generateParseTreeFromTopLevelBlock :: [Token] -> ParseTree Token
+generateParseTreeFromTopLevelBlock [] = Empty
+generateParseTreeFromTopLevelBlock ts = ParseTree (head ts) (generateTokenParseTreeChildren (tail ts))
 
-generateParseTree :: [Token] -> ParseTree Token
-generateParseTree [] = Empty
-generateParseTree ts = generateParseTree' ts Empty where
-    generateParseTree' :: [Token] -> ParseTree Token -> ParseTree Token
-    generateParseTree' [] pt = pt
-    generateParseTree' (t:ts) Empty = generateParseTree' ts (ParseTree t []) --This line could cause some Issues I think
-    generateParseTree' (t:ts) pt
-        -- | isSuperordinating t = pt
-        -- | isSubordinating   t = appendChild pt (generateParseTree' (getNestedCollapsibleContents bracketNCCase (takeNestFirstComplete bracketNCCase (t:ts))) Empty)
-        | otherwise           = extendChildren pt (map (\x -> ParseTree x []) (takeWhile (\x' -> not (endCase bracketNCCase x')) (t:ts)))
-        where
-            isSuperordinating :: Token -> Bool
-            isSuperordinating t' = endCase bracketNCCase t'
-            isSubordinating :: Token -> Bool
-            isSubordinating t' = (t' `like` Keyword Fish && t' /= Keyword Hook) || beginCase bracketNCCase t'
-            bracketNCCase :: NCCase Token
-            bracketNCCase = NCCase (\x -> elem x [Bracket (Send Open), Bracket (Return Open)]) (\x -> elem x [Bracket (Send Close), Bracket (Return Close)])
+generateTokenParseTreeChildren :: [Token] -> [ParseTree Token]
+generateTokenParseTreeChildren [] = []
+generateTokenParseTreeChildren (t:ts)
+    | nestedCollapsibleIsPrefixOf bracketNC ts = (ParseTree t (generateTokenParseTreeChildren (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC ts)))) : generateTokenParseTreeChildren (partThd (breakByNest bracketNC (t:ts)))
+    | otherwise                                = (ParseTree t []) : generateTokenParseTreeChildren ts
