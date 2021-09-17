@@ -1,5 +1,7 @@
 module ParseTree(
 ParseTree(..),
+TreeIO(..),
+generateParseTreeFromTopLevelBlock
 ) where
 
 import Lexer
