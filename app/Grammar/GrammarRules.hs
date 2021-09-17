@@ -13,7 +13,8 @@ data BracketRule = BracketRule {
     brType     :: Bracket,
     isRequired :: Bool,
     numSets    :: Int,
-    ncCase     :: NCCase Token
+    ncCase     :: NCCase Token,
+    argSets    :: Int
 }
 
 
@@ -22,34 +23,44 @@ instance Show BracketRule where
 
 
 instance Eq BracketRule where
-    (==) (BracketRule brtypex isRx numSetsx _) (BracketRule brtypey isRy numSety _) = brtypex == brtypey && isRx == isRy && numSetsx == numSety
+    (==) (BracketRule brtypex isRx numSetsx _ argSetsx) (BracketRule brtypey isRy numSety _ argSetsy) = brtypex == brtypey && isRx == isRy && numSetsx == numSety && argSetsx == argSetsy
     (/=) brx                                   bry                                  = not (brx == bry)
 
 
 generalOpenBRRule :: BracketRule
 generalOpenBRRule = BracketRule {
-        brType = Send Open,
+        brType     = Send Open,
         isRequired = False,
         numSets    = 1,
-        ncCase     = NCCase ((Bracket (Send Open)) == ) ((Bracket (Send Close)) == )
+        ncCase     = NCCase ((Bracket (Send Open)) == ) ((Bracket (Send Close)) == ),
+        argSets    = -1
     }
 
 
 generalCloseBRRule :: BracketRule
 generalCloseBRRule = BracketRule {
-        brType = Return Open,
+        brType     = Return Open,
         isRequired = True,
-        numSets = 1,
-        ncCase = NCCase ((Bracket (Return Open)) == ) ((Bracket (Return Close)) == )
+        numSets    = 1,
+        ncCase     = NCCase ((Bracket (Return Open)) == ) ((Bracket (Return Close)) == ),
+        argSets    = -1
     }
 
 
 flipIsRequired :: BracketRule -> BracketRule
-flipIsRequired br = BracketRule (brType br) (not (isRequired br)) (numSets br) (ncCase br)
+flipIsRequired br = br {isRequired = not (isRequired br)}
 
 
 setNumSets :: BracketRule -> Int -> BracketRule
-setNumSets br n = BracketRule (brType br) (isRequired br) (n) (ncCase br)
+setNumSets br n = br {numSets = n}
+
+
+setArgSets :: BracketRule -> Int -> BracketRule
+setArgSets br n = br {argSets = n}
+
+
+argsRequired :: BracketRule -> Bool
+argsRequired br = (argSets br) >= 0
 
 
 data GrammarRule = NoGR | GrammarRule {
