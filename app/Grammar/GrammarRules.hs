@@ -7,6 +7,7 @@ import Lexer
 import Token.Bracket
 import Token.Keyword 
 import Token.Control
+import Token.Data
 import Token.Util.NestedCollapsible
 
 
@@ -91,24 +92,24 @@ grammarRuleRequiredGroupLength gr = 1 + (length (sendRules gr)) + (length (retur
 
 isValidGroupBracketGrammar :: BracketRule -> [Token] -> Bool
 isValidGroupBracketGrammar br ts
-    | not isCompleteNestedCollapsible (ncCase br) ts = False
-    | argsRequired br && (argSets br) == 0           = null (getNestedCollapsibleContents (ncCase br))
+    | not (isCompleteNestedCollapsible (ncCase br) ts) = False
+    | argsRequired br && (argSets br) == 0           = null (getNestedCollapsibleContents (ncCase br) ts)
     | argsRequired br                                = completeArgumentSet (getNestedCollapsibleContents (ncCase br) ts) ((argSets br) - 1)
     | otherwise                                      = True
     where 
+        break' = break ((Data (Punct ",")) ==) ts
+        first  = fst break'
+        second = snd break'
         completeArgumentSet :: [Token] -> Int -> Bool
         completeArgumentSet ts 0 = not (null ts) && null second --Too many arguments if False
         completeArgumentSet ts commasRemaining
             | null ts     = False --Not enough arguments
             | null first  = False
             | otherwise = completeArgumentSet (tail second) (commasRemaining - 1)
-            where 
-                break' = break ((Data (Punct ",")) ==) ts
-                first  = head break'
-                second = tail break'
+
 
 isValidGroupedTokenGrammar :: GrammarRule -> [[Token]] -> Bool
 isValidGroupedTokenGrammar gr tts
     | grammarRuleRequiredGroupLength gr /= length tts             = False
     | length (head tts) /= (1 + (if idRequired gr then 1 else 0)) = False
-    | otherwise                                                   = all (map (\index -> isValidGroupBracketGrammar (((sendRules gr) ++ (returnRules gr)) !! index) (tts !! index)) [1..(length tts)])
+    | otherwise                                                   = all (\any -> any) (map (\index -> isValidGroupBracketGrammar (((sendRules gr) ++ (returnRules gr)) !! index) (tts !! index)) [1..(length tts)])
