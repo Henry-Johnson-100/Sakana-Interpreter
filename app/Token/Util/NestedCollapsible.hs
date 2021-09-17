@@ -11,7 +11,8 @@ module Token.Util.NestedCollapsible (
     takeNestSameDepth,
     takeNestDeeper,
     takeNestFirstComplete,
-    breakByNest
+    breakByNest,
+    getNestedCollapsibleContents
 ) where
 
 
@@ -119,6 +120,13 @@ takeNestFirstComplete nCCase xs
             | (endCase nCCase')   x = case (terminations - 1) <= 0 of True  -> [x] -- <= here is weird and I'm not sure about it
                                                                       False -> x : takeNestFirstComplete' nCCase' (terminations - 1) xs
             | otherwise             = x : takeNestFirstComplete' nCCase' terminations xs
+
+
+getNestedCollapsibleContents :: NCCase a -> [a] -> [a]
+getNestedCollapsibleContents _ [] = []
+getNestedCollapsibleContents nc xs
+    | isCompleteNestedCollapsible nc xs = tail $ init xs
+    | otherwise = xs
 
 
 breakByNest :: (Eq a) => NCCase a -> [a] -> NestPartition a --bBN law => partFst ++ partSnd ++ partThd == xs ALWAYS

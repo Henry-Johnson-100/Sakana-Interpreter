@@ -136,14 +136,20 @@ extendChildren (ParseTree b cs) pts = ParseTree b (cs ++ pts)
 -- ioPrintTree t = putStrLn $ fPrintTree 0 t
 
 
--- generateParseTree :: [Token] -> ParseTree Token
--- generateParseTree [] = Empty
--- generateParseTree ts = generateParseTree' Empty ts where
---     generateParseTree' :: ParseTree Token -> [Token] -> ParseTree Token
---     generateParseTree' pt [] = pt
---     generateParseTree' Empty (t:ts) = generateParseTree' (tree t) ts
---     generateParseTree' pt ts
---         | isBracketPrefixed ts = generateParseTree' (extendChildren pt ()) (partThd (part ts))
---         where
---             isBracketPrefixed ts' = nestedCollapsibleIsPrefixOf bracketNC ts'
---             part ts' = breakByNest bracketNC ts'
+generateParseTree :: [Token] -> ParseTree Token
+generateParseTree [] = Empty
+generateParseTree ts = generateParseTree' ts Empty where
+    generateParseTree' :: [Token] -> ParseTree Token -> ParseTree Token
+    generateParseTree' [] pt = pt
+    generateParseTree' (t:ts) Empty = generateParseTree' ts (ParseTree t []) --This line could cause some Issues I think
+    generateParseTree' (t:ts) pt
+        -- | isSuperordinating t = pt
+        -- | isSubordinating   t = appendChild pt (generateParseTree' (getNestedCollapsibleContents bracketNCCase (takeNestFirstComplete bracketNCCase (t:ts))) Empty)
+        | otherwise           = extendChildren pt (map (\x -> ParseTree x []) (takeWhile (\x' -> not (endCase bracketNCCase x')) (t:ts)))
+        where
+            isSuperordinating :: Token -> Bool
+            isSuperordinating t' = endCase bracketNCCase t'
+            isSubordinating :: Token -> Bool
+            isSubordinating t' = (t' `like` Keyword Fish && t' /= Keyword Hook) || beginCase bracketNCCase t'
+            bracketNCCase :: NCCase Token
+            bracketNCCase = NCCase (\x -> elem x [Bracket (Send Open), Bracket (Return Open)]) (\x -> elem x [Bracket (Send Close), Bracket (Return Close)])
