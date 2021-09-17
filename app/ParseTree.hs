@@ -120,5 +120,14 @@ generateParseTreeFromTopLevelBlock ts = ParseTree (head ts) (generateTokenParseT
 generateTokenParseTreeChildren :: [Token] -> [ParseTree Token]
 generateTokenParseTreeChildren [] = []
 generateTokenParseTreeChildren (t:ts)
-    | nestedCollapsibleIsPrefixOf bracketNC ts = (ParseTree t (generateTokenParseTreeChildren (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC ts)))) : generateTokenParseTreeChildren (partThd (breakByNest bracketNC (t:ts)))
-    | otherwise                                = (ParseTree t []) : generateTokenParseTreeChildren ts
+    | nestedCollapsibleIsPrefixOf bracketNC ts       = (ParseTree t (generateTokenParseTreeChildren (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC ts)))) : generateTokenParseTreeChildren (partThd (part))
+    | t `like` (Keyword Fish) && t /= (Keyword Hook) = (ParseTree t (generateTokenParseTreeChildren ts)) : generateTokenParseTreeChildren (dropInfix (partFst part) (t:ts))
+    | ignoreForParseTree t                           = generateTokenParseTreeChildren ts
+    | otherwise                                      = (ParseTree t []) : generateTokenParseTreeChildren ts
+    where
+        ignoreForParseTree :: Token -> Bool
+        ignoreForParseTree t
+            | t `like` (Bracket (Send Open)) = True
+            | t == (Data (Punct ","))        = True
+            | otherwise                      = False
+        part = breakByNest bracketNC (t:ts)
