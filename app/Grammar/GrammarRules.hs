@@ -1,6 +1,7 @@
 module Grammar.GrammarRules (
 GrammarRule(..),
-rule
+rule,
+isValidGroupedTokenGrammar
 ) where
 
 import Lexer

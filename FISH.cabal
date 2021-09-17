@@ -163,6 +163,7 @@ test-suite Grammar_GrammarRules
     other-modules:
         Grammar.GrammarRules,
         Lexer,
+        ParseTree,
         Token.Bracket,
         Token.Control,
         Token.Data,
