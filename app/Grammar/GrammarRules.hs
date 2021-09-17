@@ -111,4 +111,4 @@ isValidGroupedTokenGrammar :: GrammarRule -> [[Token]] -> Bool
 isValidGroupedTokenGrammar gr tts
     | grammarRuleRequiredGroupLength gr /= length tts             = False
     | length (head tts) /= (1 + (if idRequired gr then 1 else 0)) = False
-    | 
+    | otherwise                                                   = all (map (\index -> isValidGroupBracketGrammar (((sendRules gr) ++ (returnRules gr)) !! index) (tts !! index)) [1..(length tts)])
