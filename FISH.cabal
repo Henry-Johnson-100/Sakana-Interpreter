@@ -36,6 +36,7 @@ executable FISH
       , tasty >= 0.7 && < 1.4.1
       , tasty-hunit ^>=0.10.0.3
     hs-source-dirs:   app
+                      app/Grammar
                       app/Token
                       app/Token/Util
                       Test
