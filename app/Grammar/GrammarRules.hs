@@ -65,6 +65,7 @@ data GrammarRule = NoGR | GrammarRule {
 
 
 instance Show GrammarRule where
+    show NoGR = "NoGR"
     show gr = unwords $ ["Type:", show  (grType gr), "\n\nsend Rule:"] ++ map show (sendRules gr) ++ ["\n\nreturn Rule:"] ++ map show (returnRules gr)
 
 
