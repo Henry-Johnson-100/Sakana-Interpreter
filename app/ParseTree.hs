@@ -1,6 +1,5 @@
 module ParseTree(
 ParseTree(..),
--- generateParseTree
 ) where
 
 import Lexer
@@ -91,9 +90,7 @@ getStrataList spt toDepth
     | otherwise               = concat $ map (\c -> getStrataList c toDepth) (stratChildren spt)
 
 
--- sendBracketNC   = NCCase ((Bracket (Send Open)) ==) ((Bracket (Send Close)) ==)
 bracketNC = NCCase (\x -> any (x ==) [Bracket (Send Open), Bracket (Return Open)]) (\x -> any (x ==) [Bracket (Send Close), Bracket (Return Close)])
--- returnBracketNC = NCCase ((Bracket (Return Open)) ==) ((Bracket (Return Close)) ==)
 
 
 nullTree :: ParseTree a -> Bool
@@ -105,11 +102,6 @@ tree :: a -> ParseTree a
 tree x = ParseTree x []
 
 
--- append :: a -> ParseTree a -> ParseTree a
--- append x Empty            = tree x
--- append x (ParseTree b cs) = ParseTree b ((tree x) : cs)
-
-
 appendChild :: ParseTree a -> ParseTree a -> ParseTree a
 appendChild (ParseTree b cs) pt = ParseTree b (cs ++ [pt])
 
@@ -117,23 +109,6 @@ appendChild (ParseTree b cs) pt = ParseTree b (cs ++ [pt])
 extendChildren :: ParseTree a -> [ParseTree a] -> ParseTree a
 extendChildren (ParseTree b cs) pts = ParseTree b (cs ++ pts)
 
-
--- generateStratifiedParseTree :: [DepthZippedToken] -> StratifiedParseTree Token
--- generateStratifiedParseTree dzt = generateStratifiedParseTree' dzt 0 StratEmpty where
---     generateStratifiedParseTree' :: [DepthZippedToken] -> Int -> StratifiedParseTree Token -> StratifiedParseTree Token
---     generateStratifiedParseTree' [] _ spt = spt
---     generateStratifiedParseTree' (x:xs) depth StratEmpty = generateStratifiedParseTree' xs 1 (StratifiedParseTree (fst x) depth [])
---     generateStratifiedParseTree' (x:xs) depth spt
---         | (snd x) > depth  = appendChild spt (generateStratifiedParseTree' (x:xs) (depth + 1) StratEmpty)
---         | (snd x) == depth = 
-
-
--- fPrintTree :: (Show a) => Int -> ParseTree a -> String
--- fPrintTree d (ParseTree b cs) = (concat (replicate ((d * 4) - 1) "-")) ++ ">" ++ show b ++ "\n" ++ (concat (map (\c -> fPrintTree (d + 1) c) cs))
-
-
--- ioPrintTree :: (Show a) => ParseTree a -> IO ()
--- ioPrintTree t = putStrLn $ fPrintTree 0 t
 
 -- | Generates a ParseTree from a function
 generateParseTreeFromTopLevelBlock :: [Token] -> ParseTree Token
