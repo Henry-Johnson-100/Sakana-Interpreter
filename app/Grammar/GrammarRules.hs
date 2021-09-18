@@ -10,6 +10,7 @@ import Token.Keyword
 import Token.Control
 import Token.Data
 import Token.Util.NestedCollapsible
+import Exception.GrammarException
 
 
 data BracketRule = BracketRule {
