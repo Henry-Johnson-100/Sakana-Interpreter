@@ -196,10 +196,14 @@ wordsPreserveStringSpacing strs (s:str)
 
 --tokenize :: String -> [TokenInLine]
 tokenize strs = do
-    zippedRawCodeAndLines <- zip ([1..((length linesStrs) + 1)]) (linesStrs) 
-    rawCodeAndLines <- map (\(ln, s) -> (ln, addSpaces s)) (return zippedRawCodeAndLines)
-    wordsAndLines <- map (\(ln,s) -> (ln, wordsPreserveStringSpacing [] s)) (return rawCodeAndLines)
-    tokensAndLines <- map (\(ln,s) -> (ln, map readToken s)) (return wordsAndLines)
-    return tokensAndLines
+    zippedRawCodeAndLines <- zip ([1..((length linesStrs) + 1)])                    (linesStrs) 
+    rawCodeAndLines       <- map (\(ln,s) -> (ln, addSpaces s))                     (return zippedRawCodeAndLines)
+    wordsAndLines         <- map (\(ln,s) -> (ln, wordsPreserveStringSpacing [] s)) (return rawCodeAndLines)
+    tokensAndLines        <- map (\(ln,s) -> (ln, map readToken s))                 (return wordsAndLines)
+    tokenInLines2d        <- map (\(ln,ts) -> (map (\t -> TokenInLine t ln) ts))    (return tokensAndLines)
+    tokenInLines          <- concat (return tokenInLines2d :: [[TokenInLine]])
+    return tokenInLines
     where 
         linesStrs = lines strs
+        mapPreserveLn :: (b -> c) -> [(a,b)] -> [(a,c)]
+        mapPreserveLn f xs = map (\(first,second) -> (first, f second)) xs
