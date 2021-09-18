@@ -1,6 +1,6 @@
 module Lexer (
     Token(..),
-    tokenize,
+    --tokenize,
     fromToken
 ) where
 
@@ -104,17 +104,17 @@ tokenisStringPrefix (Data (D.String a)) = ((isPrefixOf "\"" a) && (not $ isSuffi
 tokenisStringPrefix _                   = False
 
 
-tokenisStringSuffix :: TokenPacket -> Bool
+tokenisStringSuffix :: Token -> Bool
 tokenisStringSuffix (Data (D.String a)) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
 tokenisStringSuffix _          = False
 
 
-tokenisCommentPrefix :: TokenPacket -> Bool
+tokenisCommentPrefix :: Token -> Bool
 tokenisCommentPrefix (Data (D.Comment a)) = isPrefixOf "/*" a
 tokenisCommentPrefix _         = False
 
 
-tokenisCommentSuffix :: TokenPacket -> Bool
+tokenisCommentSuffix :: Token -> Bool
 tokenisCommentSuffix (Data (D.Comment a)) = isSuffixOf "*/" a
 tokenisCommentSuffix _         = False
 
