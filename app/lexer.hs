@@ -1,11 +1,7 @@
 module Lexer (
     Token(..),
     tokenize,
-    like,
-    fromToken,
-    filterLike,
-    filterNotLike,
-    baseBracket
+    fromToken
 ) where
 
 import Data.List
@@ -14,23 +10,18 @@ import Token.Util.Like
 import Token.Util.String
 import Token.Util.EagerCollapsible
 import Token.Util.NestedCollapsible
-import qualified Token.Bracket    as B
-import qualified Token.Control    as C
-import qualified Token.Data       as D
-import qualified Token.Keyword    as K
-import qualified Token.Operator   as O
+import Token.Bracket    as B
+import Token.Control    as C
+import Token.Data       as D
+import Token.Keyword    as K
+import Token.Operator   as O
 
-data Token = Bracket B.Bracket | Control C.Control | Data D.Data | Keyword K.Keyword | Operator O.Operator deriving (Show,Read,Eq)
+data Token = Bracket Bracket | Control Control | Data Data | Keyword Keyword | Operator Operator deriving (Show,Read,Eq)
 
-data TokenInLine = TokenInLine {
+data TokenPacket = TokenPacket {
     token :: Token,
     line  :: Int
 } deriving (Show,Read,Eq)
-
-
-instance Like TokenInLine where
-    like x y = (token x) `like` (token y)
-    notLike x y = not $ like x y
 
 
 instance Like Token where
@@ -43,32 +34,18 @@ instance Like Token where
     notLike a              b            = not $ like a b
 
 
-baseBracket :: Token -> B.Bracket
-baseBracket (Bracket b) = b
+instance Like TokenPacket where
+    like x y = (token x) `like` (token y)
+    notLike x y = not $ like x y
 
-baseControl :: Token -> C.Control
-baseControl (Lexer.Control c) = c
 
-baseData :: Token -> D.Data
-baseData (Data d) = d
+baseData :: TokenPacket -> Data
+baseData TokenPacket{token = (Data d)} = d
 
-baseDataString :: Token -> String
-baseDataString d = D.fromData $ baseData d
 
-tokenFromData :: D.Data -> Token
-tokenFromData d = Data d
+baseDataString :: TokenPacket -> String
+baseDataString tp = D.fromData $ baseData tp
 
-baseKeyword :: Token -> K.Keyword
-baseKeyword (Keyword k) = k
-
-baseOperator :: Token -> O.Operator
-baseOperator (Operator o) = o
-
-filterLike :: Token -> [Token] -> [Token]
-filterLike t ts = filter (\x -> x `like` t) ts
-
-filterNotLike :: Token -> [Token] -> [Token]
-filterNotLike t ts = filter (\x -> x `notLike` t) ts
 
 fromToken :: Token -> String
 fromToken (Bracket bracket)       = B.fromBracket bracket
@@ -76,6 +53,11 @@ fromToken (Lexer.Control control) = C.fromControl control
 fromToken (Data d)                = D.fromData    d
 fromToken (Keyword keyword)       = K.fromKeyword keyword
 fromToken (Operator operator)     = O.fromOp      operator
+
+
+fromTokenPacket :: TokenPacket -> String
+fromTokenPacket tp = fromToken $ token tp
+
 
 readToken :: String -> Token
 readToken str
@@ -111,23 +93,23 @@ addSpaces str
         getLongestStringFromList strs = head $ filter (\x -> length x == maximum (map length strs)) strs
 
 
-isStringPrefix :: Token -> Bool
-isStringPrefix (Data (D.String a)) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
+isStringPrefix :: TokenPacket -> Bool
+isStringPrefix TokenPacket{token = (Data (D.String a))} = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
 isStringPrefix _                   = False
 
 
-isStringSuffix :: Token -> Bool
-isStringSuffix (Data (D.String a)) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
+isStringSuffix :: TokenPacket -> Bool
+isStringSuffix TokenPacket{token = (Data (D.String a))} = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
 isStringSuffix _          = False
 
 
-isCommentPrefix :: Token -> Bool
-isCommentPrefix (Data (D.Comment a)) = isPrefixOf "/*" a
+isCommentPrefix :: TokenPacket -> Bool
+isCommentPrefix TokenPacket{token = (Data (D.Comment a))} = isPrefixOf "/*" a
 isCommentPrefix _         = False
 
 
-isCommentSuffix :: Token -> Bool
-isCommentSuffix (Data (D.Comment a)) = isSuffixOf "*/" a
+isCommentSuffix :: TokenPacket -> Bool
+isCommentSuffix TokenPacket{token = (Data (D.Comment a))} = isSuffixOf "*/" a
 isCommentSuffix _         = False
 
 
@@ -149,21 +131,21 @@ isCommentSuffix _         = False
 --         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
 
 
-mapOnTokenInLine :: (Token -> Token) -> [TokenInLine] -> [TokenInLine]
-mapOnTokenInLine _ [] = []
-mapOnTokenInLine f (t:tils) = (TokenInLine (f (token t)) (line t)) : mapOnTokenInLine f tils
+-- mapOnTokenInLine :: (Token -> Token) -> [TokenPacket] -> [TokenPacket]
+-- mapOnTokenInLine _ [] = []
+-- mapOnTokenInLine f (t:tils) = (TokenPacket (f (token t)) (line t)) : mapOnTokenInLine f tils
 
 
-consolidateEagerCollapsibleTokenInLines :: [TokenInLine] -> [TokenInLine]
-consolidateEagerCollapsibleTokenInLines [] = []
-consolidateEagerCollapsibleTokenInLines (t:ts)
-    | isStringPrefix (token t) && isEagerCollapsible (\t' -> isStringPrefix (token t'))  (\t' -> isStringSuffix (token t'))  (t:ts) = (mapToConsolidatedDataString (t:ts))  ++ consolidateEagerCollapsibleTokenInLines (dropBetween (\t' -> isStringPrefix (token t'))  (\t' -> isStringSuffix (token t'))  (t:ts))
-    | otherwise                                                                                                                     = t : consolidateEagerCollapsibleTokenInLines ts
-    where
-        mapTakeBetween :: [TokenInLine] -> [TokenInLine]
-        mapTakeBetween xs = mapOnTokenInLine (\t -> (Data (D.String (baseDataString t)))) $ takeBetween (\t -> isStringPrefix (token t)) (\t -> isStringSuffix (token t)) xs
-        mapToConsolidatedDataString :: [TokenInLine] -> [TokenInLine]
-        mapToConsolidatedDataString xs = (TokenInLine (Data (D.String (concat (map (\til -> baseDataString (token til)) (mapTakeBetween xs))))) (line (head xs))) : []
+-- consolidateEagerCollapsibleTokenInLines :: [TokenPacket] -> [TokenPacket]
+-- consolidateEagerCollapsibleTokenInLines [] = []
+-- consolidateEagerCollapsibleTokenInLines (t:ts)
+--     | isStringPrefix (token t) && isEagerCollapsible (\t' -> isStringPrefix (token t'))  (\t' -> isStringSuffix (token t'))  (t:ts) = (mapToConsolidatedDataString (t:ts))  ++ consolidateEagerCollapsibleTokenInLines (dropBetween (\t' -> isStringPrefix (token t'))  (\t' -> isStringSuffix (token t'))  (t:ts))
+--     | otherwise                                                                                                                     = t : consolidateEagerCollapsibleTokenInLines ts
+--     where
+--         mapTakeBetween :: [TokenPacket] -> [TokenPacket]
+--         mapTakeBetween xs = mapOnTokenInLine (\t -> (Data (D.String (baseDataString t)))) $ takeBetween (\t -> isStringPrefix (token t)) (\t -> isStringSuffix (token t)) xs
+--         mapToConsolidatedDataString :: [TokenPacket] -> [TokenPacket]
+--         mapToConsolidatedDataString xs = (TokenPacket (Data (D.String (concat (map (\til -> baseDataString (token til)) (mapTakeBetween xs))))) (line (head xs))) : []
 
 
 -- consolidateNestedCollapsibleTokens :: [Token] -> [Token]
@@ -176,36 +158,21 @@ consolidateEagerCollapsibleTokenInLines (t:ts)
 --         flattenedFstSnd part' = (partFst part') ++ ((Data (D.Comment (concat (map (fromToken) (partSnd part'))))) : [])
 
 
-consolidateNestedCollapsibleTokenInLines :: [TokenInLine] -> [TokenInLine]
-consolidateNestedCollapsibleTokenInLines [] = []
-consolidateNestedCollapsibleTokenInLines ts 
-    | all null (unwrapPartition part) = ts
-    | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokenInLines (partThd part))
-    where
-        part = breakByNest (NCCase (\t -> isCommentPrefix (token t)) (\t -> isCommentSuffix (token t))) ts
-        flattenedFstSnd part' = (partFst part') ++ ((TokenInLine (Data (D.Comment (concat (map (\til -> fromToken (token til)) (partSnd part'))))) 0) : [])
+-- consolidateNestedCollapsibleTokenInLines :: [TokenPacket] -> [TokenPacket]
+-- consolidateNestedCollapsibleTokenInLines [] = []
+-- consolidateNestedCollapsibleTokenInLines ts 
+--     | all null (unwrapPartition part) = ts
+--     | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokenInLines (partThd part))
+--     where
+--         part = breakByNest (NCCase (\t -> isCommentPrefix (token t)) (\t -> isCommentSuffix (token t))) ts
+--         flattenedFstSnd part' = (partFst part') ++ ((TokenPacket (Data (D.Comment (concat (map (\til -> fromToken (token til)) (partSnd part'))))) 0) : [])
 
 
-intersperseSpaceOtherTypes :: [Token] -> [Token]
-intersperseSpaceOtherTypes [] = []
-intersperseSpaceOtherTypes (t:ts)
-    | isStringPrefix t || isStringSuffix t = t : (head ts)  : intersperseSpaceOtherTypes (tail ts)
-    | otherwise                            = t : spaceOtherType : intersperseSpaceOtherTypes ts
-    where spaceOtherType = Data (D.Other " ")
-
-
-removeSpaceOtherTypes :: [Token] -> [Token]
-removeSpaceOtherTypes [] = []
-removeSpaceOtherTypes ts = filter ((/=) (Data (D.Other " "))) ts
-
-
-tokenIsComment :: Token -> Bool
-tokenIsComment t = t `like` (Data (D.Other "")) && (baseData t) `like` (D.Comment "")
-
-
-ignoreComments :: [Token] -> [Token]
+ignoreComments :: [TokenPacket] -> [TokenPacket]
 ignoreComments [] = []
-ignoreComments ts = filter (\t -> not (tokenIsComment t)) ts
+ignoreComments ts = filter (\t -> not (tokenPacketIsComment t)) ts where
+    tokenPacketIsComment :: TokenPacket -> Bool
+    tokenPacketIsComment t = t `like` (TokenPacket (Data (D.Other "")) 0) && (baseData t) `like` (D.Comment "")
 
 
 wordsPreserveStringSpacing :: [String] -> String -> [String]
@@ -224,16 +191,16 @@ wordsPreserveStringSpacing strs (s:str)
 -- tokenize :: String -> [Token]
 -- tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
 
-tokenize :: String -> [TokenInLine]
+tokenize :: String -> [TokenPacket]
 tokenize strs = do
     zippedRawCodeAndLines <- zip ([1..((length linesStrs) + 1)])                    (linesStrs) 
     rawCodeAndLines       <- mapPreserveLn addSpaces                                (return zippedRawCodeAndLines)
     wordsAndLines         <- mapPreserveLn (\s -> wordsPreserveStringSpacing [] s)  (return rawCodeAndLines)
     tokensAndLines        <- mapPreserveLn (\s -> map readToken s)                  (return wordsAndLines)
-    tokenInLines2d        <- map (\(ln,ts) -> (map (\t -> TokenInLine t ln) ts))    (return tokensAndLines)
-    tokenInLines          <- concat (return tokenInLines2d :: [[TokenInLine]])
+    tokenInLines2d        <- map (\(ln,ts) -> (map (\t -> TokenPacket t ln) ts))    (return tokensAndLines)
+    tokenInLines          <- concat (return tokenInLines2d :: [[TokenPacket]])
     {-ignoreCommentsInLines $ consolidateNestedCollapsibleTokenInLines $ -}
-    consolidateNestedCollapsibleTokenInLines $ consolidateEagerCollapsibleTokenInLines $ return tokenInLines
+    return tokenInLines
     where 
         linesStrs = lines strs
         mapPreserveLn :: (b -> c) -> [(a,b)] -> [(a,c)]
