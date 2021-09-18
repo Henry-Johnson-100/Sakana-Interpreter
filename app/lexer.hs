@@ -146,6 +146,23 @@ consolidateEagerCollapsibleTokens (t:ts)
         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
 
 
+mapOnTokenInLine :: (Token -> Token) -> [TokenInLine] -> [TokenInLine]
+mapOnTokenInLine _ [] = []
+mapOnTokenInLine f (t:tils) = (TokenInLine (f (token t)) (line t)) : mapOnTokenInLine f tils
+
+
+consolidateEagerCollapsibleTokenInLines :: [TokenInLine] -> [TokenInLine]
+consolidateEagerCollapsibleTokenInLines [] = []
+consolidateEagerCollapsibleTokenInLines (t:ts)
+    | isStringPrefix (token t) && isEagerCollapsible (\t' -> isStringPrefix (token t'))  (\t' -> isStringSuffix (token t'))  (t:ts) = (mapToConsolidatedDataString (t:ts))  ++ consolidateEagerCollapsibleTokenInLines (dropBetween (\t' -> isStringPrefix (token t'))  (\t' -> isStringSuffix (token t'))  (t:ts))
+    | otherwise                                                                                                                     = t : consolidateEagerCollapsibleTokenInLines ts
+    where
+        mapTakeBetween :: [TokenInLine] -> [TokenInLine]
+        mapTakeBetween xs = mapOnTokenInLine (\t -> (Data (D.String (D.fromData (baseData t))))) $ takeBetween (\t -> isStringPrefix (token t)) (\t -> isStringSuffix (token t)) xs
+        mapToConsolidatedDataString :: [TokenInLine] -> [TokenInLine]
+        mapToConsolidatedDataString xs = TokenInLine (Data (D.String (concat (mapOnTokenInLine (\t -> D.fromData (baseData t)) (mapTakeBetween xs))))) (line (head xs))
+
+
 consolidateNestedCollapsibleTokens :: [Token] -> [Token]
 consolidateNestedCollapsibleTokens [] = []
 consolidateNestedCollapsibleTokens ts 
@@ -195,15 +212,15 @@ wordsPreserveStringSpacing strs (s:str)
 -- tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
 
 --tokenize :: String -> [TokenInLine]
-tokenize strs = do
-    zippedRawCodeAndLines <- zip ([1..((length linesStrs) + 1)])                    (linesStrs) 
-    rawCodeAndLines       <- map (\(ln,s) -> (ln, addSpaces s))                     (return zippedRawCodeAndLines)
-    wordsAndLines         <- map (\(ln,s) -> (ln, wordsPreserveStringSpacing [] s)) (return rawCodeAndLines)
-    tokensAndLines        <- map (\(ln,s) -> (ln, map readToken s))                 (return wordsAndLines)
-    tokenInLines2d        <- map (\(ln,ts) -> (map (\t -> TokenInLine t ln) ts))    (return tokensAndLines)
-    tokenInLines          <- concat (return tokenInLines2d :: [[TokenInLine]])
-    return tokenInLines
-    where 
-        linesStrs = lines strs
-        mapPreserveLn :: (b -> c) -> [(a,b)] -> [(a,c)]
-        mapPreserveLn f xs = map (\(first,second) -> (first, f second)) xs
+-- tokenize strs = do
+--     zippedRawCodeAndLines <- zip ([1..((length linesStrs) + 1)])                    (linesStrs) 
+--     rawCodeAndLines       <- mapPreserveLn addSpaces                                (return zippedRawCodeAndLines)
+--     wordsAndLines         <- mapPreserveLn (\s -> wordsPreserveStringSpacing [] s)  (return rawCodeAndLines)
+--     tokensAndLines        <- mapPreserveLn (\s -> map readToken s)                  (return wordsAndLines)
+--     tokenInLines2d        <- map (\(ln,ts) -> (map (\t -> TokenInLine t ln) ts))    (return tokensAndLines)
+--     tokenInLines          <- concat (return tokenInLines2d :: [[TokenInLine]])
+--     ignoreCommentsInLines $ consolidateNestedCollapsibleTokenInLines $ consolidateEagerCollapsibleTokenInLines $ return tokenInLines
+--     where 
+--         linesStrs = lines strs
+--         mapPreserveLn :: (b -> c) -> [(a,b)] -> [(a,c)]
+--         mapPreserveLn f xs = map (\(first,second) -> (first, f second)) xs
