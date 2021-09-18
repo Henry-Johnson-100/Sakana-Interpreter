@@ -131,25 +131,25 @@ isCommentSuffix (Data (D.Comment a)) = isSuffixOf "*/" a
 isCommentSuffix _         = False
 
 
-consolidateEagerCollapsibleTokens :: [Token] -> [Token]
-consolidateEagerCollapsibleTokens [] = []
-consolidateEagerCollapsibleTokens (t:ts)
-    | isStringPrefix  t && isEagerCollapsible isStringPrefix  isStringSuffix  (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (isStringPrefix)  (isStringSuffix)  (t:ts))
-    | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ts
-    where
-        mapTakeBetween :: Token -> [Token] -> [Token]
-        mapTakeBetween emptyTokenDataType xs = map (\t -> (constructDataToken emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
-        mapToConsolidatedData :: Token -> [Token] -> [Token]
-        mapToConsolidatedData emptyTokenDataType xs = (constructDataToken emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
-        isDataTypePrefix :: Token -> Token -> Bool
-        isDataTypePrefix (Data (D.String  _)) = isStringPrefix
-        isDataTypeSuffix :: Token -> Token -> Bool
-        isDataTypeSuffix (Data (D.String  _)) = isStringSuffix
-        constructDataToken :: Token -> String -> Token
-        constructDataToken (Data (D.String  _)) str = (Data (D.String str))
+-- consolidateEagerCollapsibleTokens :: [Token] -> [Token]
+-- consolidateEagerCollapsibleTokens [] = []
+-- consolidateEagerCollapsibleTokens (t:ts)
+--     | isStringPrefix  t && isEagerCollapsible isStringPrefix  isStringSuffix  (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (isStringPrefix)  (isStringSuffix)  (t:ts))
+--     | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ts
+--     where
+--         mapTakeBetween :: Token -> [Token] -> [Token]
+--         mapTakeBetween emptyTokenDataType xs = map (\t -> (constructDataToken emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
+--         mapToConsolidatedData :: Token -> [Token] -> [Token]
+--         mapToConsolidatedData emptyTokenDataType xs = (constructDataToken emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
+--         isDataTypePrefix :: Token -> Token -> Bool
+--         isDataTypePrefix (Data (D.String  _)) = isStringPrefix
+--         isDataTypeSuffix :: Token -> Token -> Bool
+--         isDataTypeSuffix (Data (D.String  _)) = isStringSuffix
+--         constructDataToken :: Token -> String -> Token
+--         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
 
 
---mapOnTokenInLine :: (Token -> Token) -> [TokenInLine] -> [TokenInLine]
+mapOnTokenInLine :: (Token -> Token) -> [TokenInLine] -> [TokenInLine]
 mapOnTokenInLine _ [] = []
 mapOnTokenInLine f (t:tils) = (TokenInLine (f (token t)) (line t)) : mapOnTokenInLine f tils
 
@@ -166,14 +166,24 @@ consolidateEagerCollapsibleTokenInLines (t:ts)
         mapToConsolidatedDataString xs = (TokenInLine (Data (D.String (concat (map (\til -> baseDataString (token til)) (mapTakeBetween xs))))) (line (head xs))) : []
 
 
-consolidateNestedCollapsibleTokens :: [Token] -> [Token]
-consolidateNestedCollapsibleTokens [] = []
-consolidateNestedCollapsibleTokens ts 
+-- consolidateNestedCollapsibleTokens :: [Token] -> [Token]
+-- consolidateNestedCollapsibleTokens [] = []
+-- consolidateNestedCollapsibleTokens ts 
+--     | all null (unwrapPartition part) = ts
+--     | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokens (partThd part))
+--     where
+--         part = breakByNest (NCCase isCommentPrefix isCommentSuffix) ts
+--         flattenedFstSnd part' = (partFst part') ++ ((Data (D.Comment (concat (map (fromToken) (partSnd part'))))) : [])
+
+
+consolidateNestedCollapsibleTokenInLines :: [TokenInLine] -> [TokenInLine]
+consolidateNestedCollapsibleTokenInLines [] = []
+consolidateNestedCollapsibleTokenInLines ts 
     | all null (unwrapPartition part) = ts
-    | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokens (partThd part))
+    | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokenInLines (partThd part))
     where
-        part = breakByNest (NCCase isCommentPrefix isCommentSuffix) ts
-        flattenedFstSnd part' = (partFst part') ++ ((Data (D.Comment (concat (map (fromToken) (partSnd part'))))) : [])
+        part = breakByNest (NCCase (\t -> isCommentPrefix (token t)) (\t -> isCommentSuffix (token t))) ts
+        flattenedFstSnd part' = (partFst part') ++ ((TokenInLine (Data (D.Comment (concat (map (\til -> fromToken (token til)) (partSnd part'))))) 0) : [])
 
 
 intersperseSpaceOtherTypes :: [Token] -> [Token]
@@ -223,7 +233,7 @@ tokenize strs = do
     tokenInLines2d        <- map (\(ln,ts) -> (map (\t -> TokenInLine t ln) ts))    (return tokensAndLines)
     tokenInLines          <- concat (return tokenInLines2d :: [[TokenInLine]])
     {-ignoreCommentsInLines $ consolidateNestedCollapsibleTokenInLines $ -}
-    consolidateEagerCollapsibleTokenInLines $ return tokenInLines
+    consolidateNestedCollapsibleTokenInLines $ consolidateEagerCollapsibleTokenInLines $ return tokenInLines
     where 
         linesStrs = lines strs
         mapPreserveLn :: (b -> c) -> [(a,b)] -> [(a,c)]
