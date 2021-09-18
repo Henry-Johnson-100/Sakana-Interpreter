@@ -3,7 +3,8 @@ ExceptionType(..),
 ExceptionSeverity(..),
 ExceptionInfo(..),
 Exception(..),
-throw
+throw,
+setExceptionSeverity
 ) where
 
 import System.Exit
@@ -44,6 +45,16 @@ instance Ord Exception where
     compare x y
         | exceptionType x /= exceptionType y = compare (exceptionType x) (exceptionType y)
         | otherwise                          = compare (severity (information x)) (severity (information y))
+
+
+setExceptionSeverity :: Exception -> ExceptionSeverity -> Exception
+setExceptionSeverity e es = Exception {
+    exceptionType = exceptionType e,
+    information = ExceptionInfo {
+        exceptionMessage = (exceptionMessage (information e)),
+        severity = es
+    }
+}
 
 
 throw :: Exception -> IO ()
