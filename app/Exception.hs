@@ -1,5 +1,9 @@
 module Exception (
-
+ExceptionType(..),
+ExceptionSeverity(..),
+ExceptionInfo(..),
+Exception(..),
+throw
 ) where
 
 import System.Exit
@@ -41,29 +45,6 @@ instance Ord Exception where
         | exceptionType x /= exceptionType y = compare (exceptionType x) (exceptionType y)
         | otherwise                          = compare (severity (information x)) (severity (information y))
 
-
-exception :: ExceptionType -> Exception
-exception InvalidBracketing = Exception {
-    exceptionType = InvalidBracketing,
-    information = ExceptionInfo {
-        exceptionMessage = "Invalid Bracketing",
-        severity = Fatal
-    }
-}
-exception InvalidID = Exception {
-    exceptionType = InvalidID,
-    information = ExceptionInfo {
-        exceptionMessage = "Invalid ID for function",
-        severity = Fatal
-    }
-}
-exception InvalidArgs = Exception {
-    exceptionType = InvalidArgs,
-    information = ExceptionInfo {
-        exceptionMessage = "Invalid number of arguments in brackets",
-        severity = Fatal
-    }
-}
 
 throw :: Exception -> IO ()
 throw e
