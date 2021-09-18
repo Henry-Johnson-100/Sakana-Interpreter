@@ -93,24 +93,24 @@ addSpaces str
         getLongestStringFromList strs = head $ filter (\x -> length x == maximum (map length strs)) strs
 
 
-isStringPrefix :: TokenPacket -> Bool
-isStringPrefix TokenPacket{token = (Data (D.String a))} = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
-isStringPrefix _                   = False
+tokenPacketIsStringPrefix :: TokenPacket -> Bool
+tokenPacketIsStringPrefix TokenPacket{token = (Data (D.String a))} = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
+tokenPacketIsStringPrefix _                   = False
 
 
-isStringSuffix :: TokenPacket -> Bool
-isStringSuffix TokenPacket{token = (Data (D.String a))} = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
-isStringSuffix _          = False
+tokenPacketIsStringSuffix :: TokenPacket -> Bool
+tokenPacketIsStringSuffix TokenPacket{token = (Data (D.String a))} = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
+tokenPacketIsStringSuffix _          = False
 
 
-isCommentPrefix :: TokenPacket -> Bool
-isCommentPrefix TokenPacket{token = (Data (D.Comment a))} = isPrefixOf "/*" a
-isCommentPrefix _         = False
+tokenPacketIsCommentPrefix :: TokenPacket -> Bool
+tokenPacketIsCommentPrefix TokenPacket{token = (Data (D.Comment a))} = isPrefixOf "/*" a
+tokenPacketIsCommentPrefix _         = False
 
 
-isCommentSuffix :: TokenPacket -> Bool
-isCommentSuffix TokenPacket{token = (Data (D.Comment a))} = isSuffixOf "*/" a
-isCommentSuffix _         = False
+tokenPacketIsCommentSuffix :: TokenPacket -> Bool
+tokenPacketIsCommentSuffix TokenPacket{token = (Data (D.Comment a))} = isSuffixOf "*/" a
+tokenPacketIsCommentSuffix _         = False
 
 
 -- consolidateEagerCollapsibleTokens :: [Token] -> [Token]
@@ -204,8 +204,6 @@ prepareRawString strs = mapPreserveLn wordsPreserveStringSpacing $ mapPreserveLn
 
 
 tokenize :: String -> [TokenPacket]
-tokenize strs = concat $ map (stringListMapToTokenPackets) $ prepareRawString strs
-    {-ignoreCommentsInLines $ consolidateNestedCollapsibleTokenInLines $ -}
-    where 
+tokenize strs = concat $ map (stringListMapToTokenPackets) $ prepareRawString strs where 
         stringListMapToTokenPackets :: ([String], Int) -> [TokenPacket]
         stringListMapToTokenPackets (strs, ln) = map (\s -> (TokenPacket (readToken s) ln)) strs
