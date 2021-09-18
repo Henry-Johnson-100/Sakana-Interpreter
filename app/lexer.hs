@@ -52,6 +52,9 @@ baseControl (Lexer.Control c) = c
 baseData :: Token -> D.Data
 baseData (Data d) = d
 
+baseDataString :: Token -> String
+baseDataString d = D.fromData $ baseData d
+
 tokenFromData :: D.Data -> Token
 tokenFromData d = Data d
 
@@ -146,7 +149,7 @@ consolidateEagerCollapsibleTokens (t:ts)
         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
 
 
-mapOnTokenInLine :: (Token -> Token) -> [TokenInLine] -> [TokenInLine]
+--mapOnTokenInLine :: (Token -> Token) -> [TokenInLine] -> [TokenInLine]
 mapOnTokenInLine _ [] = []
 mapOnTokenInLine f (t:tils) = (TokenInLine (f (token t)) (line t)) : mapOnTokenInLine f tils
 
@@ -158,9 +161,9 @@ consolidateEagerCollapsibleTokenInLines (t:ts)
     | otherwise                                                                                                                     = t : consolidateEagerCollapsibleTokenInLines ts
     where
         mapTakeBetween :: [TokenInLine] -> [TokenInLine]
-        mapTakeBetween xs = mapOnTokenInLine (\t -> (Data (D.String (D.fromData (baseData t))))) $ takeBetween (\t -> isStringPrefix (token t)) (\t -> isStringSuffix (token t)) xs
+        mapTakeBetween xs = mapOnTokenInLine (\t -> (Data (D.String (baseDataString t)))) $ takeBetween (\t -> isStringPrefix (token t)) (\t -> isStringSuffix (token t)) xs
         mapToConsolidatedDataString :: [TokenInLine] -> [TokenInLine]
-        mapToConsolidatedDataString xs = TokenInLine (Data (D.String (concat (mapOnTokenInLine (\t -> D.fromData (baseData t)) (mapTakeBetween xs))))) (line (head xs))
+        mapToConsolidatedDataString xs = (TokenInLine (Data (D.String (concat (map (\til -> baseDataString (token til)) (mapTakeBetween xs))))) (line (head xs))) : []
 
 
 consolidateNestedCollapsibleTokens :: [Token] -> [Token]
@@ -211,16 +214,17 @@ wordsPreserveStringSpacing strs (s:str)
 -- tokenize :: String -> [Token]
 -- tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
 
---tokenize :: String -> [TokenInLine]
--- tokenize strs = do
---     zippedRawCodeAndLines <- zip ([1..((length linesStrs) + 1)])                    (linesStrs) 
---     rawCodeAndLines       <- mapPreserveLn addSpaces                                (return zippedRawCodeAndLines)
---     wordsAndLines         <- mapPreserveLn (\s -> wordsPreserveStringSpacing [] s)  (return rawCodeAndLines)
---     tokensAndLines        <- mapPreserveLn (\s -> map readToken s)                  (return wordsAndLines)
---     tokenInLines2d        <- map (\(ln,ts) -> (map (\t -> TokenInLine t ln) ts))    (return tokensAndLines)
---     tokenInLines          <- concat (return tokenInLines2d :: [[TokenInLine]])
---     ignoreCommentsInLines $ consolidateNestedCollapsibleTokenInLines $ consolidateEagerCollapsibleTokenInLines $ return tokenInLines
---     where 
---         linesStrs = lines strs
---         mapPreserveLn :: (b -> c) -> [(a,b)] -> [(a,c)]
---         mapPreserveLn f xs = map (\(first,second) -> (first, f second)) xs
+tokenize :: String -> [TokenInLine]
+tokenize strs = do
+    zippedRawCodeAndLines <- zip ([1..((length linesStrs) + 1)])                    (linesStrs) 
+    rawCodeAndLines       <- mapPreserveLn addSpaces                                (return zippedRawCodeAndLines)
+    wordsAndLines         <- mapPreserveLn (\s -> wordsPreserveStringSpacing [] s)  (return rawCodeAndLines)
+    tokensAndLines        <- mapPreserveLn (\s -> map readToken s)                  (return wordsAndLines)
+    tokenInLines2d        <- map (\(ln,ts) -> (map (\t -> TokenInLine t ln) ts))    (return tokensAndLines)
+    tokenInLines          <- concat (return tokenInLines2d :: [[TokenInLine]])
+    {-ignoreCommentsInLines $ consolidateNestedCollapsibleTokenInLines $ -}
+    consolidateEagerCollapsibleTokenInLines $ return tokenInLines
+    where 
+        linesStrs = lines strs
+        mapPreserveLn :: (b -> c) -> [(a,b)] -> [(a,c)]
+        mapPreserveLn f xs = map (\(first,second) -> (first, f second)) xs
