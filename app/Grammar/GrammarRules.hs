@@ -80,11 +80,11 @@ instance Eq GrammarRule where
 
 
 rule :: Token -> GrammarRule
-rule (Keyword Fish)   = GrammarRule (Keyword Fish)   True  [generalOpenBRRule]                                   [generalCloseBRRule]
-rule (Keyword Route)  = GrammarRule (Keyword Route)  True  [generalOpenBRRule]                                   [generalCloseBRRule]
-rule (Keyword School) = GrammarRule (Keyword School) True  [flipIsRequired generalOpenBRRule, generalOpenBRRule] [generalCloseBRRule]
-rule (Keyword Shoal)  = GrammarRule (Keyword Shoal)  True  [setArgSets generalOpenBRRule 0]                      [generalCloseBRRule]
-rule (Control Fin)    = GrammarRule (Control Fin)    False [flipIsRequired (setArgSets generalOpenBRRule 3)]     [(flipIsRequired (setArgSets generalCloseBRRule 0))]
+rule (Keyword Fish)   = GrammarRule (Keyword Fish)   True  [generalOpenBRRule]                                     [generalCloseBRRule]
+rule (Keyword Route)  = GrammarRule (Keyword Route)  True  [generalOpenBRRule]                                     [generalCloseBRRule]
+rule (Keyword School) = GrammarRule (Keyword School) True  [generalOpenBRRule{isRequired=True}, generalOpenBRRule] [generalCloseBRRule]
+rule (Keyword Shoal)  = GrammarRule (Keyword Shoal)  True  [generalOpenBRRule{argSets = 0}]                        [generalCloseBRRule]
+rule (Control Fin)    = GrammarRule (Control Fin)    False [generalOpenBRRule{isRequired=True, argSets = 3}]       [generalCloseBRRule{isRequired=False, argSets = 0}]
 rule _ = NoGR
 
 
