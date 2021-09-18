@@ -174,34 +174,38 @@ ignoreComments ts = filter (\t -> not (tokenPacketIsComment t)) ts where
     tokenPacketIsComment :: TokenPacket -> Bool
     tokenPacketIsComment t = t `like` (TokenPacket (Data (D.Other "")) 0) && (baseData t) `like` (D.Comment "")
 
-
-wordsPreserveStringSpacing :: [String] -> String -> [String]
-wordsPreserveStringSpacing strs "" = strs
-wordsPreserveStringSpacing strs (s:str)
-    | s == '"' = wordsPreserveStringSpacing (strs ++ ((buildPreservedString str) : [])) (dropInfix (buildPreservedString str) (s:str))
-    | isSpace s = wordsPreserveStringSpacing strs str
-    | otherwise = wordsPreserveStringSpacing (strs ++ ((buildWord (s:str)) : [])) (dropInfix (buildWord (s:str)) (s:str))
-    where
-        buildPreservedString :: String -> String
-        buildPreservedString str = "\"" ++ (takeWhile ((/=) '\"') str ) ++ "\""
-        buildWord            :: String -> String
-        buildWord str = (takeWhile (\s -> not (isSpace s)) str)
+wordsPreserveStringSpacing :: String -> [String]
+wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str where
+    wordsPreserveStringSpacingScan :: [String] -> String -> [String]
+    wordsPreserveStringSpacingScan strs "" = strs
+    wordsPreserveStringSpacingScan strs (s:str)
+        | s == '"' = wordsPreserveStringSpacingScan (strs ++ ((buildPreservedString str) : [])) (dropInfix (buildPreservedString str) (s:str))
+        | isSpace s = wordsPreserveStringSpacingScan strs str
+        | otherwise = wordsPreserveStringSpacingScan (strs ++ ((buildWord (s:str)) : [])) (dropInfix (buildWord (s:str)) (s:str))
+        where
+            buildPreservedString :: String -> String
+            buildPreservedString str = "\"" ++ (takeWhile ((/=) '\"') str ) ++ "\""
+            buildWord            :: String -> String
+            buildWord str = (takeWhile (\s -> not (isSpace s)) str)
 
 
 -- tokenize :: String -> [Token]
--- tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
+-- tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing $ addSpaces strs
+
+
+prepareRawString :: String -> [([String], Int)]
+prepareRawString "" = []
+prepareRawString strs = mapPreserveLn wordsPreserveStringSpacing $ mapPreserveLn addSpaces $ zipNumbersToLines
+    where
+        linesStrs = lines strs
+        zipNumbersToLines = zip (linesStrs) ([1..((length linesStrs) + 1)])
+        mapPreserveLn :: (a -> b) -> [(a,Int)] -> [(b,Int)]
+        mapPreserveLn f xs = map (\(first,second) -> (f first, second)) xs
+
 
 tokenize :: String -> [TokenPacket]
-tokenize strs = do
-    zippedRawCodeAndLines <- zip ([1..((length linesStrs) + 1)])                    (linesStrs) 
-    rawCodeAndLines       <- mapPreserveLn addSpaces                                (return zippedRawCodeAndLines)
-    wordsAndLines         <- mapPreserveLn (\s -> wordsPreserveStringSpacing [] s)  (return rawCodeAndLines)
-    tokensAndLines        <- mapPreserveLn (\s -> map readToken s)                  (return wordsAndLines)
-    tokenInLines2d        <- map (\(ln,ts) -> (map (\t -> TokenPacket t ln) ts))    (return tokensAndLines)
-    tokenInLines          <- concat (return tokenInLines2d :: [[TokenPacket]])
+tokenize strs = concat $ map (stringListMapToTokenPackets) $ prepareRawString strs
     {-ignoreCommentsInLines $ consolidateNestedCollapsibleTokenInLines $ -}
-    return tokenInLines
     where 
-        linesStrs = lines strs
-        mapPreserveLn :: (b -> c) -> [(a,b)] -> [(a,c)]
-        mapPreserveLn f xs = map (\(first,second) -> (first, f second)) xs
+        stringListMapToTokenPackets :: ([String], Int) -> [TokenPacket]
+        stringListMapToTokenPackets (strs, ln) = map (\s -> (TokenPacket (readToken s) ln)) strs
