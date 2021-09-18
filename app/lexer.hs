@@ -22,6 +22,17 @@ import qualified Token.Operator   as O
 
 data Token = Bracket B.Bracket | Control C.Control | Data D.Data | Keyword K.Keyword | Operator O.Operator deriving (Show,Read,Eq)
 
+data TokenInLine = TokenInLine {
+    token :: Token,
+    line  :: Int
+} deriving (Show,Read,Eq)
+
+
+instance Like TokenInLine where
+    like x y = (token x) `like` (token y)
+    notLike x y = not $ like x y
+
+
 instance Like Token where
     like (Bracket a)       (Bracket b)  = True
     like (Control a)       (Control b)  = True
@@ -180,5 +191,15 @@ wordsPreserveStringSpacing strs (s:str)
         buildWord str = (takeWhile (\s -> not (isSpace s)) str)
 
 
-tokenize :: String -> [Token]
-tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
+-- tokenize :: String -> [Token]
+-- tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
+
+--tokenize :: String -> [TokenInLine]
+tokenize strs = do
+    zippedRawCodeAndLines <- zip ([1..((length linesStrs) + 1)]) (linesStrs) 
+    rawCodeAndLines <- map (\(ln, s) -> (ln, addSpaces s)) (return zippedRawCodeAndLines)
+    wordsAndLines <- map (\(ln,s) -> (ln, wordsPreserveStringSpacing [] s)) (return rawCodeAndLines)
+    tokensAndLines <- map (\(ln,s) -> (ln, map readToken s)) (return wordsAndLines)
+    return tokensAndLines
+    where 
+        linesStrs = lines strs
