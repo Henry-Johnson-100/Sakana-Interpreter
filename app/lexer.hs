@@ -136,22 +136,22 @@ stringIsCommentSuffix :: String -> Bool
 stringIsCommentSuffix a = isSuffixOf "*/" a
 
 
--- consolidateEagerCollapsibleTokens :: [Token] -> [Token]
--- consolidateEagerCollapsibleTokens [] = []
--- consolidateEagerCollapsibleTokens (t:ts)
---     | isStringPrefix  t && isEagerCollapsible isStringPrefix  isStringSuffix  (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (isStringPrefix)  (isStringSuffix)  (t:ts))
---     | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ts
---     where
---         mapTakeBetween :: Token -> [Token] -> [Token]
---         mapTakeBetween emptyTokenDataType xs = map (\t -> (constructDataToken emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
---         mapToConsolidatedData :: Token -> [Token] -> [Token]
---         mapToConsolidatedData emptyTokenDataType xs = (constructDataToken emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
---         isDataTypePrefix :: Token -> Token -> Bool
---         isDataTypePrefix (Data (D.String  _)) = isStringPrefix
---         isDataTypeSuffix :: Token -> Token -> Bool
---         isDataTypeSuffix (Data (D.String  _)) = isStringSuffix
---         constructDataToken :: Token -> String -> Token
---         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
+consolidateEagerCollapsibleTokens :: [Token] -> [Token]
+consolidateEagerCollapsibleTokens [] = []
+consolidateEagerCollapsibleTokens (t:ts)
+    | tokenIsStringPrefix t && isEagerCollapsible tokenIsStringPrefix tokenIsStringSuffix (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (tokenIsStringPrefix)  (tokenIsStringSuffix)  (t:ts))
+    | otherwise                                                                                  = t : consolidateEagerCollapsibleTokens ts
+    where
+        mapTakeBetween :: Token -> [Token] -> [Token]
+        mapTakeBetween emptyTokenDataType xs = map (\t -> (constructDataToken emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
+        mapToConsolidatedData :: Token -> [Token] -> [Token]
+        mapToConsolidatedData emptyTokenDataType xs = (constructDataToken emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
+        isDataTypePrefix :: Token -> Token -> Bool
+        isDataTypePrefix (Data (D.String  _)) = tokenIsStringPrefix
+        isDataTypeSuffix :: Token -> Token -> Bool
+        isDataTypeSuffix (Data (D.String  _)) = tokenIsStringSuffix
+        constructDataToken :: Token -> String -> Token
+        constructDataToken (Data (D.String  _)) str = (Data (D.String str))
 
 
 -- mapOnTokenInLine :: (Token -> Token) -> [TokenPacket] -> [TokenPacket]
@@ -162,11 +162,11 @@ stringIsCommentSuffix a = isSuffixOf "*/" a
 -- consolidateEagerCollapsibleTokenInLines :: [TokenPacket] -> [TokenPacket]
 -- consolidateEagerCollapsibleTokenInLines [] = []
 -- consolidateEagerCollapsibleTokenInLines (t:ts)
---     | isStringPrefix (token t) && isEagerCollapsible (\t' -> isStringPrefix (token t'))  (\t' -> isStringSuffix (token t'))  (t:ts) = (mapToConsolidatedDataString (t:ts))  ++ consolidateEagerCollapsibleTokenInLines (dropBetween (\t' -> isStringPrefix (token t'))  (\t' -> isStringSuffix (token t'))  (t:ts))
+--     | tokenIsStringPrefix (token t) && isEagerCollapsible (\t' -> tokenIsStringPrefix (token t'))  (\t' -> tokenIsStringSuffix (token t'))  (t:ts) = (mapToConsolidatedDataString (t:ts))  ++ consolidateEagerCollapsibleTokenInLines (dropBetween (\t' -> tokenIsStringPrefix (token t'))  (\t' -> tokenIsStringSuffix (token t'))  (t:ts))
 --     | otherwise                                                                                                                     = t : consolidateEagerCollapsibleTokenInLines ts
 --     where
 --         mapTakeBetween :: [TokenPacket] -> [TokenPacket]
---         mapTakeBetween xs = mapOnTokenInLine (\t -> (Data (D.String (baseDataString t)))) $ takeBetween (\t -> isStringPrefix (token t)) (\t -> isStringSuffix (token t)) xs
+--         mapTakeBetween xs = mapOnTokenInLine (\t -> (Data (D.String (baseDataString t)))) $ takeBetween (\t -> tokenIsStringPrefix (token t)) (\t -> tokenIsStringSuffix (token t)) xs
 --         mapToConsolidatedDataString :: [TokenPacket] -> [TokenPacket]
 --         mapToConsolidatedDataString xs = (TokenPacket (Data (D.String (concat (map (\til -> baseDataString (token til)) (mapTakeBetween xs))))) (packetLine (head xs))) : []
 
@@ -229,8 +229,8 @@ prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPr
         mapPreserveLn f xs = map (\(first,second) -> (f first, second)) xs
 
 
--- tokenize :: String -> [TokenPacket]
-tokenize strs = filterEmptyPackets $ tokenizePreparedStringLines $ prepareRawString strs where
+tokenize :: String -> [Packet Token]
+tokenize strs = map (\ps -> Packet (consolidateEagerCollapsibleTokens (members ps)) (packetLine ps)) $ filterEmptyPackets $ tokenizePreparedStringLines $ prepareRawString strs where
     filterEmptyPackets :: [Packet a] -> [Packet a]
     filterEmptyPackets pss = filter (\ps -> not (null (members ps))) pss
     tokenizePreparedStringLines :: [Packet String] -> [Packet Token]
