@@ -108,24 +108,32 @@ addSpaces str
         getLongestStringFromList strs = head $ filter (\x -> length x == maximum (map length strs)) strs
 
 
-tokenisStringPrefix :: Token -> Bool
-tokenisStringPrefix (Data (D.String a)) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
-tokenisStringPrefix _                   = False
+tokenIsStringPrefix :: Token -> Bool
+tokenIsStringPrefix (Data (D.String a)) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
+tokenIsStringPrefix _                   = False
 
 
-tokenisStringSuffix :: Token -> Bool
-tokenisStringSuffix (Data (D.String a)) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
-tokenisStringSuffix _          = False
+tokenIsStringSuffix :: Token -> Bool
+tokenIsStringSuffix (Data (D.String a)) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
+tokenIsStringSuffix _          = False
 
 
-tokenisCommentPrefix :: Token -> Bool
-tokenisCommentPrefix (Data (D.Comment a)) = isPrefixOf "/*" a
-tokenisCommentPrefix _         = False
+tokenIsCommentPrefix :: Token -> Bool
+tokenIsCommentPrefix (Data (D.Comment a)) = isPrefixOf "/*" a
+tokenIsCommentPrefix _         = False
 
 
-tokenisCommentSuffix :: Token -> Bool
-tokenisCommentSuffix (Data (D.Comment a)) = isSuffixOf "*/" a
-tokenisCommentSuffix _         = False
+tokenIsCommentSuffix :: Token -> Bool
+tokenIsCommentSuffix (Data (D.Comment a)) = isSuffixOf "*/" a
+tokenIsCommentSuffix _         = False
+
+
+stringIsCommentPrefix :: String -> Bool
+stringIsCommentPrefix a = isPrefixOf "/*" a
+
+
+stringIsCommentSuffix :: String -> Bool
+stringIsCommentSuffix a = isSuffixOf "*/" a
 
 
 -- consolidateEagerCollapsibleTokens :: [Token] -> [Token]
