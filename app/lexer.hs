@@ -41,10 +41,6 @@ instance Like Token where
     notLike a              b            = not $ like a b
 
 
-tokenPacketToUnit :: Packet Token -> [TokenUnit]
-tokenPacketToUnit tp = map (\t -> (TokenUnit t (packetLine tp))) (members tp)
-
-
 instance Like TokenUnit where
     like x y = (token x) `like` (token y)
     notLike x y = not $ like x y
@@ -52,6 +48,10 @@ instance Like TokenUnit where
 
 instance Functor Packet where
     fmap f sp = Packet (fmap f (members sp)) (packetLine sp)
+
+
+tokenPacketToUnit :: Packet Token -> [TokenUnit]
+tokenPacketToUnit tp = map (\t -> (TokenUnit t (packetLine tp))) (members tp)
 
 
 baseData :: Token -> Data
@@ -219,10 +219,6 @@ prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPr
         zippedLineNumbersToStringPackets zs = map (\z -> Packet (fst z) (snd z)) zs
         mapPreserveLn :: (a -> b) -> [(a,Int)] -> [(b,Int)]
         mapPreserveLn f xs = map (\(first,second) -> (f first, second)) xs
-
-
--- -- tokenizePreparedStringLine :: PreparedString -> TokenPacket
--- -- tokenizePreparedStringLine (strs, ln) = TokenPacket (map readToken strs) ln
 
 
 -- -- tokenize :: String -> [TokenPacket]
