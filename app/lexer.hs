@@ -181,9 +181,11 @@ prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPr
 
 
 tokenize :: String -> [TokenUnit]
-tokenize strs = concat $ map tokenPacketToUnit $ map (\ps -> Packet (consolidateEagerCollapsibleTokens (members ps)) (packetLine ps)) $ filterEmptyPackets $ tokenizePreparedStringLines $ prepareRawString strs where
+tokenize strs = concat $ map tokenPacketToUnit $ consolidateStringTokensByLine $ filterEmptyPackets $ tokenizePreparedStringLines $ prepareRawString strs where
     filterEmptyPackets :: [Packet a] -> [Packet a]
     filterEmptyPackets pss = filter (\ps -> not (null (members ps))) pss
+    consolidateStringTokensByLine :: [Packet Token] -> [Packet Token]
+    consolidateStringTokensByLine pss = map (\ps -> Packet (consolidateEagerCollapsibleTokens (members ps)) (packetLine ps)) pss
     tokenizePreparedStringLines :: [Packet String] -> [Packet Token]
     tokenizePreparedStringLines [] = []
     tokenizePreparedStringLines (ps:pss)
