@@ -189,19 +189,19 @@ tokenisCommentSuffix _         = False
 --     tokenPacketIsComment :: TokenPacket -> Bool
 --     tokenPacketIsComment t = t `like` (TokenPacket (Data (D.Other "")) 0) && (baseData t) `like` (D.Comment "")
 
--- wordsPreserveStringSpacing :: String -> [String]
--- wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str where
---     wordsPreserveStringSpacingScan :: [String] -> String -> [String]
---     wordsPreserveStringSpacingScan strs "" = strs
---     wordsPreserveStringSpacingScan strs (s:str)
---         | s == '"' = wordsPreserveStringSpacingScan (strs ++ ((buildPreservedString str) : [])) (dropInfix (buildPreservedString str) (s:str))
---         | isSpace s = wordsPreserveStringSpacingScan strs str
---         | otherwise = wordsPreserveStringSpacingScan (strs ++ ((buildWord (s:str)) : [])) (dropInfix (buildWord (s:str)) (s:str))
---         where
---             buildPreservedString :: String -> String
---             buildPreservedString str = "\"" ++ (takeWhile ((/=) '\"') str ) ++ "\""
---             buildWord            :: String -> String
---             buildWord str = (takeWhile (\s -> not (isSpace s)) str)
+wordsPreserveStringSpacing :: String -> [String]
+wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str where
+    wordsPreserveStringSpacingScan :: [String] -> String -> [String]
+    wordsPreserveStringSpacingScan strs "" = strs
+    wordsPreserveStringSpacingScan strs (s:str)
+        | s == '"' = wordsPreserveStringSpacingScan (strs ++ ((buildPreservedString str) : [])) (dropInfix (buildPreservedString str) (s:str))
+        | isSpace s = wordsPreserveStringSpacingScan strs str
+        | otherwise = wordsPreserveStringSpacingScan (strs ++ ((buildWord (s:str)) : [])) (dropInfix (buildWord (s:str)) (s:str))
+        where
+            buildPreservedString :: String -> String
+            buildPreservedString str = "\"" ++ (takeWhile ((/=) '\"') str ) ++ "\""
+            buildWord            :: String -> String
+            buildWord str = (takeWhile (\s -> not (isSpace s)) str)
 
 
 -- -- tokenize :: String -> [Token]
