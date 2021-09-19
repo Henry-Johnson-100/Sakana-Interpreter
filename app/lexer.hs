@@ -1,11 +1,10 @@
 module Lexer (
     Token(..),
+    PacketUnit(..),
+    TokenUnit(..),
     tokenize,
-    like,
     fromToken,
-    filterLike,
-    filterNotLike,
-    baseBracket
+    like
 ) where
 
 import Data.List
@@ -14,13 +13,29 @@ import Token.Util.Like
 import Token.Util.String
 import Token.Util.EagerCollapsible
 import Token.Util.NestedCollapsible
-import qualified Token.Bracket    as B
-import qualified Token.Control    as C
-import qualified Token.Data       as D
-import qualified Token.Keyword    as K
-import qualified Token.Operator   as O
+import Token.Bracket    as B
+import Token.Control    as C
+import Token.Data       as D
+import Token.Keyword    as K
+import Token.Operator   as O
 
-data Token = Bracket B.Bracket | Control C.Control | Data D.Data | Keyword K.Keyword | Operator O.Operator deriving (Show,Read,Eq)
+data Token = Bracket Bracket | Control Control | Data Data | Keyword Keyword | Operator Operator deriving (Show,Read,Eq)
+
+
+data PacketUnit a = PacketUnit {
+    unit :: a,
+    unitLine  :: Int
+} deriving (Show, Read, Eq)
+
+
+type TokenUnit = PacketUnit Token
+
+
+data Packet a = Packet {
+    members :: [a],
+    packetLine :: Int
+} deriving (Show, Eq)
+
 
 instance Like Token where
     like (Bracket a)       (Bracket b)  = True
@@ -32,29 +47,21 @@ instance Like Token where
     notLike a              b            = not $ like a b
 
 
-baseBracket :: Token -> B.Bracket
-baseBracket (Bracket b) = b
+instance Functor Packet where
+    fmap f sp = Packet (fmap f (members sp)) (packetLine sp)
 
-baseControl :: Token -> C.Control
-baseControl (Lexer.Control c) = c
 
-baseData :: Token -> D.Data
+tokenPacketToUnit :: Packet Token -> [TokenUnit]
+tokenPacketToUnit tp = map (\t -> (PacketUnit t (packetLine tp))) (members tp)
+
+
+baseData :: Token -> Data
 baseData (Data d) = d
 
-tokenFromData :: D.Data -> Token
-tokenFromData d = Data d
 
-baseKeyword :: Token -> K.Keyword
-baseKeyword (Keyword k) = k
+baseDataString :: Token -> String
+baseDataString t = D.fromData $ baseData t
 
-baseOperator :: Token -> O.Operator
-baseOperator (Operator o) = o
-
-filterLike :: Token -> [Token] -> [Token]
-filterLike t ts = filter (\x -> x `like` t) ts
-
-filterNotLike :: Token -> [Token] -> [Token]
-filterNotLike t ts = filter (\x -> x `notLike` t) ts
 
 fromToken :: Token -> String
 fromToken (Bracket bracket)       = B.fromBracket bracket
@@ -62,6 +69,11 @@ fromToken (Lexer.Control control) = C.fromControl control
 fromToken (Data d)                = D.fromData    d
 fromToken (Keyword keyword)       = K.fromKeyword keyword
 fromToken (Operator operator)     = O.fromOp      operator
+
+
+fromTokenUnit :: TokenUnit -> String
+fromTokenUnit tu = fromToken $ unit tu
+
 
 readToken :: String -> Token
 readToken str
@@ -97,88 +109,105 @@ addSpaces str
         getLongestStringFromList strs = head $ filter (\x -> length x == maximum (map length strs)) strs
 
 
-isStringPrefix :: Token -> Bool
-isStringPrefix (Data (D.String a)) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
-isStringPrefix _                   = False
+tokenIsStringPrefix :: Token -> Bool
+tokenIsStringPrefix (Data (D.String a)) = ((isPrefixOf "\"" a) && (not $ isSuffixOf "\"" a)) || (length a == 1)
+tokenIsStringPrefix _                   = False
 
 
-isStringSuffix :: Token -> Bool
-isStringSuffix (Data (D.String a)) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
-isStringSuffix _          = False
+tokenIsStringSuffix :: Token -> Bool
+tokenIsStringSuffix (Data (D.String a)) = ((isSuffixOf "\"" a) && (not $ isPrefixOf "\"" a)) || (length a == 1)
+tokenIsStringSuffix _          = False
 
 
-isCommentPrefix :: Token -> Bool
-isCommentPrefix (Data (D.Comment a)) = isPrefixOf "/*" a
-isCommentPrefix _         = False
+tokenIsCommentPrefix :: Token -> Bool
+tokenIsCommentPrefix (Data (D.Comment a)) = isPrefixOf "/*" a
+tokenIsCommentPrefix _         = False
 
 
-isCommentSuffix :: Token -> Bool
-isCommentSuffix (Data (D.Comment a)) = isSuffixOf "*/" a
-isCommentSuffix _         = False
+tokenIsCommentSuffix :: Token -> Bool
+tokenIsCommentSuffix (Data (D.Comment a)) = isSuffixOf "*/" a
+tokenIsCommentSuffix _         = False
+
+
+stringIsCommentPrefix :: String -> Bool
+stringIsCommentPrefix a = isPrefixOf "/*" a
+
+
+stringIsCommentSuffix :: String -> Bool
+stringIsCommentSuffix a = isSuffixOf "*/" a
 
 
 consolidateEagerCollapsibleTokens :: [Token] -> [Token]
 consolidateEagerCollapsibleTokens [] = []
 consolidateEagerCollapsibleTokens (t:ts)
-    | isStringPrefix  t && isEagerCollapsible isStringPrefix  isStringSuffix  (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (isStringPrefix)  (isStringSuffix)  (t:ts))
-    | otherwise                                                                      = t : consolidateEagerCollapsibleTokens ts
+    | tokenIsStringPrefix t && isEagerCollapsible tokenIsStringPrefix tokenIsStringSuffix (t:ts) = (mapToConsolidatedData (Data (D.String "")) (t:ts))  ++ consolidateEagerCollapsibleTokens (dropBetween (tokenIsStringPrefix)  (tokenIsStringSuffix)  (t:ts))
+    | otherwise                                                                                  = t : consolidateEagerCollapsibleTokens ts
     where
         mapTakeBetween :: Token -> [Token] -> [Token]
         mapTakeBetween emptyTokenDataType xs = map (\t -> (constructDataToken emptyTokenDataType) (D.fromData (baseData t))) $ takeBetween (isDataTypePrefix emptyTokenDataType) (isDataTypeSuffix emptyTokenDataType) xs
         mapToConsolidatedData :: Token -> [Token] -> [Token]
         mapToConsolidatedData emptyTokenDataType xs = (constructDataToken emptyTokenDataType) (concat (map (\t -> D.fromData (baseData t)) (mapTakeBetween emptyTokenDataType xs))) : []
         isDataTypePrefix :: Token -> Token -> Bool
-        isDataTypePrefix (Data (D.String  _)) = isStringPrefix
+        isDataTypePrefix (Data (D.String  _)) = tokenIsStringPrefix
         isDataTypeSuffix :: Token -> Token -> Bool
-        isDataTypeSuffix (Data (D.String  _)) = isStringSuffix
+        isDataTypeSuffix (Data (D.String  _)) = tokenIsStringSuffix
         constructDataToken :: Token -> String -> Token
         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
 
 
-consolidateNestedCollapsibleTokens :: [Token] -> [Token]
-consolidateNestedCollapsibleTokens [] = []
-consolidateNestedCollapsibleTokens ts 
-    | all null (unwrapPartition part) = ts
-    | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokens (partThd part))
+wordsPreserveStringSpacing :: String -> [String]
+wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str where
+    wordsPreserveStringSpacingScan :: [String] -> String -> [String]
+    wordsPreserveStringSpacingScan strs "" = strs
+    wordsPreserveStringSpacingScan strs (s:str)
+        | s == '"' = wordsPreserveStringSpacingScan (strs ++ ((buildPreservedString str) : [])) (dropInfix (buildPreservedString str) (s:str))
+        | isSpace s = wordsPreserveStringSpacingScan strs str
+        | otherwise = wordsPreserveStringSpacingScan (strs ++ ((buildWord (s:str)) : [])) (dropInfix (buildWord (s:str)) (s:str))
+        where
+            buildPreservedString :: String -> String
+            buildPreservedString str = "\"" ++ (takeWhile ((/=) '\"') str ) ++ "\""
+            buildWord            :: String -> String
+            buildWord str = (takeWhile (\s -> not (isSpace s)) str)
+
+
+prepareRawString :: String -> [Packet String]
+prepareRawString "" = []
+prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPreserveStringSpacing $ mapPreserveLn addSpaces $ zipNumbersToLines
     where
-        part = breakByNest (NCCase isCommentPrefix isCommentSuffix) ts
-        flattenedFstSnd part' = (partFst part') ++ ((Data (D.Comment (concat (map (fromToken) (partSnd part'))))) : [])
+        linesStrs = reverse $ dropWhile null $ reverse $ lines strs
+        --zipNumbersToLines :: [([String], Int)]
+        zipNumbersToLines = zip (linesStrs) ([1..((length linesStrs) + 1)])
+        zippedLineNumbersToStringPackets :: [([String], Int)] -> [Packet String]
+        zippedLineNumbersToStringPackets zs = map (\z -> Packet (fst z) (snd z)) zs
+        mapPreserveLn :: (a -> b) -> [(a,Int)] -> [(b,Int)]
+        mapPreserveLn f xs = map (\(first,second) -> (f first, second)) xs
 
 
-intersperseSpaceOtherTypes :: [Token] -> [Token]
-intersperseSpaceOtherTypes [] = []
-intersperseSpaceOtherTypes (t:ts)
-    | isStringPrefix t || isStringSuffix t = t : (head ts)  : intersperseSpaceOtherTypes (tail ts)
-    | otherwise                            = t : spaceOtherType : intersperseSpaceOtherTypes ts
-    where spaceOtherType = Data (D.Other " ")
+tokenize :: String -> [TokenUnit]
+tokenize strs = concat $ map tokenPacketToUnit $ consolidateStringTokensByLine $ filterEmptyPackets $ tokenizePreparedStringLines $ prepareRawString strs where
+    filterEmptyPackets :: [Packet a] -> [Packet a]
+    filterEmptyPackets pss = filter (\ps -> not (null (members ps))) pss
+    consolidateStringTokensByLine :: [Packet Token] -> [Packet Token]
+    consolidateStringTokensByLine pss = map (\ps -> Packet (consolidateEagerCollapsibleTokens (members ps)) (packetLine ps)) pss
+    tokenizePreparedStringLines :: [Packet String] -> [Packet Token]
+    tokenizePreparedStringLines [] = []
+    tokenizePreparedStringLines (ps:pss)
+            | hasCommentPrefix ps && hasCommentSuffix ps = (mapStringPToTokenPIgnoreSameLineComments ps) : tokenizePreparedStringLines pss
+            | hasCommentPrefix ps                        = (mapStringPToTokenPTakeUntilComment ps)       : tokenizePreparedStringLines (dropWhile (\ps' -> not (any (\ps'' -> stringIsCommentSuffix ps'') (members ps'))) pss)
+            | hasCommentSuffix ps                        = (mapStringPToTokenPDropThroughComment ps)     : tokenizePreparedStringLines pss
+            | otherwise                                  = (fmap readToken ps)                           : tokenizePreparedStringLines pss
+            where
+                hasCommentPrefix :: Packet String -> Bool
+                hasCommentPrefix ps' = any (\ps'' -> stringIsCommentPrefix ps'') (members ps')
+                hasCommentSuffix :: Packet String -> Bool
+                hasCommentSuffix ps' = any (\ps'' -> stringIsCommentSuffix ps'') (members ps')
+                mapStringPToTokenPIgnoreSameLineComments :: Packet String -> Packet Token
+                mapStringPToTokenPIgnoreSameLineComments ps' = (fmap readToken (Packet ((takeWhile (\x -> not (stringIsCommentPrefix x)) (members ps')) ++ (tail' (dropWhile (\x -> not (stringIsCommentSuffix x)) (members ps')))) (packetLine ps')))
+                mapStringPToTokenPTakeUntilComment :: Packet String -> Packet Token
+                mapStringPToTokenPTakeUntilComment ps' = (fmap readToken (Packet (takeWhile (\x -> not (stringIsCommentPrefix x)) (members ps')) (packetLine ps')))
+                mapStringPToTokenPDropThroughComment :: Packet String -> Packet Token
+                mapStringPToTokenPDropThroughComment ps' = (fmap readToken (Packet (tail' (dropWhile (\x -> not (stringIsCommentSuffix x)) (members ps'))) (packetLine ps')))
+                tail' :: [a] -> [a]
+                tail' [] = []
+                tail' (x:xs) = xs
 
-
-removeSpaceOtherTypes :: [Token] -> [Token]
-removeSpaceOtherTypes [] = []
-removeSpaceOtherTypes ts = filter ((/=) (Data (D.Other " "))) ts
-
-
-tokenIsComment :: Token -> Bool
-tokenIsComment t = t `like` (Data (D.Other "")) && (baseData t) `like` (D.Comment "")
-
-
-ignoreComments :: [Token] -> [Token]
-ignoreComments [] = []
-ignoreComments ts = filter (\t -> not (tokenIsComment t)) ts
-
-
-wordsPreserveStringSpacing :: [String] -> String -> [String]
-wordsPreserveStringSpacing strs "" = strs
-wordsPreserveStringSpacing strs (s:str)
-    | s == '"' = wordsPreserveStringSpacing (strs ++ ((buildPreservedString str) : [])) (dropInfix (buildPreservedString str) (s:str))
-    | isSpace s = wordsPreserveStringSpacing strs str
-    | otherwise = wordsPreserveStringSpacing (strs ++ ((buildWord (s:str)) : [])) (dropInfix (buildWord (s:str)) (s:str))
-    where
-        buildPreservedString :: String -> String
-        buildPreservedString str = "\"" ++ (takeWhile ((/=) '\"') str ) ++ "\""
-        buildWord            :: String -> String
-        buildWord str = (takeWhile (\s -> not (isSpace s)) str)
-
-
-tokenize :: String -> [Token]
-tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing [] $ addSpaces strs
