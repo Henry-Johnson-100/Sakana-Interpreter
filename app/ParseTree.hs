@@ -2,7 +2,7 @@ module ParseTree(
 ParseTree(..),
 TreeIO(..),
 generateParseTreeFromTopLevelBlock,
-getTopLevelTokenLists
+--getTopLevelTokenLists
 ) where
 
 import Lexer
@@ -114,10 +114,10 @@ extendChildren :: ParseTree a -> [ParseTree a] -> ParseTree a
 extendChildren (ParseTree b cs) pts = ParseTree b (cs ++ pts)
 
 
-getTopLevelTokenLists :: [Token] -> [[Token]]
-getTopLevelTokenLists [] = []
-getTopLevelTokenLists ts = ((partFst part) ++ (partSnd part)) : (getTopLevelTokenLists (partThd part)) where
-    part = breakByNest bracketNC ts
+-- getTopLevelTokenLists :: [Token] -> [[Token]]
+-- getTopLevelTokenLists [] = []
+-- getTopLevelTokenLists ts = ((partFst part) ++ (partSnd part)) : (getTopLevelTokenLists (partThd part)) where
+--     part = breakByNest bracketNC ts
 
 
 -- | Generates a ParseTree from a function
