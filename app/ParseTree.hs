@@ -129,7 +129,7 @@ generateTokenParseTreeChildren :: [TokenUnit] -> [ParseTree TokenUnit]
 generateTokenParseTreeChildren [] = []
 generateTokenParseTreeChildren (tu:tus)
     | nestedCollapsibleIsPrefixOf bracketNC tus      = (ParseTree tu (generateTokenParseTreeChildren (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC tus)))) : generateTokenParseTreeChildren (partThd (part))
-    | (unit tu) `like` (Keyword Fish) && (unit tu) /= (Keyword Hook) = (ParseTree tu (generateTokenParseTreeChildren tus)) : generateTokenParseTreeChildren (dropInfix (partFst part) (tu:tus))
+    | (unit tu) `like` (Keyword Fish) = (ParseTree tu (generateTokenParseTreeChildren tus)) : generateTokenParseTreeChildren (dropInfix (partFst part) (tu:tus))
     | ignoreForParseTree tu                           = generateTokenParseTreeChildren tus
     | otherwise                                      = (ParseTree tu []) : generateTokenParseTreeChildren tus
     where
