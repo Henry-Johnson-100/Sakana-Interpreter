@@ -4,7 +4,8 @@ module Lexer (
     TokenUnit(..),
     tokenize,
     fromToken,
-    like
+    like,
+    getTokenBracketScopeType
 ) where
 
 import Data.List
@@ -50,6 +51,10 @@ instance Like Token where
 
 instance Functor Packet where
     fmap f sp = Packet (fmap f (members sp)) (packetLine sp)
+
+
+getTokenBracketScopeType :: Token -> ScopeType
+getTokenBracketScopeType (Bracket st _) = st
 
 
 tokenPacketToUnit :: Packet Token -> [TokenUnit]

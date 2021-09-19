@@ -1,7 +1,7 @@
 module ParseTree(
 ParseTree(..),
 TreeIO(..),
-generateParseTreeFromTopLevelBlock,
+-- generateParseTreeFromTopLevelBlock,
 --getTopLevelTokenLists
 ) where
 
@@ -121,21 +121,36 @@ extendChildren (ParseTree b cs) pts = ParseTree b (cs ++ pts)
 
 
 -- | Generates a ParseTree from a function
-generateParseTreeFromTopLevelBlock :: [TokenUnit] -> ParseTree TokenUnit
-generateParseTreeFromTopLevelBlock [] = Empty
-generateParseTreeFromTopLevelBlock ts = ParseTree (head ts) (generateTokenParseTreeChildren (tail ts))
+-- generateParseTreeFromTopLevelBlock :: [TokenUnit] -> ParseTree TokenUnit
+-- generateParseTreeFromTopLevelBlock [] = Empty
+-- generateParseTreeFromTopLevelBlock ts = ParseTree (head ts) (generateTokenParseTreeChildren (tail ts))
 
-generateTokenParseTreeChildren :: [TokenUnit] -> [ParseTree TokenUnit]
-generateTokenParseTreeChildren [] = []
-generateTokenParseTreeChildren (tu:tus)
-    | nestedCollapsibleIsPrefixOf bracketNC tus      = (ParseTree tu (generateTokenParseTreeChildren (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC tus)))) : generateTokenParseTreeChildren (partThd (part))
-    | (unit tu) `like` (Keyword Fish) = (ParseTree tu (generateTokenParseTreeChildren tus)) : generateTokenParseTreeChildren (dropInfix (partFst part) (tu:tus))
-    | ignoreForParseTree tu                           = generateTokenParseTreeChildren tus
-    | otherwise                                      = (ParseTree tu []) : generateTokenParseTreeChildren tus
+-- generateTokenParseTreeChildren :: [TokenUnit] -> [ParseTree TokenUnit]
+-- generateTokenParseTreeChildren [] = []
+-- generateTokenParseTreeChildren (tu:tus)
+--     | nestedCollapsibleIsPrefixOf bracketNC tus      = (ParseTree tu (generateTokenParseTreeChildren (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC tus)))) : generateTokenParseTreeChildren (partThd (part))
+--     | (unit tu) `like` (Keyword Fish) = (ParseTree tu (generateTokenParseTreeChildren tus)) : generateTokenParseTreeChildren (dropInfix (partFst part) (tu:tus))
+--     | ignoreForParseTree tu                           = generateTokenParseTreeChildren tus
+--     | otherwise                                      = (ParseTree tu []) : generateTokenParseTreeChildren tus
+--     where
+--         ignoreForParseTree :: TokenUnit -> Bool
+--         ignoreForParseTree tu
+--             | (unit tu) `like` (Bracket Send Open) = True
+--             | (unit tu) == (Data (Punct ","))        = True
+--             | otherwise                      = False
+--         part = breakByNest bracketNC (tu:tus)
+
+generateParseTreeFromBracketScope :: [TokenUnit] -> ParseTree TokenUnit --doesn't necessarily need to strictly be for bracketed scope
+generateParseTreeFromBracketScope [] = Empty
+generateParseTreeFromBracketScope tubs 
+    | isCompleteNestedCollapsible bracketNC tubs = generate' tubs (ParseTree (head tubs) [])
+    | hasNestedCollapsible bracketNC tubs        = generateParseTreeFromBracketScope $ takeNestFirstComplete bracketNC tubs
+    | otherwise                                  = Empty
     where
-        ignoreForParseTree :: TokenUnit -> Bool
-        ignoreForParseTree tu
-            | (unit tu) `like` (Bracket Send Open) = True
-            | (unit tu) == (Data (Punct ","))        = True
-            | otherwise                      = False
-        part = breakByNest bracketNC (tu:tus)
+        generate' :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
+        generate' [] base = base
+        generate' tus base
+            | isCompleteNestedCollapsible bracketNC tus                                         = appendChild base (generate' (getNestedCollapsibleContents bracketNC tus) (tree (head tus)))
+            | not (hasNestedCollapsible bracketNC (getNestedCollapsibleContents bracketNC tus)) = extendChildren base (map (tree) (getNestedCollapsibleContents bracketNC tus))
+            | nestedCollapsibleIsPrefixOf bracketNC tus                                         = generate' (dropInfix (takeNestFirstComplete bracketNC tus) tus) (appendChild base (generate' (takeNestFirstComplete bracketNC tus) (tree (head tus))))
+            | otherwise                                                                         = generate' (tail tus) (appendChild base (tree (head tus)))
