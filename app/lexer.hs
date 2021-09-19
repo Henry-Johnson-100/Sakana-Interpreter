@@ -1,6 +1,6 @@
 module Lexer (
     Token(..),
-    --tokenize,
+    -- tokenize,
     fromToken
 ) where
 
@@ -208,17 +208,39 @@ wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str where
 -- -- tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing $ addSpaces strs
 
 
--- prepareRawString :: String -> [([String], Int)]
--- prepareRawString "" = []
--- prepareRawString strs = mapPreserveLn wordsPreserveStringSpacing $ mapPreserveLn addSpaces $ zipNumbersToLines
---     where
---         linesStrs = lines strs
---         zipNumbersToLines = zip (linesStrs) ([1..((length linesStrs) + 1)])
---         mapPreserveLn :: (a -> b) -> [(a,Int)] -> [(b,Int)]
---         mapPreserveLn f xs = map (\(first,second) -> (f first, second)) xs
+prepareRawString :: String -> [Packet String]
+prepareRawString "" = []
+prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPreserveStringSpacing $ mapPreserveLn addSpaces $ zipNumbersToLines
+    where
+        linesStrs = lines strs
+        --zipNumbersToLines :: [([String], Int)]
+        zipNumbersToLines = zip (linesStrs) ([1..((length linesStrs) + 1)])
+        zippedLineNumbersToStringPackets :: [([String], Int)] -> [Packet String]
+        zippedLineNumbersToStringPackets zs = map (\z -> Packet (fst z) (snd z)) zs
+        mapPreserveLn :: (a -> b) -> [(a,Int)] -> [(b,Int)]
+        mapPreserveLn f xs = map (\(first,second) -> (f first, second)) xs
 
 
--- tokenize :: String -> [TokenPacket]
--- tokenize strs = concat $ map (stringListMapToTokenPackets) $ prepareRawString strs where 
---         stringListMapToTokenPackets :: ([String], Int) -> [TokenPacket]
---         stringListMapToTokenPackets (strs, ln) = map (\s -> (TokenPacket (readToken s) ln)) strs
+-- -- tokenizePreparedStringLine :: PreparedString -> TokenPacket
+-- -- tokenizePreparedStringLine (strs, ln) = TokenPacket (map readToken strs) ln
+
+
+-- -- tokenize :: String -> [TokenPacket]
+-- tokenize strs = tokenizePreparedStringLines $ prepareRawString strs where
+--     tokenizePreparedStringLines :: [StringPacket] -> [TokenPacket]
+--     tokenizePreparedStringLines pss = tokenizePreparedStringLines' pss [] False where
+--         currentToken :: StringPacket -> Token
+--         currentToken ps' = readToken $ fst ps'
+--         currentTokenIsComment :: StringPacket -> Bool
+--         currentTokenIsComment ps' = (currentToken ps') `like` (Data (Comment ""))
+--         tokenizePreparedStringLines' :: [StringPacket] -> [TokenPacket] -> Bool -> [TokenPacket]
+--         tokenizePreparedStringLines' [] tps _ = tps
+--         tokenizePreparedStringLines' (ps:pss') tps True = if currentTokenIsComment ps 
+--                                                                 then tokenizePreparedStringLines' pss' tps False 
+--                                                                 else tokenizePreparedStringLines' pss' tps True
+--         tokenizePreparedStringLines' (ps:pss') tps pass
+--             | currentTokenIsComment ps = tokenizePreparedStringLines' pss' tps True
+--             where
+
+--                 addTokenPacketToList :: TokenPacket -> [TokenPacket] -> [TokenPacket]
+--                 addTokenPacketToList tp' tps' = map (\x -> if (packetLine tp') == (packetLine x) then (TokenPacket ((tokens tp') ++ (tokens x)) (packetLine x)) else x) tps'
