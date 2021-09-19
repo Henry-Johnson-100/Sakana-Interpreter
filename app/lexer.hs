@@ -9,6 +9,7 @@ module Lexer (
 
 import Data.List
 import Data.Char (isSpace)
+import Data.Tuple (uncurry)
 import Token.Util.Like
 import Token.Util.String
 import Token.Util.EagerCollapsible
@@ -19,7 +20,7 @@ import Token.Data       as D
 import Token.Keyword    as K
 import Token.Operator   as O
 
-data Token = Bracket Bracket | Control Control | Data Data | Keyword Keyword | Operator Operator deriving (Show,Read,Eq)
+data Token = Bracket ScopeType BracketTerminal | Control Control | Data Data | Keyword Keyword | Operator Operator deriving (Show,Read,Eq)
 
 
 data PacketUnit a = PacketUnit {
@@ -38,13 +39,13 @@ data Packet a = Packet {
 
 
 instance Like Token where
-    like (Bracket a)       (Bracket b)  = True
-    like (Control a)       (Control b)  = True
-    like (Data a)          (Data b)     = True
-    like (Keyword a)       (Keyword b)  = True
-    like (Operator a)      (Operator b) = True
-    like _                 _            = False
-    notLike a              b            = not $ like a b
+    like (Bracket _ _)     (Bracket _ _) = True
+    like (Control _)       (Control _)   = True
+    like (Data _)          (Data _)      = True
+    like (Keyword _)       (Keyword _)   = True
+    like (Operator _)      (Operator _)  = True
+    like _                 _             = False
+    notLike a              b             = not $ like a b
 
 
 instance Functor Packet where
@@ -64,7 +65,7 @@ baseDataString t = D.fromData $ baseData t
 
 
 fromToken :: Token -> String
-fromToken (Bracket bracket)       = B.fromBracket bracket
+fromToken (Bracket st bt)         = B.fromBracket st bt
 fromToken (Lexer.Control control) = C.fromControl control
 fromToken (Data d)                = D.fromData    d
 fromToken (Keyword keyword)       = K.fromKeyword keyword
@@ -78,7 +79,7 @@ fromTokenUnit tu = fromToken $ unit tu
 readToken :: String -> Token
 readToken str
     | elem str K.repr = Keyword       (K.readKeyword str)
-    | elem str B.repr = Bracket       (B.readBracket str)
+    | elem str B.repr = uncurry (\st bt -> Bracket st bt) (B.readBracket str)
     | elem str C.repr = Lexer.Control (C.readControl str)
     | elem str O.repr = Operator      (O.readOp      str)
     | otherwise       = Data          (D.readData    str)

@@ -94,7 +94,7 @@ instance Functor ParseTree where
 
 
 bracketNC :: NCCase TokenUnit
-bracketNC = NCCase (\x -> any ((unit x) ==) [Bracket (Send Open), Bracket (Return Open)]) (\x -> any ((unit x) ==) [Bracket (Send Close), Bracket (Return Close)])
+bracketNC = NCCase (\x -> any ((unit x) ==) [Bracket Send Open, Bracket Return Open]) (\x -> any ((unit x) ==) [Bracket Send Close, Bracket Return Close])
 
 
 nullTree :: ParseTree a -> Bool
@@ -135,7 +135,7 @@ generateTokenParseTreeChildren (tu:tus)
     where
         ignoreForParseTree :: TokenUnit -> Bool
         ignoreForParseTree tu
-            | (unit tu) `like` (Bracket (Send Open)) = True
+            | (unit tu) `like` (Bracket Send Open) = True
             | (unit tu) == (Data (Punct ","))        = True
             | otherwise                      = False
         part = breakByNest bracketNC (tu:tus)
