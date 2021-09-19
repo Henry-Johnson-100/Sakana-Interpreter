@@ -1,6 +1,6 @@
 module Lexer (
     Token(..),
-    -- tokenize,
+    tokenize,
     fromToken
 ) where
 
@@ -220,7 +220,7 @@ prepareRawString :: String -> [Packet String]
 prepareRawString "" = []
 prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPreserveStringSpacing $ mapPreserveLn addSpaces $ zipNumbersToLines
     where
-        linesStrs = lines strs
+        linesStrs = reverse $ dropWhile null $ reverse $ lines strs
         --zipNumbersToLines :: [([String], Int)]
         zipNumbersToLines = zip (linesStrs) ([1..((length linesStrs) + 1)])
         zippedLineNumbersToStringPackets :: [([String], Int)] -> [Packet String]
@@ -229,22 +229,49 @@ prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPr
         mapPreserveLn f xs = map (\(first,second) -> (f first, second)) xs
 
 
--- -- tokenize :: String -> [TokenPacket]
--- tokenize strs = tokenizePreparedStringLines $ prepareRawString strs where
---     tokenizePreparedStringLines :: [StringPacket] -> [TokenPacket]
---     tokenizePreparedStringLines pss = tokenizePreparedStringLines' pss [] False where
---         currentToken :: StringPacket -> Token
---         currentToken ps' = readToken $ fst ps'
---         currentTokenIsComment :: StringPacket -> Bool
---         currentTokenIsComment ps' = (currentToken ps') `like` (Data (Comment ""))
---         tokenizePreparedStringLines' :: [StringPacket] -> [TokenPacket] -> Bool -> [TokenPacket]
---         tokenizePreparedStringLines' [] tps _ = tps
---         tokenizePreparedStringLines' (ps:pss') tps True = if currentTokenIsComment ps 
---                                                                 then tokenizePreparedStringLines' pss' tps False 
---                                                                 else tokenizePreparedStringLines' pss' tps True
---         tokenizePreparedStringLines' (ps:pss') tps pass
---             | currentTokenIsComment ps = tokenizePreparedStringLines' pss' tps True
---             where
+-- tokenize :: String -> [TokenPacket]
+tokenize strs = filterEmptyPackets $ tokenizePreparedStringLines $ prepareRawString strs where
+    filterEmptyPackets :: [Packet a] -> [Packet a]
+    filterEmptyPackets pss = filter (\ps -> not (null (members ps))) pss
+    tokenizePreparedStringLines :: [Packet String] -> [Packet Token]
+    tokenizePreparedStringLines [] = []
+    tokenizePreparedStringLines (ps:pss)
+            | hasCommentPrefix ps && hasCommentSuffix ps = (mapStringPToTokenPIgnoreSameLineComments ps) : tokenizePreparedStringLines pss
+            | hasCommentPrefix ps                        = (mapStringPToTokenPTakeUntilComment ps)       : tokenizePreparedStringLines (dropWhile (\ps' -> not (any (\ps'' -> stringIsCommentSuffix ps'') (members ps'))) pss)
+            | hasCommentSuffix ps                        = (mapStringPToTokenPDropThroughComment ps)     : tokenizePreparedStringLines pss
+            | otherwise                                  = (fmap readToken ps)                           : tokenizePreparedStringLines pss
+            where
+                hasCommentPrefix :: Packet String -> Bool
+                hasCommentPrefix ps' = any (\ps'' -> stringIsCommentPrefix ps'') (members ps')
+                hasCommentSuffix :: Packet String -> Bool
+                hasCommentSuffix ps' = any (\ps'' -> stringIsCommentSuffix ps'') (members ps')
+                mapStringPToTokenPIgnoreSameLineComments :: Packet String -> Packet Token
+                mapStringPToTokenPIgnoreSameLineComments ps' = (fmap readToken (Packet ((takeWhile (\x -> not (stringIsCommentPrefix x)) (members ps')) ++ (tail' (dropWhile (\x -> not (stringIsCommentSuffix x)) (members ps')))) (packetLine ps')))
+                mapStringPToTokenPTakeUntilComment :: Packet String -> Packet Token
+                mapStringPToTokenPTakeUntilComment ps' = (fmap readToken (Packet (takeWhile (\x -> not (stringIsCommentPrefix x)) (members ps')) (packetLine ps')))
+                mapStringPToTokenPDropThroughComment :: Packet String -> Packet Token
+                mapStringPToTokenPDropThroughComment ps' = (fmap readToken (Packet (tail' (dropWhile (\x -> not (stringIsCommentSuffix x)) (members ps'))) (packetLine ps')))
+                tail' :: [a] -> [a]
+                tail' [] = []
+                tail' (x:xs) = xs
 
---                 addTokenPacketToList :: TokenPacket -> [TokenPacket] -> [TokenPacket]
---                 addTokenPacketToList tp' tps' = map (\x -> if (packetLine tp') == (packetLine x) then (TokenPacket ((tokens tp') ++ (tokens x)) (packetLine x)) else x) tps'
+
+
+
+
+        
+        -- currentToken :: StringPacket -> Token
+        -- currentToken ps' = readToken $ fst ps'
+        -- currentTokenIsComment :: StringPacket -> Bool
+        -- currentTokenIsComment ps' = (currentToken ps') `like` (Data (Comment ""))
+        -- tokenizePreparedStringLines' :: [StringPacket] -> [TokenPacket] -> Bool -> [TokenPacket]
+        -- tokenizePreparedStringLines' [] tps _ = tps
+        -- tokenizePreparedStringLines' (ps:pss') tps True = if currentTokenIsComment ps 
+        --                                                         then tokenizePreparedStringLines' pss' tps False 
+        --                                                         else tokenizePreparedStringLines' pss' tps True
+        -- tokenizePreparedStringLines' (ps:pss') tps pass
+        --     | currentTokenIsComment ps = tokenizePreparedStringLines' pss' tps True
+        --     where
+
+        --         addTokenPacketToList :: TokenPacket -> [TokenPacket] -> [TokenPacket]
+        --         addTokenPacketToList tp' tps' = map (\x -> if (packetLine tp') == (packetLine x) then (TokenPacket ((tokens tp') ++ (tokens x)) (packetLine x)) else x) tps'
