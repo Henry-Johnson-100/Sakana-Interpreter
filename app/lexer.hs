@@ -18,16 +18,17 @@ import Token.Operator   as O
 
 data Token = Bracket Bracket | Control Control | Data Data | Keyword Keyword | Operator Operator deriving (Show,Read,Eq)
 
-data TokenPacket = TokenPacket {
-    tokens :: [Token],
-    packetLine  :: Int
-} deriving (Show,Read,Eq)
-
 
 data TokenUnit = TokenUnit {
     token :: Token,
     unitLine  :: Int
 } deriving (Show, Read, Eq)
+
+
+data Packet a = Packet {
+    members :: [a],
+    packetLine :: Int
+} deriving (Show, Eq)
 
 
 instance Like Token where
@@ -40,9 +41,17 @@ instance Like Token where
     notLike a              b            = not $ like a b
 
 
+tokenPacketToUnit :: Packet Token -> [TokenUnit]
+tokenPacketToUnit tp = map (\t -> (TokenUnit t (packetLine tp))) (members tp)
+
+
 instance Like TokenUnit where
     like x y = (token x) `like` (token y)
     notLike x y = not $ like x y
+
+
+instance Functor Packet where
+    fmap f sp = Packet (fmap f (members sp)) (packetLine sp)
 
 
 baseData :: Token -> Data
