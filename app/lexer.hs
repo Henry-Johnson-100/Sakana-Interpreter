@@ -1,7 +1,10 @@
 module Lexer (
     Token(..),
+    PacketUnit(..),
+    TokenUnit(..),
     tokenize,
-    fromToken
+    fromToken,
+    like
 ) where
 
 import Data.List
@@ -20,7 +23,7 @@ data Token = Bracket Bracket | Control Control | Data Data | Keyword Keyword | O
 
 
 data PacketUnit a = PacketUnit {
-    token :: a,
+    unit :: a,
     unitLine  :: Int
 } deriving (Show, Read, Eq)
 
@@ -69,7 +72,7 @@ fromToken (Operator operator)     = O.fromOp      operator
 
 
 fromTokenUnit :: TokenUnit -> String
-fromTokenUnit tu = fromToken $ token tu
+fromTokenUnit tu = fromToken $ unit tu
 
 
 readToken :: String -> Token
