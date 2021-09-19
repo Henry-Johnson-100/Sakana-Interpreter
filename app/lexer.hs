@@ -19,10 +19,13 @@ import Token.Operator   as O
 data Token = Bracket Bracket | Control Control | Data Data | Keyword Keyword | Operator Operator deriving (Show,Read,Eq)
 
 
-data TokenUnit = TokenUnit {
-    token :: Token,
+data PacketUnit a = PacketUnit {
+    token :: a,
     unitLine  :: Int
 } deriving (Show, Read, Eq)
+
+
+type TokenUnit = PacketUnit Token
 
 
 data Packet a = Packet {
@@ -41,17 +44,12 @@ instance Like Token where
     notLike a              b            = not $ like a b
 
 
-instance Like TokenUnit where
-    like x y = (token x) `like` (token y)
-    notLike x y = not $ like x y
-
-
 instance Functor Packet where
     fmap f sp = Packet (fmap f (members sp)) (packetLine sp)
 
 
 tokenPacketToUnit :: Packet Token -> [TokenUnit]
-tokenPacketToUnit tp = map (\t -> (TokenUnit t (packetLine tp))) (members tp)
+tokenPacketToUnit tp = map (\t -> (PacketUnit t (packetLine tp))) (members tp)
 
 
 baseData :: Token -> Data
@@ -154,49 +152,6 @@ consolidateEagerCollapsibleTokens (t:ts)
         constructDataToken (Data (D.String  _)) str = (Data (D.String str))
 
 
--- mapOnTokenInLine :: (Token -> Token) -> [TokenPacket] -> [TokenPacket]
--- mapOnTokenInLine _ [] = []
--- mapOnTokenInLine f (t:tils) = (TokenPacket (f (token t)) (packetLine t)) : mapOnTokenInLine f tils
-
-
--- consolidateEagerCollapsibleTokenInLines :: [TokenPacket] -> [TokenPacket]
--- consolidateEagerCollapsibleTokenInLines [] = []
--- consolidateEagerCollapsibleTokenInLines (t:ts)
---     | tokenIsStringPrefix (token t) && isEagerCollapsible (\t' -> tokenIsStringPrefix (token t'))  (\t' -> tokenIsStringSuffix (token t'))  (t:ts) = (mapToConsolidatedDataString (t:ts))  ++ consolidateEagerCollapsibleTokenInLines (dropBetween (\t' -> tokenIsStringPrefix (token t'))  (\t' -> tokenIsStringSuffix (token t'))  (t:ts))
---     | otherwise                                                                                                                     = t : consolidateEagerCollapsibleTokenInLines ts
---     where
---         mapTakeBetween :: [TokenPacket] -> [TokenPacket]
---         mapTakeBetween xs = mapOnTokenInLine (\t -> (Data (D.String (baseDataString t)))) $ takeBetween (\t -> tokenIsStringPrefix (token t)) (\t -> tokenIsStringSuffix (token t)) xs
---         mapToConsolidatedDataString :: [TokenPacket] -> [TokenPacket]
---         mapToConsolidatedDataString xs = (TokenPacket (Data (D.String (concat (map (\til -> baseDataString (token til)) (mapTakeBetween xs))))) (packetLine (head xs))) : []
-
-
--- consolidateNestedCollapsibleTokens :: [Token] -> [Token]
--- consolidateNestedCollapsibleTokens [] = []
--- consolidateNestedCollapsibleTokens ts 
---     | all null (unwrapPartition part) = ts
---     | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokens (partThd part))
---     where
---         part = breakByNest (NCCase isCommentPrefix isCommentSuffix) ts
---         flattenedFstSnd part' = (partFst part') ++ ((Data (D.Comment (concat (map (fromToken) (partSnd part'))))) : [])
-
-
--- consolidateNestedCollapsibleTokenInLines :: [TokenPacket] -> [TokenPacket]
--- consolidateNestedCollapsibleTokenInLines [] = []
--- consolidateNestedCollapsibleTokenInLines ts 
---     | all null (unwrapPartition part) = ts
---     | otherwise =  (flattenedFstSnd part) ++ (consolidateNestedCollapsibleTokenInLines (partThd part))
---     where
---         part = breakByNest (NCCase (\t -> isCommentPrefix (token t)) (\t -> isCommentSuffix (token t))) ts
---         flattenedFstSnd part' = (partFst part') ++ ((TokenPacket (Data (D.Comment (concat (map (\til -> fromToken (token til)) (partSnd part'))))) 0) : [])
-
--- **************************************
--- ignoreComments :: [TokenPacket] -> [TokenPacket]
--- ignoreComments [] = []
--- ignoreComments ts = filter (\t -> not (tokenPacketIsComment t)) ts where
---     tokenPacketIsComment :: TokenPacket -> Bool
---     tokenPacketIsComment t = t `like` (TokenPacket (Data (D.Other "")) 0) && (baseData t) `like` (D.Comment "")
-
 wordsPreserveStringSpacing :: String -> [String]
 wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str where
     wordsPreserveStringSpacingScan :: [String] -> String -> [String]
@@ -212,10 +167,6 @@ wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str where
             buildWord str = (takeWhile (\s -> not (isSpace s)) str)
 
 
--- -- tokenize :: String -> [Token]
--- -- tokenize strs = ignoreComments $ consolidateNestedCollapsibleTokens $ consolidateEagerCollapsibleTokens $ map (readToken) $ wordsPreserveStringSpacing $ addSpaces strs
-
-
 prepareRawString :: String -> [Packet String]
 prepareRawString "" = []
 prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPreserveStringSpacing $ mapPreserveLn addSpaces $ zipNumbersToLines
@@ -229,8 +180,8 @@ prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPr
         mapPreserveLn f xs = map (\(first,second) -> (f first, second)) xs
 
 
-tokenize :: String -> [Packet Token]
-tokenize strs = map (\ps -> Packet (consolidateEagerCollapsibleTokens (members ps)) (packetLine ps)) $ filterEmptyPackets $ tokenizePreparedStringLines $ prepareRawString strs where
+tokenize :: String -> [TokenUnit]
+tokenize strs = concat $ map tokenPacketToUnit $ map (\ps -> Packet (consolidateEagerCollapsibleTokens (members ps)) (packetLine ps)) $ filterEmptyPackets $ tokenizePreparedStringLines $ prepareRawString strs where
     filterEmptyPackets :: [Packet a] -> [Packet a]
     filterEmptyPackets pss = filter (\ps -> not (null (members ps))) pss
     tokenizePreparedStringLines :: [Packet String] -> [Packet Token]
@@ -255,23 +206,3 @@ tokenize strs = map (\ps -> Packet (consolidateEagerCollapsibleTokens (members p
                 tail' [] = []
                 tail' (x:xs) = xs
 
-
-
-
-
-        
-        -- currentToken :: StringPacket -> Token
-        -- currentToken ps' = readToken $ fst ps'
-        -- currentTokenIsComment :: StringPacket -> Bool
-        -- currentTokenIsComment ps' = (currentToken ps') `like` (Data (Comment ""))
-        -- tokenizePreparedStringLines' :: [StringPacket] -> [TokenPacket] -> Bool -> [TokenPacket]
-        -- tokenizePreparedStringLines' [] tps _ = tps
-        -- tokenizePreparedStringLines' (ps:pss') tps True = if currentTokenIsComment ps 
-        --                                                         then tokenizePreparedStringLines' pss' tps False 
-        --                                                         else tokenizePreparedStringLines' pss' tps True
-        -- tokenizePreparedStringLines' (ps:pss') tps pass
-        --     | currentTokenIsComment ps = tokenizePreparedStringLines' pss' tps True
-        --     where
-
-        --         addTokenPacketToList :: TokenPacket -> [TokenPacket] -> [TokenPacket]
-        --         addTokenPacketToList tp' tps' = map (\x -> if (packetLine tp') == (packetLine x) then (TokenPacket ((tokens tp') ++ (tokens x)) (packetLine x)) else x) tps'
