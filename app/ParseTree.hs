@@ -96,30 +96,14 @@ groupCurrentTopLevel tus = partFstSnd : (groupCurrentTopLevel (partThd part)) wh
     partFstSnd = (partFst part) ++ (partSnd part)
 
 
--- |Assuming that all the grammar is perfect and logical, probably not a great assumption to make in the infancy of a language -_-
--- groupTopLevelGrammatically :: [TokenUnit] -> [[TokenUnit]]
--- groupTopLevelGrammatically [] = []
--- groupTopLevelGrammatically (tu:tus)
---     | beginsWithKeywordExpectingReturn = (takenThroughReturn)        : (groupTopLevelGrammatically (dropInfix (takenThroughReturn)        (tu:tus)))
---     | beginsWithFinControl             = (partFstSnd)                : (groupTopLevelGrammatically (partThd (part)))
---     | beginsWithFunctionCall           = (takenThroughArbitrarySend) : (groupTopLevelGrammatically (dropInfix (takenThroughArbitrarySend) (tu:tus)))
---     | beginsWithBracketNest            = (takenBracketNest)          : (groupTopLevelGrammatically (dropInfix (takenBracketNest)          (tu:tus)))
---     | otherwise                        = [tu]                        : (groupTopLevelGrammatically tus)
---     where
---         beginsWithKeywordExpectingReturn = (unit tu) `like` genericKeyword
---         beginsWithFinControl             = (unit tu) == (Control Fin)
---         beginsWithFunctionCall           = (unit tu) `like` genericOperator || ((dataTokenIsId (unit tu)) && (tokenUnitIsFollowedBySendBrackets (tu:tus)))
---         beginsWithBracketNest            = nestedCollapsibleIsPrefixOf bracketNC (tu:tus)
---         takenThroughReturn               = takeTokenUnitsThroughReturn (tu:tus)
---         takenThroughArbitrarySend        = takeThroughArbitrarySends (tu:tus)
---         takenBracketNest                 = takeNestFirstComplete bracketNC (tu:tus)
---         part                             = breakByNest bracketNC (tu:tus)
---         partFstSnd                       = (partFst part) ++ (partSnd part)
-
-
 mapGenerateParseTreeToParallelGroups :: [[TokenUnit]] -> [ParseTree TokenUnit]
 mapGenerateParseTreeToParallelGroups [[]] = []
 mapGenerateParseTreeToParallelGroups ttuuss = map (\tus -> generateParseTree tus (tree (head tus))) (filter (\x -> not (null x)) ttuuss)
+
+
+mapGenerateParseTreeToParallelGroupsSuppliedParent :: [[TokenUnit]] -> ParseTree TokenUnit -> [ParseTree TokenUnit]
+mapGenerateParseTreeToParallelGroupsSuppliedParent [[]] _ = []
+mapGenerateParseTreeToParallelGroupsSuppliedParent ttuuss parentTree = map (\tus -> generateParseTree tus parentTree) (filter (\x -> not (null x)) ttuuss)
 
 
 generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
@@ -134,7 +118,7 @@ generateParseTree (tu:tus) parentTree
                                                 parentTree -<= getParallelArgumentTrees
                                             else
                                                 parentTree -<- getSingleArgBracketNestTree
-    | otherwise                        = generateParseTree tus (parentTree -<- (tree tu))
+    | otherwise                        = parentTree -<- generateParseTree tus (tree tu)
     where
         beginsWithKeywordExpectingReturn = (unit tu) `like` genericKeyword
         beginsWithFinControl             = (unit tu) == (Control Fin)
@@ -152,7 +136,7 @@ generateParseTree (tu:tus) parentTree
         getKeywordBracketGroupTrees      = mapGenerateParseTreeToParallelGroups $ groupCurrentTopLevel takenThroughReturn
         getFunctionCallArbitrarySendTrees = mapGenerateParseTreeToParallelGroups $ groupCurrentTopLevel takenThroughArbitrarySend
         getFinAndFollowingBracketGroupTree = generateParseTree (partSnd part) (tree tu)
-        getParallelArgumentTrees         = mapGenerateParseTreeToParallelGroups (splitOn (tuIsComma) (getNestedCollapsibleContents bracketNC takenBracketNest))
+        getParallelArgumentTrees         = mapGenerateParseTreeToParallelGroupsSuppliedParent (splitOn (tuIsComma) (getNestedCollapsibleContents bracketNC takenBracketNest)) (tree tu)
         getSingleArgBracketNestTree      = generateParseTree (getNestedCollapsibleContents bracketNC takenBracketNest) (tree tu)
         tuIsComma :: TokenUnit -> Bool
         tuIsComma x                      = (unit x) == (Data (Punct ","))
