@@ -150,7 +150,11 @@ generateParseTreeFromBracketScope tubs
         generate' :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
         generate' [] base = base
         generate' tus base
-            | isCompleteNestedCollapsible bracketNC tus                                         = appendChild base (generate' (getNestedCollapsibleContents bracketNC tus) (tree (head tus)))
+            | isCompleteNestedCollapsible bracketNC tus                                         = if any (\tu -> (unit tu) == (Data (Punct ","))) (getNestedCollapsibleContents bracketNC tus) 
+                                                                                                      then 
+                                                                                                          extendChildren base $ (map (\tus'' -> generate' tus'' base) (splitOn (\tu -> (unit tu) == (Data (Punct ","))) (getNestedCollapsibleContents bracketNC tus))) 
+                                                                                                      else 
+                                                                                                          appendChild base (generate' (getNestedCollapsibleContents bracketNC tus) (tree (head tus)))
             | not (hasNestedCollapsible bracketNC (getNestedCollapsibleContents bracketNC tus)) = extendChildren base (map (tree) (getNestedCollapsibleContents bracketNC tus))
             | nestedCollapsibleIsPrefixOf bracketNC tus                                         = generate' (dropInfix (takeNestFirstComplete bracketNC tus) tus) (appendChild base (generate' (takeNestFirstComplete bracketNC tus) (tree (head tus))))
             | otherwise                                                                         = generate' (tail tus) (appendChild base (tree (head tus)))

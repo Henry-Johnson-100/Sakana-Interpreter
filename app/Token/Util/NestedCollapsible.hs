@@ -13,7 +13,8 @@ module Token.Util.NestedCollapsible (
     takeNestFirstComplete,
     breakByNest,
     getNestedCollapsibleContents,
-    split
+    split,
+    splitOn
 ) where
 
 
@@ -93,6 +94,12 @@ takeWhileList f (x:xs)
 split :: (Eq a) => [a] -> a -> [[a]]
 split [] _ = [[]]
 split xs splitOn = filter (\x -> not (null x)) $ (takeWhile (splitOn /= ) xs) : (split (tail' (dropWhile (splitOn /= ) xs)) splitOn) where
+    tail' [] = []
+    tail' (x:xs) = xs
+
+splitOn :: (a -> Bool) -> [a] -> [[a]]
+splitOn _ [] = [[]]
+splitOn splitF xs = filter (\x -> not (null x)) $ (takeWhile (\x -> not (splitF x)) xs) : (splitOn splitF (tail' (dropWhile (\x -> not (splitF x)) xs))) where
     tail' [] = []
     tail' (x:xs) = xs
 
