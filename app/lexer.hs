@@ -8,7 +8,8 @@ module Lexer (
     getTokenBracketScopeType,
     genericKeyword,
     genericControl,
-    genericOperator
+    genericOperator,
+    dataTokenIsId
 ) where
 
 import Data.List
@@ -68,6 +69,9 @@ genericOperator = Operator Add
 getTokenBracketScopeType :: Token -> ScopeType
 getTokenBracketScopeType (Bracket st _) = st
 
+dataTokenIsId :: Token -> Bool
+dataTokenIsId (Data (Id _)) = True
+dataTokenIsId _             = False
 
 tokenPacketToUnit :: Packet Token -> [TokenUnit]
 tokenPacketToUnit tp = map (\t -> (PacketUnit t (packetLine tp))) (members tp)
