@@ -85,6 +85,11 @@ groupCurrentTopLevel tus = partFstSnd : (groupCurrentTopLevel (partThd part)) wh
     partFstSnd = (partFst part) ++ (partSnd part)
 
 
+mapGenerateParseTreeToParallelGroups :: [[TokenUnit]] -> ParseTree TokenUnit -> [ParseTree TokenUnit]
+mapGenerateParseTreeToParallelGroups [[]] _ = []
+mapGenerateParseTreeToParallelGroups ttuuss parallelBaseOwner = map (\tus -> generateParseTree tus parallelBaseOwner) ttuuss
+
+
 generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
 generateParseTree [] base = base
 generateParseTree tus base 
