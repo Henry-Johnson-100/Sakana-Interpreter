@@ -65,6 +65,16 @@ tokenUnitIsFollowedBySendBrackets :: [TokenUnit] -> Bool
 tokenUnitIsFollowedBySendBrackets tus = (==) (Bracket Send Open) $ unit $ head $ takeNestFirstComplete bracketNC tus
 
 
+takeThroughArbitrarySends :: [TokenUnit] -> [TokenUnit]
+takeThroughArbitrarySends [] = []
+takeThroughArbitrarySends tus
+    | tokenUnitIsFollowedBySendBrackets (partThd part) = partFstSnd ++ (takeThroughArbitrarySends (partThd part))
+    | otherwise                             = partFstSnd
+    where
+        part = breakByNest bracketNC tus
+        partFstSnd = (partFst part) ++ (partSnd part)
+
+
 tokenUnitHasReturnAfterArbitrarySends :: [TokenUnit] -> Bool
 tokenUnitHasReturnAfterArbitrarySends []  = False
 tokenUnitHasReturnAfterArbitrarySends tus = if (unit (head (partSnd part))) == (Bracket Return Open) then True else tokenUnitHasReturnAfterArbitrarySends (partThd part) where
