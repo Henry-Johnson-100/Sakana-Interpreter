@@ -80,8 +80,8 @@ nestedCollapsibleIsPrefixOf nCCase xs
 dropWhileList :: ([a] -> Bool) -> [a] -> [a]
 dropWhileList _ [] = []
 dropWhileList f xs
-    | f xs = xs
-    | otherwise = dropWhileList f (tail xs)
+    | f xs = dropWhileList f (tail xs)
+    | otherwise = xs
 
 
 takeWhileList :: ([a] -> Bool) -> [a] -> [a]

@@ -110,9 +110,9 @@ generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
 generateParseTree []  parentTree = parentTree
 generateParseTree (tu:tus) parentTree
     | null tus                         = parentTree -<- (tree tu)
-    | beginsWithKeywordExpectingReturn = parentTree -<- generateParseTree tus (tree tu)
+    | beginsWithKeywordExpectingReturn = generateParseTree (dropInfix takenThroughReturn (tu:tus)) (parentTree -<- generateParseTreeKeywordDefinition (tu:tus))
     | beginsWithFinControl             = parentTree -<- getFinAndFollowingBracketGroupTree
-    | beginsWithFunctionCall           = parentTree -<- getFunctionCallIdTree -<= getFunctionCallArbitrarySendTrees
+    | beginsWithFunctionCall           = generateParseTree (dropInfix takenThroughArbitrarySend (tu:tus)) (parentTree -<- generateParseTreeFunctionCall (tu:tus))
     | beginsWithBracketNest            = if bracketNestHasArgs
                                             then
                                                 parentTree -<= getParallelArgumentTrees
@@ -122,7 +122,7 @@ generateParseTree (tu:tus) parentTree
     where
         beginsWithKeywordExpectingReturn = (unit tu) `like` genericKeyword
         beginsWithFinControl             = (unit tu) == (Control Fin)
-        beginsWithFunctionCall           = (unit tu) `like` genericOperator || ((dataTokenIsId (unit tu)) && (tokenUnitIsFollowedBySendBrackets (tu:tus)) && not (tokenUnitHasReturnAfterArbitrarySends (tu:tus)))
+        beginsWithFunctionCall           = (unit tu) `like` genericOperator || (dataTokenIsId (unit tu))
         beginsWithBracketNest            = nestedCollapsibleIsPrefixOf bracketNC (tu:tus)
         bracketNestHasArgs               = any (tuIsComma) takenBracketNest
         takenThroughReturn               = takeTokenUnitsThroughReturn (tu:tus)
@@ -140,3 +140,13 @@ generateParseTree (tu:tus) parentTree
         getSingleArgBracketNestTree      = generateParseTree (getNestedCollapsibleContents bracketNC takenBracketNest) (tree tu)
         tuIsComma :: TokenUnit -> Bool
         tuIsComma x                      = (unit x) == (Data (Punct ","))
+
+generateParseTreeKeywordDefinition :: [TokenUnit] -> ParseTree TokenUnit
+generateParseTreeKeywordDefinition [] = Empty
+generateParseTreeKeywordDefinition (tu:tus) = (tree tu) -<- (tree (head tus)) -<= mapGenerateParseTreeToParallelGroups (keywordBracketGroups) where
+    keywordBracketGroups = groupCurrentTopLevel $ dropWhileList (\xs -> not (nestedCollapsibleIsPrefixOf bracketNC xs)) $ takeTokenUnitsThroughReturn tus
+
+generateParseTreeFunctionCall :: [TokenUnit] -> ParseTree TokenUnit
+generateParseTreeFunctionCall [] = Empty
+generateParseTreeFunctionCall (tu:tus) = (tree tu) -<= mapGenerateParseTreeToParallelGroups functionCallBracketGroups where
+    functionCallBracketGroups = groupCurrentTopLevel $ takeThroughArbitrarySends tus
