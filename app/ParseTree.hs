@@ -59,10 +59,14 @@ generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
 generateParseTree [] base = base
 generateParseTree tus base 
     | any (\x -> (unit (head tus)) `like` x) [genericKeyword, genericControl, genericOperator] = appendChild base (generateParseTree (tail tus) (tree (head tus)))
-    | nestedCollapsibleIsPrefixOf bracketNC tus                                                = generateParseTree (dropInfix (takeNestFirstComplete bracketNC tus) tus) (getBracketTree tus base)
+    | nestedCollapsibleIsPrefixOf bracketNC tus                                                = generateParseTree (dropInfix (takenFirstCompleteNest) tus) (getFirstNestBracketTree)
     | otherwise                                                                                = generateParseTree (tail tus) (appendChild base (tree (head tus)))
     where
-        getBracketTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
-        getBracketTree tus base = if any (\x -> (Data (Punct ",")) == (unit x)) (takeNestFirstComplete bracketNC tus)
-                                  then extendChildren base (map (\tus' -> generateParseTree tus' (tree (head tus))) (splitOn (\x -> (Data (Punct ",")) == (unit x)) (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC tus))))
-                                  else appendChild base (generateParseTree (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC tus)) (tree (head tus)))
+        takenFirstCompleteNest :: [TokenUnit]
+        takenFirstCompleteNest = takeNestFirstComplete bracketNC tus
+        getBracketNCContents :: [TokenUnit] -> [TokenUnit]
+        getBracketNCContents tus' = getNestedCollapsibleContents bracketNC tus'
+        getFirstNestBracketTree :: ParseTree TokenUnit
+        getFirstNestBracketTree = if any (\x -> (Data (Punct ",")) == (unit x)) (takenFirstCompleteNest)
+                         then extendChildren base (map (\tus' -> generateParseTree tus' (tree (head tus))) (splitOn (\x -> (Data (Punct ",")) == (unit x)) (getBracketNCContents (takenFirstCompleteNest))))
+                         else appendChild base (generateParseTree (getBracketNCContents (takenFirstCompleteNest)) (tree (head tus)))
