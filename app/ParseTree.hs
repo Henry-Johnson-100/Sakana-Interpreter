@@ -125,6 +125,7 @@ mapGenerateParseTreeToParallelGroups ttuuss = map (\tus -> generateParseTree tus
 generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
 generateParseTree []  parentTree = parentTree
 generateParseTree (tu:tus) parentTree
+    | null tus                         = parentTree -<- (tree tu)
     | beginsWithKeywordExpectingReturn = parentTree -<- generateParseTree tus (tree tu)
     | beginsWithFinControl             = parentTree -<- getFinAndFollowingBracketGroupTree
     | beginsWithFunctionCall           = parentTree -<- getFunctionCallIdTree -<= getFunctionCallArbitrarySendTrees
@@ -137,7 +138,7 @@ generateParseTree (tu:tus) parentTree
     where
         beginsWithKeywordExpectingReturn = (unit tu) `like` genericKeyword
         beginsWithFinControl             = (unit tu) == (Control Fin)
-        beginsWithFunctionCall           = (unit tu) `like` genericOperator || ((dataTokenIsId (unit tu)) && (tokenUnitIsFollowedBySendBrackets (tu:tus)))
+        beginsWithFunctionCall           = (unit tu) `like` genericOperator || ((dataTokenIsId (unit tu)) && (tokenUnitIsFollowedBySendBrackets (tu:tus)) && not (tokenUnitHasReturnAfterArbitrarySends (tu:tus)))
         beginsWithBracketNest            = nestedCollapsibleIsPrefixOf bracketNC (tu:tus)
         bracketNestHasArgs               = any (tuIsComma) takenBracketNest
         takenThroughReturn               = takeTokenUnitsThroughReturn (tu:tus)
