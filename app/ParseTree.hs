@@ -1,6 +1,7 @@
 module ParseTree(
 ParseTree(..),
 TreeIO(..),
+generateParseTree
 -- generateParseTreeFromTopLevelBlock,
 --getTopLevelTokenLists
 ) where
@@ -144,10 +145,10 @@ generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
 generateParseTree [] base = base
 generateParseTree tus base 
     | any (\x -> (unit (head tus)) `like` x) [genericKeyword, genericControl, genericOperator] = appendChild base (generateParseTree (tail tus) (tree (head tus)))
-    | nestedCollapsibleIsPrefixOf bracketNC tus                                                = generateParseTree (takeNestFirstComplete bracketNC tus) (getBracketTree tus base)
+    | nestedCollapsibleIsPrefixOf bracketNC tus                                                = generateParseTree (dropInfix (takeNestFirstComplete bracketNC tus) tus) (getBracketTree tus base)
     | otherwise                                                                                = generateParseTree (tail tus) (appendChild base (tree (head tus)))
     where
         getBracketTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
         getBracketTree tus base = if any (\x -> (Data (Punct ",")) == (unit x)) (takeNestFirstComplete bracketNC tus)
-                                  then extendChildren base (map (\tus' -> generateParseTree tus' (tree (head tus))) (splitOn (\x -> (Data (Punct ",")) == (unit x)) (takeNestFirstComplete bracketNC tus)))
-                                  else appendChild base (generateParseTree (takeNestFirstComplete bracketNC tus) (tree (head tus)))
+                                  then extendChildren base (map (\tus' -> generateParseTree tus' (tree (head tus))) (splitOn (\x -> (Data (Punct ",")) == (unit x)) (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC tus))))
+                                  else appendChild base (generateParseTree (getNestedCollapsibleContents bracketNC (takeNestFirstComplete bracketNC tus)) (tree (head tus)))
