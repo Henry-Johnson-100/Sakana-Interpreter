@@ -12,7 +12,8 @@ module Token.Util.NestedCollapsible (
     takeNestDeeper,
     takeNestFirstComplete,
     breakByNest,
-    getNestedCollapsibleContents
+    getNestedCollapsibleContents,
+    split
 ) where
 
 
@@ -87,6 +88,13 @@ takeWhileList _ [] = []
 takeWhileList f (x:xs)
     | f (x:xs) = []
     | otherwise = x : (takeWhileList f xs)
+
+
+split :: (Eq a) => [a] -> a -> [[a]]
+split [] _ = [[]]
+split xs splitOn = filter (\x -> not (null x)) $ (takeWhile (splitOn /= ) xs) : (split (tail' (dropWhile (splitOn /= ) xs)) splitOn) where
+    tail' [] = []
+    tail' (x:xs) = xs
 
 
 takeNestSameDepth :: (Eq a) => NCCase a -> [a] -> [a]
