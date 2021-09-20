@@ -5,7 +5,10 @@ module Lexer (
     tokenize,
     fromToken,
     like,
-    getTokenBracketScopeType
+    getTokenBracketScopeType,
+    genericKeyword,
+    genericControl,
+    genericOperator
 ) where
 
 import Data.List
@@ -52,6 +55,15 @@ instance Like Token where
 instance Functor Packet where
     fmap f sp = Packet (fmap f (members sp)) (packetLine sp)
 
+
+genericKeyword :: Token
+genericKeyword = Keyword Fish
+
+genericControl :: Token
+genericControl = Control Fin
+
+genericOperator :: Token
+genericOperator = Operator Add
 
 getTokenBracketScopeType :: Token -> ScopeType
 getTokenBracketScopeType (Bracket st _) = st
