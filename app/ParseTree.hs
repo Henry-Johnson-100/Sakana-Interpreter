@@ -36,7 +36,8 @@ instance Functor ParseTree where
 
 bracketNC :: NCCase TokenUnit
 bracketNC = NCCase (\x -> any ((unit x) ==) [Bracket Send Open, Bracket Return Open]) (\x -> any ((unit x) ==) [Bracket Send Close, Bracket Return Close])
-
+bracketReturnNC :: NCCase TokenUnit
+bracketReturnNC = NCCase (\x -> (unit x) == (Bracket Return Open)) (\x -> (unit x) == (Bracket Return Close))
 
 nullTree :: ParseTree a -> Bool
 nullTree Empty = True
@@ -53,6 +54,20 @@ appendChild (ParseTree b cs) pt = ParseTree b (cs ++ [pt])
 
 extendChildren :: ParseTree a -> [ParseTree a] -> ParseTree a
 extendChildren (ParseTree b cs) pts = ParseTree b (cs ++ pts)
+
+
+tokenUnitIsFollowedBySendBrackets :: [TokenUnit] -> Bool
+tokenUnitIsFollowedBySendBrackets tus = (==) (Bracket Send Open) $ unit $ head $ takeNestFirstComplete bracketNC tus
+
+
+tokenUnitHasReturnAfterArbitrarySends :: [TokenUnit] -> Bool
+tokenUnitHasReturnAfterArbitrarySends []  = False
+tokenUnitHasReturnAfterArbitrarySends tus = if (unit (head (partSnd part))) == (Bracket Return Open) then True else tokenUnitHasReturnAfterArbitrarySends (partThd part) where
+    part = breakByNest bracketNC tus
+
+
+takeTokenUnitsThroughReturn :: [TokenUnit] -> [TokenUnit] --This function has some bugs if encounters nested returns probably
+takeTokenUnitsThroughReturn tus = (takeWhileList (\tus' -> (nestedCollapsibleIsPrefixOf (bracketReturnNC) tus')) tus) ++ (takeNestFirstComplete bracketReturnNC tus)
 
 
 generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
