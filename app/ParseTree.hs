@@ -4,6 +4,7 @@ TreeIO(..),
 generateParseTree
 ) where
 
+
 import Lexer
 import Token.Bracket
 import Token.Control
@@ -13,6 +14,7 @@ import Token.Operator
 import Token.Util.NestedCollapsible
 import Token.Util.EagerCollapsible (dropInfix)
 import Data.List
+
 
 data ParseTree a = Empty | ParseTree {
     body     :: a,
@@ -38,6 +40,7 @@ bracketNC :: NCCase TokenUnit
 bracketNC = NCCase (\x -> any ((unit x) ==) [Bracket Send Open, Bracket Return Open]) (\x -> any ((unit x) ==) [Bracket Send Close, Bracket Return Close])
 bracketReturnNC :: NCCase TokenUnit
 bracketReturnNC = NCCase (\x -> (unit x) == (Bracket Return Open)) (\x -> (unit x) == (Bracket Return Close))
+
 
 nullTree :: ParseTree a -> Bool
 nullTree Empty = True
@@ -66,8 +69,18 @@ tokenUnitHasReturnAfterArbitrarySends tus = if (unit (head (partSnd part))) == (
     part = breakByNest bracketNC tus
 
 
-takeTokenUnitsThroughReturn :: [TokenUnit] -> [TokenUnit] --This function has some bugs if encounters nested returns probably
-takeTokenUnitsThroughReturn tus = (takeWhileList (\tus' -> (nestedCollapsibleIsPrefixOf (bracketReturnNC) tus')) tus) ++ (takeNestFirstComplete bracketReturnNC tus)
+takeTokenUnitsThroughReturn :: [TokenUnit] -> [TokenUnit]
+takeTokenUnitsThroughReturn [] = []
+takeTokenUnitsThroughReturn tus = if (unit (head (partSnd part))) == (Bracket Return Open) then partFstSnd else partFstSnd ++ (takeTokenUnitsThroughReturn (partThd part)) where
+    part = breakByNest bracketNC tus
+    partFstSnd = (partFst part) ++ (partSnd part)
+
+
+groupCurrentTopLevel :: [TokenUnit] -> [[TokenUnit]]
+groupCurrentTopLevel [] = []
+groupCurrentTopLevel tus = partFstSnd : (groupCurrentTopLevel (partThd part)) where
+    part = breakByNest bracketNC tus
+    partFstSnd = (partFst part) ++ (partSnd part)
 
 
 generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
