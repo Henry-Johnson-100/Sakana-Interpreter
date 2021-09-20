@@ -51,12 +51,14 @@ tree :: a -> ParseTree a
 tree x = ParseTree x []
 
 
-appendChild :: ParseTree a -> ParseTree a -> ParseTree a
-appendChild (ParseTree b cs) pt = ParseTree b (cs ++ [pt])
+-- | Appends a tree to the base tree's children list
+(-<-) :: ParseTree a -> ParseTree a -> ParseTree a
+(ParseTree b cs) -<- pt = ParseTree b (cs ++ [pt])
 
 
-extendChildren :: ParseTree a -> [ParseTree a] -> ParseTree a
-extendChildren (ParseTree b cs) pts = ParseTree b (cs ++ pts)
+-- | Extends a base tree's children list by the given list of trees
+(-<=) :: ParseTree a -> [ParseTree a] -> ParseTree a
+(ParseTree b cs) -<= pts = ParseTree b (cs ++ pts)
 
 
 tokenUnitIsFollowedBySendBrackets :: [TokenUnit] -> Bool
@@ -86,9 +88,9 @@ groupCurrentTopLevel tus = partFstSnd : (groupCurrentTopLevel (partThd part)) wh
 generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
 generateParseTree [] base = base
 generateParseTree tus base 
-    | any (\x -> (unit (head tus)) `like` x) [genericKeyword, genericControl, genericOperator] = appendChild base (generateParseTree (tail tus) (tree (head tus)))
+    | any (\x -> (unit (head tus)) `like` x) [genericKeyword, genericControl, genericOperator] = base -<- (generateParseTree (tail tus) (tree (head tus)))
     | nestedCollapsibleIsPrefixOf bracketNC tus                                                = generateParseTree (dropInfix (takenFirstCompleteNest) tus) (getFirstNestBracketTree)
-    | otherwise                                                                                = generateParseTree (tail tus) (appendChild base (tree (head tus)))
+    | otherwise                                                                                = generateParseTree (tail tus) (base -<- (tree (head tus)))
     where
         takenFirstCompleteNest :: [TokenUnit]
         takenFirstCompleteNest = takeNestFirstComplete bracketNC tus
@@ -96,5 +98,5 @@ generateParseTree tus base
         getBracketNCContents tus' = getNestedCollapsibleContents bracketNC tus'
         getFirstNestBracketTree :: ParseTree TokenUnit
         getFirstNestBracketTree = if any (\x -> (Data (Punct ",")) == (unit x)) (takenFirstCompleteNest)
-                         then extendChildren base (map (\tus' -> generateParseTree tus' (tree (head tus))) (splitOn (\x -> (Data (Punct ",")) == (unit x)) (getBracketNCContents (takenFirstCompleteNest))))
-                         else appendChild base (generateParseTree (getBracketNCContents (takenFirstCompleteNest)) (tree (head tus)))
+                         then base -<= (map (\tus' -> generateParseTree tus' (tree (head tus))) (splitOn (\x -> (Data (Punct ",")) == (unit x)) (getBracketNCContents (takenFirstCompleteNest))))
+                         else base -<- (generateParseTree (getBracketNCContents (takenFirstCompleteNest)) (tree (head tus)))
