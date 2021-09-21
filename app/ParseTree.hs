@@ -74,13 +74,17 @@ takeThroughArbitrarySends tus
 
 tokenUnitHasReturnAfterArbitrarySends :: [TokenUnit] -> Bool
 tokenUnitHasReturnAfterArbitrarySends [] = False
-tokenUnitHasReturnAfterArbitrarySends tus = unit (head (partSnd part)) == Bracket Return Open || tokenUnitHasReturnAfterArbitrarySends (partThd part)
+tokenUnitHasReturnAfterArbitrarySends tus 
+    | null (partSnd part) = False
+    | otherwise = unit (head (partSnd part)) == Bracket Return Open || tokenUnitHasReturnAfterArbitrarySends (partThd part)
   where
     part = breakByNest bracketNC tus
 
 takeTokenUnitsThroughReturn :: [TokenUnit] -> [TokenUnit]
 takeTokenUnitsThroughReturn [] = []
-takeTokenUnitsThroughReturn tus = if unit (head (partSnd part)) == Bracket Return Open then partFstSnd else partFstSnd ++ takeTokenUnitsThroughReturn (partThd part)
+takeTokenUnitsThroughReturn tus
+    | null (partSnd part) = []
+    | otherwise = if unit (head (partSnd part)) == Bracket Return Open then partFstSnd else partFstSnd ++ takeTokenUnitsThroughReturn (partThd part)
   where
     part = breakByNest bracketNC tus
     partFstSnd = partFst part ++ partSnd part
