@@ -1,7 +1,7 @@
 module ParseTree
   ( ParseTree (..),
     TreeIO (..),
-    generateParseTree,
+    groupCurrentTopLevelBracketGroups
   )
 where
 
@@ -22,6 +22,14 @@ data ParseTree a
         children :: [ParseTree a]
       }
   deriving (Show, Read, Eq)
+
+
+data BracketGroup = BracketGroup {
+  preamble  :: [TokenUnit],
+  groupBody :: [TokenUnit],
+  bodyType  :: ScopeType
+} deriving (Show, Eq)
+
 
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
@@ -74,7 +82,7 @@ takeThroughArbitrarySends tus
 
 tokenUnitHasReturnAfterArbitrarySends :: [TokenUnit] -> Bool
 tokenUnitHasReturnAfterArbitrarySends [] = False
-tokenUnitHasReturnAfterArbitrarySends tus 
+tokenUnitHasReturnAfterArbitrarySends tus
     | null (partSnd part) = False
     | otherwise = unit (head (partSnd part)) == Bracket Return Open || tokenUnitHasReturnAfterArbitrarySends (partThd part)
   where
@@ -96,53 +104,62 @@ groupCurrentTopLevel tus = partFstSnd : groupCurrentTopLevel (partThd part)
     part = breakByNest bracketNC tus
     partFstSnd = partFst part ++ partSnd part
 
-mapGenerateParseTreeToParallelGroups :: [[TokenUnit]] -> [ParseTree TokenUnit]
-mapGenerateParseTreeToParallelGroups [[]] = []
-mapGenerateParseTreeToParallelGroups ttuuss = map (\tus -> generateParseTree tus (tree (head tus))) (filter (not . null) ttuuss)
 
-mapGenerateParseTreeToParallelGroupsSuppliedParent :: [[TokenUnit]] -> ParseTree TokenUnit -> [ParseTree TokenUnit]
-mapGenerateParseTreeToParallelGroupsSuppliedParent [[]] _ = []
-mapGenerateParseTreeToParallelGroupsSuppliedParent ttuuss parentTree = map (`generateParseTree` parentTree) (filter (not . null) ttuuss)
-
-generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
-generateParseTree [] parentTree = parentTree
-generateParseTree (tu : tus) parentTree
-  | null tus = parentTree -<- tree tu
-  | beginsWithKeywordExpectingReturn = generateParseTree (dropInfix takenThroughReturn (tu : tus)) (parentTree -<- generateParseTreeKeywordDefinition (tu : tus))
-  | beginsWithFinControl = generateParseTree (dropInfix partFstSnd (tu : tus)) (parentTree -<- generateParseTreeControlFin (tu : tus))
-  | beginsWithFunctionCall = generateParseTree (dropInfix takenThroughArbitrarySend (tu : tus)) (parentTree -<- generateParseTreeFunctionCall (tu : tus))
-  | beginsWithBracketNest = generateParseTree (dropInfix takenBracketNest (tu : tus)) (parentTree -<- generateParseTreeBracketGroup takenBracketNest)
-  | otherwise = generateParseTree tus (parentTree -<- tree tu)
+groupCurrentTopLevelBracketGroups :: [TokenUnit] -> [BracketGroup]
+groupCurrentTopLevelBracketGroups [] = []
+groupCurrentTopLevelBracketGroups tus = BracketGroup (partFst part) (partSnd part) getScopeType : groupCurrentTopLevelBracketGroups (partThd part)
   where
-    beginsWithKeywordExpectingReturn = unit tu `like` genericKeyword
-    beginsWithFinControl = unit tu == Control Fin
-    beginsWithFunctionCall = unit tu `like` genericOperator || dataTokenIsId (unit tu)
-    beginsWithBracketNest = nestedCollapsibleIsPrefixOf bracketNC (tu : tus)
-    takenThroughReturn = takeTokenUnitsThroughReturn (tu : tus)
-    takenThroughArbitrarySend = takeThroughArbitrarySends (tu : tus)
-    takenBracketNest = takeNestFirstComplete bracketNC (tu : tus)
-    part = breakByNest bracketNC (tu : tus)
-    partFstSnd = partFst part ++ partSnd part
+    part = breakByNest bracketNC tus
+    getScopeType = if null (partSnd part) then Return else getTokenBracketScopeType (unit (head (partSnd part)))
 
-generateParseTreeKeywordDefinition :: [TokenUnit] -> ParseTree TokenUnit
-generateParseTreeKeywordDefinition [] = Empty
-generateParseTreeKeywordDefinition (tu : tus) = tree tu -<- tree (head tus) -<= mapGenerateParseTreeToParallelGroups keywordBracketGroups
-  where
-    keywordBracketGroups = groupCurrentTopLevel $ dropWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) $ takeTokenUnitsThroughReturn tus
+-- mapGenerateParseTreeToParallelGroups :: [[TokenUnit]] -> [ParseTree TokenUnit]
+-- mapGenerateParseTreeToParallelGroups [[]] = []
+-- mapGenerateParseTreeToParallelGroups ttuuss = map (\tus -> generateParseTree tus (tree (head tus))) (filter (not . null) ttuuss)
 
-generateParseTreeFunctionCall :: [TokenUnit] -> ParseTree TokenUnit
-generateParseTreeFunctionCall [] = Empty
-generateParseTreeFunctionCall (tu : tus) = tree tu -<= mapGenerateParseTreeToParallelGroups functionCallBracketGroups
-  where
-    functionCallBracketGroups = filter (not . null) $ groupCurrentTopLevel $ dropWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) $ takeThroughArbitrarySends tus
+-- mapGenerateParseTreeToParallelGroupsSuppliedParent :: [[TokenUnit]] -> ParseTree TokenUnit -> [ParseTree TokenUnit]
+-- mapGenerateParseTreeToParallelGroupsSuppliedParent [[]] _ = []
+-- mapGenerateParseTreeToParallelGroupsSuppliedParent ttuuss parentTree = map (`generateParseTree` parentTree) (filter (not . null) ttuuss)
 
-generateParseTreeBracketGroup :: [TokenUnit] -> ParseTree TokenUnit
-generateParseTreeBracketGroup [] = Empty
-generateParseTreeBracketGroup (tu : tus) =
-  if any (\x -> unit x == Data (Punct ",")) (tu : tus)
-    then tree tu -<= mapGenerateParseTreeToParallelGroups (splitOn (\x -> unit x == Data (Punct ",")) (getNestedCollapsibleContents bracketNC (tu : tus)))
-    else generateParseTree (getNestedCollapsibleContents bracketNC (tu : tus)) (tree tu)
+-- generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
+-- generateParseTree [] parentTree = parentTree
+-- generateParseTree (tu : tus) parentTree
+--   | null tus = 
+--   | beginsWithKeywordExpectingReturn = 
+--   | beginsWithFinControl = 
+--   | beginsWithFunctionCall = 
+--   | beginsWithBracketNest = 
+--   | otherwise = generateParseTree tus (parentTree -<- tree tu)
+--   where
+--     beginsWithKeywordExpectingReturn = unit tu `like` genericKeyword
+--     beginsWithFinControl = unit tu == Control Fin
+--     beginsWithFunctionCall = unit tu `like` genericOperator || dataTokenIsId (unit tu)
+--     beginsWithBracketNest = nestedCollapsibleIsPrefixOf bracketNC (tu : tus)
+--     takenThroughReturn = takeTokenUnitsThroughReturn (tu : tus)
+--     takenThroughArbitrarySend = takeThroughArbitrarySends (tu : tus)
+--     takenFinControl = partFstSnd
+--     takenBracketNest = takeNestFirstComplete bracketNC (tu : tus)
+--     part = breakByNest bracketNC (tu : tus)
+--     partFstSnd = partFst part ++ partSnd part
 
-generateParseTreeControlFin :: [TokenUnit] -> ParseTree TokenUnit
-generateParseTreeControlFin [] = Empty
-generateParseTreeControlFin (tu : tus) = tree tu -<- generateParseTreeBracketGroup (takeNestFirstComplete bracketNC (tu : tus))
+-- generateParseTreeKeywordDefinition :: [TokenUnit] -> ParseTree TokenUnit
+-- generateParseTreeKeywordDefinition [] = Empty
+-- generateParseTreeKeywordDefinition (tu : tus) = tree tu -<- tree (head tus) -<= mapGenerateParseTreeToParallelGroups keywordBracketGroups
+--   where
+--     keywordBracketGroups = groupCurrentTopLevel $ dropWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) tus
+
+-- generateParseTreeFunctionCall :: [TokenUnit] -> ParseTree TokenUnit
+-- generateParseTreeFunctionCall [] = Empty
+-- generateParseTreeFunctionCall (tu : tus) = tree tu -<= mapGenerateParseTreeToParallelGroups functionCallBracketGroups
+--   where
+--     functionCallBracketGroups = filter (not . null) $ groupCurrentTopLevel $ dropWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) $ takeThroughArbitrarySends tus
+
+-- generateParseTreeBracketGroup :: [TokenUnit] -> ParseTree TokenUnit
+-- generateParseTreeBracketGroup [] = Empty
+-- generateParseTreeBracketGroup (tu : tus) =
+--   if any (\x -> unit x == Data (Punct ",")) (tu : tus)
+--     then tree tu -<= mapGenerateParseTreeToParallelGroups (splitOn (\x -> unit x == Data (Punct ",")) (getNestedCollapsibleContents bracketNC (tu : tus)))
+--     else generateParseTree (getNestedCollapsibleContents bracketNC (tu : tus)) (tree tu)
+
+-- generateParseTreeControlFin :: [TokenUnit] -> ParseTree TokenUnit
+-- generateParseTreeControlFin [] = Empty
+-- generateParseTreeControlFin (tu : tus) = tree tu -<- generateParseTreeBracketGroup (takeNestFirstComplete bracketNC (tu : tus))
