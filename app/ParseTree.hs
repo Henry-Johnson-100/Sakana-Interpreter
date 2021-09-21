@@ -1,7 +1,5 @@
 module ParseTree
-  ( ParseTree (..),
-    TreeIO (..),
-    groupCurrentTopLevelBracketGroups
+  (
   )
 where
 
@@ -15,151 +13,107 @@ import Token.Operator
 import Token.Util.EagerCollapsible
 import Token.Util.NestedCollapsible
 
-data ParseTree a
-  = Empty
-  | ParseTree
-      { body :: a,
-        children :: [ParseTree a]
-      }
-  deriving (Show, Read, Eq)
-
-
-data BracketGroup = BracketGroup {
-  preamble  :: [TokenUnit],
-  groupBody :: [TokenUnit],
-  bodyType  :: ScopeType
-} deriving (Show, Eq)
-
-
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
   ioPrintTree :: (Show a) => r a -> IO ()
 
-instance TreeIO ParseTree where
-  fPrintTree d (ParseTree b cs) = concat (replicate (d * 4 - 1) "-") ++ ">" ++ show b ++ "\n" ++ concatMap (fPrintTree (d + 1)) cs
+data BinaryRelationalPolyTree a
+  = Empty
+  | BRPT
+      { treeBody :: a,
+        aChildren :: [BinaryRelationalPolyTree a],
+        bChildren :: [BinaryRelationalPolyTree a]
+      }
+  deriving (Show, Eq)
+
+type SyntaxTree = BinaryRelationalPolyTree SyntaxGroup
+
+instance TreeIO BinaryRelationalPolyTree where
+  fPrintTree d (BRPT n a b) = concat (replicate (d * 4 - 1) "-") ++ ">" ++ show n ++ "\n" ++ concatMap (fPrintTree (d + 1)) (a ++ b)
   ioPrintTree t = putStrLn $ fPrintTree 0 t
 
-instance Functor ParseTree where
-  fmap f (ParseTree b cs) = ParseTree (f b) (map (fmap f) cs)
+instance Functor BinaryRelationalPolyTree where
+  fmap f Empty = Empty
+  fmap f (BRPT n a b) = BRPT (f n) (fmap (fmap f) a) (fmap (fmap f) b)
+
+data SyntaxGroup = SyntaxGroup
+  { groupBody :: [TokenUnit],
+    bodyType :: ScopeType
+  }
+  deriving (Show, Eq)
+
+emptySyntaxGroup :: SyntaxGroup
+emptySyntaxGroup = SyntaxGroup [] Return
+
+tree :: a -> BinaryRelationalPolyTree a
+tree x = BRPT x [] []
+
+-- | Append a BRPT to aChildren list
+(-<.-) :: BinaryRelationalPolyTree a -> BinaryRelationalPolyTree a -> BinaryRelationalPolyTree a
+(BRPT n a b) -<.- brpt = BRPT n (a ++ [brpt]) b
+
+-- | Extend an aChildren BRPT list
+(-<.=) :: BinaryRelationalPolyTree a -> [BinaryRelationalPolyTree a] -> BinaryRelationalPolyTree a
+(BRPT n a b) -<.= brpt = BRPT n (a ++ brpt) b
+
+-- | Append a BRPT to bChildren List
+(-<*-) :: BinaryRelationalPolyTree a -> BinaryRelationalPolyTree a -> BinaryRelationalPolyTree a
+(BRPT n a b) -<*- brpt = BRPT n a (b ++ [brpt])
+
+-- | Extend a bChildren BRPT list
+(-<*=) :: BinaryRelationalPolyTree a -> [BinaryRelationalPolyTree a] -> BinaryRelationalPolyTree a
+(BRPT n a b) -<*= brpt = BRPT n a (b ++ brpt)
 
 bracketNC :: NCCase TokenUnit
 bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> unit x `elem` [Bracket Send Close, Bracket Return Close])
 
-bracketReturnNC :: NCCase TokenUnit
-bracketReturnNC = NCCase (\x -> unit x == Bracket Return Open) (\x -> unit x == Bracket Return Close)
+listToNestedTree :: [a] -> ScopeType -> BinaryRelationalPolyTree a
+listToNestedTree [] _ = Empty
+listToNestedTree [x] _ = tree x
+listToNestedTree (x : xs) Send = tree x -<.- listToNestedTree xs Send
+listToNestedTree (x : xs) Return = tree x -<*- listToNestedTree xs Return
 
-nullTree :: ParseTree a -> Bool
-nullTree Empty = True
-nullTree _ = False
-
-tree :: a -> ParseTree a
-tree x = ParseTree x []
-
--- | Appends a tree to the base tree's children list
-(-<-) :: ParseTree a -> ParseTree a -> ParseTree a
-(ParseTree b cs) -<- pt = ParseTree b (cs ++ [pt])
-
--- | Extends a base tree's children list by the given list of trees
-(-<=) :: ParseTree a -> [ParseTree a] -> ParseTree a
-(ParseTree b cs) -<= pts = ParseTree b (cs ++ pts)
-
-tokenUnitIsFollowedBySendBrackets :: [TokenUnit] -> Bool
-tokenUnitIsFollowedBySendBrackets [] = False
-tokenUnitIsFollowedBySendBrackets tus
-  | null takenNestFirstComplete = False
-  | otherwise = (==) (Bracket Send Open) $ unit $ head takenNestFirstComplete
-  where
-    takenNestFirstComplete = takeNestFirstComplete bracketNC tus
-
-takeThroughArbitrarySends :: [TokenUnit] -> [TokenUnit]
-takeThroughArbitrarySends [] = []
-takeThroughArbitrarySends tus
-  | tokenUnitIsFollowedBySendBrackets (partThd part) = partFstSnd ++ takeThroughArbitrarySends (partThd part)
-  | otherwise = partFstSnd
+tokenUnitsToSyntaxGroups :: [TokenUnit] -> [SyntaxGroup]
+tokenUnitsToSyntaxGroups [] = []
+tokenUnitsToSyntaxGroups tus = noSGIfEmpty (partFst part) ++ noSGIfEmpty (partSnd part) ++ tokenUnitsToSyntaxGroups (partThd part)
   where
     part = breakByNest bracketNC tus
-    partFstSnd = partFst part ++ partSnd part
+    noSGIfEmpty [] = []
+    noSGIfEmpty tus' = [SyntaxGroup tus' (getScopeType tus')]
+    getScopeType tus' = if unit (head tus') `like` genericBracket then getTokenBracketScopeType (unit (head tus')) else Return
 
-tokenUnitHasReturnAfterArbitrarySends :: [TokenUnit] -> Bool
-tokenUnitHasReturnAfterArbitrarySends [] = False
-tokenUnitHasReturnAfterArbitrarySends tus
-    | null (partSnd part) = False
-    | otherwise = unit (head (partSnd part)) == Bracket Return Open || tokenUnitHasReturnAfterArbitrarySends (partThd part)
-  where
-    part = breakByNest bracketNC tus
+-- | clusters syntax groups based on defined grammar rules
+-- takeSyntaxCluster :: [SyntaxGroup] -> [SyntaxGroup]
+-- takeSyntaxCluster [] = []
+-- takeSyntaxCluster sgs
+--     | not (isBracketNCSyntaxGroup (head sgs)) = head sgs : takeSyntaxCluster (tail sgs)
+--     | otherwise                         = [head sgs]
 
-takeTokenUnitsThroughReturn :: [TokenUnit] -> [TokenUnit]
-takeTokenUnitsThroughReturn [] = []
-takeTokenUnitsThroughReturn tus
-    | null (partSnd part) = []
-    | otherwise = if unit (head (partSnd part)) == Bracket Return Open then partFstSnd else partFstSnd ++ takeTokenUnitsThroughReturn (partThd part)
-  where
-    part = breakByNest bracketNC tus
-    partFstSnd = partFst part ++ partSnd part
+-- | append a brpt sg tree to the appropriate child list
+(-<|-) :: SyntaxTree -> SyntaxTree -> SyntaxTree
+brptParent -<|- brptToAppend = if bodyType (treeBody brptToAppend) == Send then brptParent -<.- brptToAppend else brptParent -<*- brptToAppend
 
-groupCurrentTopLevel :: [TokenUnit] -> [[TokenUnit]]
-groupCurrentTopLevel [] = []
-groupCurrentTopLevel tus = partFstSnd : groupCurrentTopLevel (partThd part)
-  where
-    part = breakByNest bracketNC tus
-    partFstSnd = partFst part ++ partSnd part
+(-<|=) :: SyntaxTree -> [SyntaxTree] ->SyntaxTree
+brptParent -<|= []           = brptParent
+brptParent -<|= [brpt]       = brptParent -<|- brpt
+brptParent -<|= (brpt:brpts) = (brptParent -<|- brpt) -<|= brpts
 
+isBracketNCSyntaxGroup :: SyntaxGroup -> Bool
+isBracketNCSyntaxGroup sg = isCompleteNestedCollapsible bracketNC $ groupBody sg
 
-groupCurrentTopLevelBracketGroups :: [TokenUnit] -> [BracketGroup]
-groupCurrentTopLevelBracketGroups [] = []
-groupCurrentTopLevelBracketGroups tus = BracketGroup (partFst part) (partSnd part) getScopeType : groupCurrentTopLevelBracketGroups (partThd part)
-  where
-    part = breakByNest bracketNC tus
-    getScopeType = if null (partSnd part) then Return else getTokenBracketScopeType (unit (head (partSnd part)))
+takeWhileBracketNC :: [SyntaxGroup] -> [SyntaxGroup]
+takeWhileBracketNC [] = []
+takeWhileBracketNC sgs = takeWhile (not . isBracketNCSyntaxGroup) sgs
 
--- mapGenerateParseTreeToParallelGroups :: [[TokenUnit]] -> [ParseTree TokenUnit]
--- mapGenerateParseTreeToParallelGroups [[]] = []
--- mapGenerateParseTreeToParallelGroups ttuuss = map (\tus -> generateParseTree tus (tree (head tus))) (filter (not . null) ttuuss)
+dropWhileBracketNC :: [SyntaxGroup] -> [SyntaxGroup]
+dropWhileBracketNC = dropWhile (not . isBracketNCSyntaxGroup)
 
--- mapGenerateParseTreeToParallelGroupsSuppliedParent :: [[TokenUnit]] -> ParseTree TokenUnit -> [ParseTree TokenUnit]
--- mapGenerateParseTreeToParallelGroupsSuppliedParent [[]] _ = []
--- mapGenerateParseTreeToParallelGroupsSuppliedParent ttuuss parentTree = map (`generateParseTree` parentTree) (filter (not . null) ttuuss)
+makeSyntaxGroupTree :: [SyntaxGroup] -> SyntaxTree -> SyntaxTree
+makeSyntaxGroupTree [] brpt = brpt
+makeSyntaxGroupTree (sg:sgs) brpt
+    | isBracketNCSyntaxGroup sg = makeSyntaxGroupTree sgs (brpt -<|- tree sg)
+    | otherwise                 = brpt -<|- makeSyntaxGroupTree sgs (tree sg)
 
--- generateParseTree :: [TokenUnit] -> ParseTree TokenUnit -> ParseTree TokenUnit
--- generateParseTree [] parentTree = parentTree
--- generateParseTree (tu : tus) parentTree
---   | null tus = 
---   | beginsWithKeywordExpectingReturn = 
---   | beginsWithFinControl = 
---   | beginsWithFunctionCall = 
---   | beginsWithBracketNest = 
---   | otherwise = generateParseTree tus (parentTree -<- tree tu)
---   where
---     beginsWithKeywordExpectingReturn = unit tu `like` genericKeyword
---     beginsWithFinControl = unit tu == Control Fin
---     beginsWithFunctionCall = unit tu `like` genericOperator || dataTokenIsId (unit tu)
---     beginsWithBracketNest = nestedCollapsibleIsPrefixOf bracketNC (tu : tus)
---     takenThroughReturn = takeTokenUnitsThroughReturn (tu : tus)
---     takenThroughArbitrarySend = takeThroughArbitrarySends (tu : tus)
---     takenFinControl = partFstSnd
---     takenBracketNest = takeNestFirstComplete bracketNC (tu : tus)
---     part = breakByNest bracketNC (tu : tus)
---     partFstSnd = partFst part ++ partSnd part
-
--- generateParseTreeKeywordDefinition :: [TokenUnit] -> ParseTree TokenUnit
--- generateParseTreeKeywordDefinition [] = Empty
--- generateParseTreeKeywordDefinition (tu : tus) = tree tu -<- tree (head tus) -<= mapGenerateParseTreeToParallelGroups keywordBracketGroups
---   where
---     keywordBracketGroups = groupCurrentTopLevel $ dropWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) tus
-
--- generateParseTreeFunctionCall :: [TokenUnit] -> ParseTree TokenUnit
--- generateParseTreeFunctionCall [] = Empty
--- generateParseTreeFunctionCall (tu : tus) = tree tu -<= mapGenerateParseTreeToParallelGroups functionCallBracketGroups
---   where
---     functionCallBracketGroups = filter (not . null) $ groupCurrentTopLevel $ dropWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) $ takeThroughArbitrarySends tus
-
--- generateParseTreeBracketGroup :: [TokenUnit] -> ParseTree TokenUnit
--- generateParseTreeBracketGroup [] = Empty
--- generateParseTreeBracketGroup (tu : tus) =
---   if any (\x -> unit x == Data (Punct ",")) (tu : tus)
---     then tree tu -<= mapGenerateParseTreeToParallelGroups (splitOn (\x -> unit x == Data (Punct ",")) (getNestedCollapsibleContents bracketNC (tu : tus)))
---     else generateParseTree (getNestedCollapsibleContents bracketNC (tu : tus)) (tree tu)
-
--- generateParseTreeControlFin :: [TokenUnit] -> ParseTree TokenUnit
--- generateParseTreeControlFin [] = Empty
--- generateParseTreeControlFin (tu : tus) = tree tu -<- generateParseTreeBracketGroup (takeNestFirstComplete bracketNC (tu : tus))
+makeSyntaxGroupGroupTree :: [[SyntaxGroup]] -> SyntaxTree -> SyntaxTree
+makeSyntaxGroupGroupTree [[]] st = st
+makeSyntaxGroupGroupTree ssggss st = st -<|= map (`makeSyntaxGroupTree` tree emptySyntaxGroup) ssggss

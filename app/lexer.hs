@@ -9,6 +9,7 @@ module Lexer
     genericKeyword,
     genericControl,
     genericOperator,
+    genericBracket,
     dataTokenIsId,
   )
 where
@@ -63,6 +64,9 @@ genericControl = Control Fin
 
 genericOperator :: Token
 genericOperator = Operator Add
+
+genericBracket :: Token
+genericBracket = Bracket Send Open
 
 getTokenBracketScopeType :: Token -> ScopeType
 getTokenBracketScopeType (Bracket st _) = st
