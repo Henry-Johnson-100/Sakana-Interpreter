@@ -4,9 +4,9 @@ import ParseTree
 import Lexer
 import Token.Data
 
-printTokens xs = concat $ map (show) $ tokenize xs
+printTokens xs = concatMap show (tokenize xs)
 
-printTree c = fPrintTree 0 (generateParseTree (tokenize c) (ParseTree (PacketUnit ((Data (Id "Main"))) 0) []))
+printTree c = fPrintTree 0 (generateParseTree (tokenize c) (ParseTree (PacketUnit (Data (Id "Main")) 0) []))
 
 main = do
     args <- getArgs
