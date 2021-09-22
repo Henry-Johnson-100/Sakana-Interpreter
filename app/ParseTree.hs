@@ -1,5 +1,8 @@
 module ParseTree
   (
+    generateParseTree,
+    BinaryRelationalPolyTree(..),
+    TreeIO(..)
   )
 where
 
@@ -13,6 +16,7 @@ import Token.Keyword
 import Token.Operator
 import Token.Util.EagerCollapsible
 import Token.Util.NestedCollapsible
+
 
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
@@ -72,6 +76,15 @@ listToNestedTree (x : xs) Return = tree x -<*- listToNestedTree xs Return
 -- brptParent -<|= [brpt]       = brptParent -<|- brpt
 -- brptParent -<|= (brpt:brpts) = (brptParent -<|- brpt) -<|= brpts
 
+(-<|-) :: ParseTree -> ParseTree -> ScopeType -> ParseTree
+(-<|-) a b Send = a -<.- b
+(-<|-) a b _    = a -<*- b
+
+(-<|=) :: ParseTree -> [ParseTree] -> ScopeType -> ParseTree
+(-<|=) a [] _ = a
+(-<|=) a [b] st = (-<|-) a b st
+(-<|=) a (b:bs) st = (-<|=) ((-<|-) a b st) bs st
+
 bracketSUNC :: NCCase SyntaxUnit
 bracketSUNC = NCCase (\x -> syntaxToken x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> syntaxToken x `elem` [Bracket Send Close, Bracket Return Close])
 
@@ -114,33 +127,67 @@ takeBracketNCIncludingReturn (tu:tus)
       part = breakByNest bracketNC (tu:tus)
       partFstSnd = partFst part ++ partSnd part
 
-makeHeadlessTree :: [TokenUnit] -> ScopeType -> ParseTree
-makeHeadlessTree [] _ = Empty
-makeHeadlessTree [tu] _ = tree tu
-makeHeadlessTree (tu : tus) st
-  | isCompleteNestedCollapsible bracketNC (tu : tus) = makeHeadlessTree (getNestedCollapsibleContents bracketNC (tu : tus)) (getTokenBracketScopeType (unit tu))
-  | otherwise = insertIntoParseTree tus (tree tu) st
+groupUninterruptedBrackets :: [TokenUnit] -> [[TokenUnit]]
+groupUninterruptedBrackets [] = []
+groupUninterruptedBrackets tus
+    | not (null (partFst part)) = []
+    | otherwise                 = partSnd part : groupUninterruptedBrackets (partThd part)
+    where
+      part = breakByNest bracketNC tus
 
 getCompleteBracketNCArguments :: [TokenUnit] -> [[TokenUnit]]
 getCompleteBracketNCArguments [] = [[]]
 getCompleteBracketNCArguments tus = if any tokenUnitIsComma tus then splitTopLevelNCOn bracketNC tokenUnitIsComma tus else [tus]
 
 generateParseTree :: [TokenUnit] -> ParseTree
-generateParseTree tus = insertIntoParseTree tus (tree (PacketUnit (Data (Id "main")) 0)) Return
+generateParseTree tus = topLevelGroupTree tus Return (tree (PacketUnit (Data (Id "main")) 0))
 
--- |Works pretty well for single, unnested functions
-insertIntoParseTree :: [TokenUnit] -> ParseTree -> ScopeType -> ParseTree
-insertIntoParseTree [] parent _ = parent
-insertIntoParseTree (tu' : tus') parent st
-  | isSubordinator tu' = parent -<|- insertIntoParseTree tus' (tree tu') st
-  | nestedCollapsibleIsPrefixOf bracketNC (tu' : tus') = insertIntoParseTree (dropInfix prefixedNC (tu':tus')) (parent -<|= map (`makeHeadlessTree` st) (getCompleteBracketNCArguments (getNestedCollapsibleContents bracketNC prefixedNC))) (getTokenBracketScopeType (unit tu')) --This line is the issue right now
-  | otherwise = insertIntoParseTree tus' (parent -<|- tree tu') st
-  where
-    (-<|-) :: ParseTree -> ParseTree -> ParseTree
-    parent' -<|- child' = if st == Send then parent' -<.- child' else parent' -<*- child'
-    (-<|=) :: ParseTree -> [ParseTree] -> ParseTree
-    parent' -<|= [] = parent'
-    parent' -<|= [child'] = parent' -<|- child'
-    parent' -<|= (child' : children') = (parent' -<|- child') -<|= children'
-    bracketPartition = breakByNest bracketNC (tu' : tus')
-    prefixedNC = takeNestFirstComplete bracketNC (tu':tus')
+topLevelGroupTree :: [TokenUnit] -> ScopeType -> ParseTree -> ParseTree
+topLevelGroupTree [] st parent = parent
+topLevelGroupTree (tu:tus) st parent
+    | nestedCollapsibleIsPrefixOf bracketNC (tu:tus) = (-<|=) parent (map bracketTree bracketParallelGroups) st
+    | otherwise                                      = (-<|-) parent (topLevelGroupTree tus st (tree tu)) st
+    where
+      bracketParallelGroups = groupUninterruptedBrackets (tu:tus)
+
+bracketTree :: [TokenUnit] -> ParseTree
+bracketTree tus = makeHeadlessTree (getNestedCollapsibleContents bracketNC tus) (getTokenBracketScopeType (unit (head tus)))
+
+makeHeadlessTree :: [TokenUnit] -> ScopeType -> ParseTree
+makeHeadlessTree [] _ = Empty
+makeHeadlessTree tus st = topLevelGroupTree (tail tus) st (tree (head tus))
+
+-- topLevelGroupTree :: [TokenUnit] -> ParseTree -> ScopeType -> ParseTree
+-- topLevelGroupTree [] parent _ = parent
+-- topLevelGroupTree (tu:tus) parent st
+--     | isSubordinator tu = topLevelGroupTree (dropInfix takenSubordinatedGroup (tu:tus)) (parent -<|- makeHeadlessTree takenSubordinatedGroup st) st
+--     | otherwise         = topLevelGroupTree (dropInfix partFstSnd (tu:tus)) (parent -<|- makeHeadlessTree partFstSnd st) st
+--     where
+--     (-<|-) :: ParseTree -> ParseTree -> ParseTree
+--     parent' -<|- child' = if st == Send then parent' -<.- child' else parent' -<*- child'
+--     (-<|=) :: ParseTree -> [ParseTree] -> ParseTree
+--     parent' -<|= [] = parent'
+--     parent' -<|= [child'] = parent' -<|- child'
+--     parent' -<|= (child' : children') = (parent' -<|- child') -<|= children'
+--     bracketPartition = breakByNest bracketNC (tu : tus)
+--     prefixedNC = takeNestFirstComplete bracketNC (tu:tus)
+--     takenSubordinatedGroup = takeSubordinatorGroup (tu:tus)
+--     part = breakByNest bracketNC (tu:tus)
+--     partFstSnd = partFst part ++ partSnd part
+
+-- -- |Works pretty well for single, unnested functions
+-- distinctGroupTree :: [TokenUnit] -> ParseTree -> ScopeType -> ParseTree
+-- distinctGroupTree [] parent _ = parent
+-- distinctGroupTree (tu' : tus') parent st
+--   | isSubordinator tu' = parent -<|- distinctGroupTree tus' (tree tu') st
+--   | nestedCollapsibleIsPrefixOf bracketNC (tu' : tus') = distinctGroupTree (dropInfix prefixedNC (tu':tus')) (parent -<|= map (`makeHeadlessTree` st) (getCompleteBracketNCArguments (getNestedCollapsibleContents bracketNC prefixedNC))) (getTokenBracketScopeType (unit tu')) --This line is the issue right now
+--   | otherwise = distinctGroupTree tus' (parent -<|- tree tu') st
+--   where
+--     (-<|-) :: ParseTree -> ParseTree -> ParseTree
+--     parent' -<|- child' = if st == Send then parent' -<.- child' else parent' -<*- child'
+--     (-<|=) :: ParseTree -> [ParseTree] -> ParseTree
+--     parent' -<|= [] = parent'
+--     parent' -<|= [child'] = parent' -<|- child'
+--     parent' -<|= (child' : children') = (parent' -<|- child') -<|= children'
+--     bracketPartition = breakByNest bracketNC (tu' : tus')
+--     prefixedNC = takeNestFirstComplete bracketNC (tu':tus')

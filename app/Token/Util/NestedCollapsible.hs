@@ -16,6 +16,7 @@ module Token.Util.NestedCollapsible
     split,
     splitOn,
     splitTopLevelNCOn,
+    groupAllTopLevelNestedCollapsibles,
   )
 where
 
@@ -155,6 +156,15 @@ breakByNest nCCase xs = NestPartition first second third
     first = takeWhileList (nestedCollapsibleIsPrefixOf nCCase) xs
     second = takeNestFirstComplete nCCase xs
     third = dropInfix (first ++ second) xs
+
+-- |Only groups the collapsibles and not any free components not contained outside of them
+groupAllTopLevelNestedCollapsibles :: (Eq a) => NCCase a -> [a] -> [[a]]
+groupAllTopLevelNestedCollapsibles _ [] = []
+groupAllTopLevelNestedCollapsibles nc xs
+    | null (partThd part) = [partSnd part]
+    | otherwise           = partSnd part : groupAllTopLevelNestedCollapsibles nc (partThd part)
+    where
+      part = breakByNest nc xs
 
 numberOfTerminations :: NCCase a -> [a] -> (Int, Int)
 numberOfTerminations ncCase xs = numberOfTerminations' ncCase 0 0 xs
