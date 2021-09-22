@@ -10,7 +10,7 @@ module Lexer
     genericControl,
     genericOperator,
     genericBracket,
-    dataTokenIsId,
+    dataTokenIsId
   )
 where
 
