@@ -15,6 +15,7 @@ module Token.Util.NestedCollapsible
     getNestedCollapsibleContents,
     split,
     splitOn,
+    splitTopLevelNCOn,
   )
 where
 
@@ -97,6 +98,17 @@ splitOn splitF xs = filter (not . null) $ takeWhile (not . splitF) xs : splitOn 
   where
     tail' [] = []
     tail' (x : xs) = xs
+
+splitTopLevelNCOn :: (Eq a) => NCCase a -> (a -> Bool) -> [a] -> [[a]]
+splitTopLevelNCOn nc splitF xs = filter (not . null) $ splitTopLevelNCOn' nc splitF xs where
+  splitTopLevelNCOn' :: (Eq a) => NCCase a -> (a -> Bool) -> [a] -> [[a]]
+  splitTopLevelNCOn' _ _ [] = [[]]
+  splitTopLevelNCOn' nc splitF xs
+      | null (partFst part)          = partSnd part : splitTopLevelNCOn' nc splitF (partThd part)
+      | splitF (last (partFst part)) = (splitOn splitF (partFst part) ++ [partSnd part]) ++ splitTopLevelNCOn' nc splitF (partThd part)
+      | otherwise                    = (init (splitOn splitF (partFst part)) ++ [last (splitOn splitF (partFst part)) ++ partSnd part]) ++ splitTopLevelNCOn' nc splitF (partThd part)
+      where
+        part = breakByNest nc xs
 
 takeNestSameDepth :: (Eq a) => NCCase a -> [a] -> [a]
 takeNestSameDepth _ [] = []

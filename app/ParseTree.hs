@@ -89,6 +89,10 @@ bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]
 --         isOpeningBracket (Bracket _ Open) = True
 --         isOpeningBracket _                = False
 
+tokenUnitIsComma :: TokenUnit -> Bool
+tokenUnitIsComma (PacketUnit (Data (Punct ",")) _) = True
+tokenUnitIsComma _                                 = False
+
 isSubordinator :: TokenUnit -> Bool
 isSubordinator tu = unit tu `like` genericKeyword || unit tu `like` genericOperator || dataTokenIsId (unit tu)
 
