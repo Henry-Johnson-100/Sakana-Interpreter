@@ -96,7 +96,7 @@ makeHeadlessTree :: [TokenUnit] -> ScopeType -> ParseTree
 makeHeadlessTree [] _ = Empty
 makeHeadlessTree [tu] _ = tree tu
 makeHeadlessTree (tu : tus) st
-  | nestedCollapsibleIsPrefixOf bracketNC (tu : tus) = makeHeadlessTree (getNestedCollapsibleContents bracketNC (tu : tus)) (getTokenBracketScopeType (unit tu))
+  | isCompleteNestedCollapsible bracketNC (tu : tus) = makeHeadlessTree (getNestedCollapsibleContents bracketNC (tu : tus)) (getTokenBracketScopeType (unit tu))
   | otherwise = insertIntoParseTree tus (tree tu) st
 
 getCompleteBracketNCArguments :: [TokenUnit] -> [[TokenUnit]]
@@ -110,7 +110,7 @@ insertIntoParseTree :: [TokenUnit] -> ParseTree -> ScopeType -> ParseTree
 insertIntoParseTree [] parent _ = parent
 insertIntoParseTree (tu' : tus') parent st
   | isSubordinator tu' = parent -<|- insertIntoParseTree tus' (tree tu') st
-  | nestedCollapsibleIsPrefixOf bracketNC (tu' : tus') = parent -<|= map (`makeHeadlessTree` st) (getCompleteBracketNCArguments (getNestedCollapsibleContents bracketNC (tu' : tus'))) --This line is the issue right now
+  | nestedCollapsibleIsPrefixOf bracketNC (tu' : tus') = insertIntoParseTree (dropInfix prefixedNC (tu':tus')) (parent -<|= map (`makeHeadlessTree` st) (getCompleteBracketNCArguments (getNestedCollapsibleContents bracketNC prefixedNC))) (getTokenBracketScopeType (unit tu')) --This line is the issue right now
   | otherwise = insertIntoParseTree tus' (parent -<|- tree tu') st
   where
     (-<|-) :: ParseTree -> ParseTree -> ParseTree
@@ -120,3 +120,4 @@ insertIntoParseTree (tu' : tus') parent st
     parent' -<|= [child'] = parent' -<|- child'
     parent' -<|= (child' : children') = (parent' -<|- child') -<|= children'
     bracketPartition = breakByNest bracketNC (tu' : tus')
+    prefixedNC = takeNestFirstComplete bracketNC (tu':tus')
