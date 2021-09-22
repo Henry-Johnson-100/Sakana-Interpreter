@@ -78,24 +78,41 @@ bracketSUNC = NCCase (\x -> syntaxToken x `elem` [Bracket Send Open, Bracket Ret
 bracketNC :: NCCase TokenUnit
 bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> unit x `elem` [Bracket Send Close, Bracket Return Close])
 
--- mapTokenUnitsToSyntaxUnits :: [TokenUnit] -> [SyntaxUnit]
--- mapTokenUnitsToSyntaxUnits tus = mapTokenUnitsToSyntaxUnits' tus Return where
---   mapTokenUnitsToSyntaxUnits' :: [TokenUnit] -> ScopeType -> [SyntaxUnit]
---   mapTokenUnitsToSyntaxUnits' [] _ = []
---   mapTokenUnitsToSyntaxUnits' (tu:tus) st
---       | isOpeningBracket (unit tu) = tokenUnitToSyntaxUnit tu (getTokenBracketScopeType (unit tu)) : mapTokenUnitsToSyntaxUnits' tus (getTokenBracketScopeType (unit tu))
---       | otherwise                  = tokenUnitToSyntaxUnit tu st : mapTokenUnitsToSyntaxUnits' tus st
---       where
---         isOpeningBracket :: Token -> Bool
---         isOpeningBracket (Bracket _ Open) = True
---         isOpeningBracket _                = False
-
 tokenUnitIsComma :: TokenUnit -> Bool
 tokenUnitIsComma (PacketUnit (Data (Punct ",")) _) = True
 tokenUnitIsComma _                                 = False
 
 isSubordinator :: TokenUnit -> Bool
 isSubordinator tu = unit tu `like` genericKeyword || unit tu `like` genericOperator || dataTokenIsId (unit tu)
+
+takeSubordinatorGroup :: [TokenUnit] -> [TokenUnit]
+takeSubordinatorGroup [] = []
+takeSubordinatorGroup (tu:tus)
+    | unit tu == Keyword Migrate    = partFst part ++ partSnd part
+    | unit tu `like` genericKeyword = takeBracketNCIncludingReturn (tu:tus)
+    | otherwise                     = takeBracketNCExcludingReturn (tu:tus)
+    where
+      part = breakByNest bracketNC (tu:tus)
+
+takeBracketNCExcludingReturn :: [TokenUnit] -> [TokenUnit]
+takeBracketNCExcludingReturn [] = []
+takeBracketNCExcludingReturn (tu:tus)
+    | null (partSnd part) = []
+    | getTokenBracketScopeType (unit (head (partSnd part))) == Return = []
+    | otherwise                                                       = partFstSnd ++ takeBracketNCExcludingReturn (partThd part)
+    where
+      part = breakByNest bracketNC (tu:tus)
+      partFstSnd = partFst part ++ partSnd part
+
+takeBracketNCIncludingReturn :: [TokenUnit] -> [TokenUnit]
+takeBracketNCIncludingReturn [] = []
+takeBracketNCIncludingReturn (tu:tus)
+    | null (partSnd part) = []
+    | getTokenBracketScopeType (unit (head (partSnd part))) == Return = partFstSnd
+    | otherwise                                                       = partFstSnd ++ takeBracketNCIncludingReturn (partThd part)
+    where
+      part = breakByNest bracketNC (tu:tus)
+      partFstSnd = partFst part ++ partSnd part
 
 makeHeadlessTree :: [TokenUnit] -> ScopeType -> ParseTree
 makeHeadlessTree [] _ = Empty
