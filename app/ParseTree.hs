@@ -89,31 +89,34 @@ bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]
 --         isOpeningBracket (Bracket _ Open) = True
 --         isOpeningBracket _                = False
 
+isSubordinator :: TokenUnit -> Bool
+isSubordinator tu = unit tu `like` genericKeyword || unit tu `like` genericOperator || dataTokenIsId (unit tu)
+
+makeHeadlessTree :: [TokenUnit] -> ScopeType -> ParseTree
+makeHeadlessTree [] _ = Empty
+makeHeadlessTree [tu] _ = tree tu
+makeHeadlessTree (tu : tus) st
+  | nestedCollapsibleIsPrefixOf bracketNC (tu : tus) = makeHeadlessTree (getNestedCollapsibleContents bracketNC (tu : tus)) (getTokenBracketScopeType (unit tu))
+  | otherwise = insertIntoParseTree tus (tree tu) st
+
+getCompleteBracketNCArguments :: [TokenUnit] -> [[TokenUnit]]
+getCompleteBracketNCArguments [] = [[]]
+getCompleteBracketNCArguments tus = if any (\x -> Data (Punct ",") == unit x) tus then splitOn (\x -> Data (Punct ",") == unit x) tus else [tus]
+
 generateParseTree :: [TokenUnit] -> ParseTree
 generateParseTree tus = insertIntoParseTree tus (tree (PacketUnit (Data (Id "main")) 0)) Return
+
+insertIntoParseTree :: [TokenUnit] -> ParseTree -> ScopeType -> ParseTree
+insertIntoParseTree [] parent _ = parent
+insertIntoParseTree (tu' : tus') parent st
+  | isSubordinator tu' = parent -<|- insertIntoParseTree tus' (tree tu') st
+  | nestedCollapsibleIsPrefixOf bracketNC (tu' : tus') = parent -<|= map (`makeHeadlessTree` st) (getCompleteBracketNCArguments (getNestedCollapsibleContents bracketNC (tu' : tus'))) --This line is the issue right now
+  | otherwise = insertIntoParseTree tus' (parent -<|- tree tu') st
   where
-    insertIntoParseTree :: [TokenUnit] -> ParseTree -> ScopeType -> ParseTree
-    insertIntoParseTree [] parent _ = parent
-    insertIntoParseTree (tu' : tus') parent st
-      | isSubordinator tu' = parent -<|- insertIntoParseTree tus' (tree tu') st
-      | nestedCollapsibleIsPrefixOf bracketNC (tu' : tus') = parent -<|= map (`makeHeadlessTree` st) (getGroupArguments (getNestedCollapsibleContents bracketNC (tu' : tus')))
-      | otherwise = insertIntoParseTree tus' (parent -<|- tree tu') st
-      where
-        (-<|-) :: ParseTree -> ParseTree -> ParseTree
-        parent' -<|- child' = if st == Send then parent' -<.- child' else parent' -<*- child'
-        (-<|=) :: ParseTree -> [ParseTree] -> ParseTree
-        parent' -<|= [] = parent'
-        parent' -<|= [child'] = parent' -<|- child'
-        parent' -<|= (child' : children') = (parent' -<|- child') -<|= children'
-        isSubordinator :: TokenUnit -> Bool
-        isSubordinator tu'' = unit tu'' `like` genericKeyword || unit tu'' `like` genericOperator || dataTokenIsId (unit tu'')
-        getGroupArguments :: [TokenUnit] -> [[TokenUnit]]
-        getGroupArguments [] = [[]]
-        getGroupArguments tus = if any (\x -> Data (Punct ",") == unit x) tus then splitOn (\x -> Data (Punct ",") == unit x) tus else [tus]
-        makeHeadlessTree :: [TokenUnit] -> ScopeType -> ParseTree
-        makeHeadlessTree [] _ = Empty
-        makeHeadlessTree [tu] _ = tree tu
-        makeHeadlessTree (tu : tus) st
-          | nestedCollapsibleIsPrefixOf bracketNC (tu : tus) = makeHeadlessTree (getNestedCollapsibleContents bracketNC (tu : tus)) (getTokenBracketScopeType (unit tu))
-          | otherwise = insertIntoParseTree tus (tree tu) st
-        bracketPartition = breakByNest bracketNC (tu' : tus')
+    (-<|-) :: ParseTree -> ParseTree -> ParseTree
+    parent' -<|- child' = if st == Send then parent' -<.- child' else parent' -<*- child'
+    (-<|=) :: ParseTree -> [ParseTree] -> ParseTree
+    parent' -<|= [] = parent'
+    parent' -<|= [child'] = parent' -<|- child'
+    parent' -<|= (child' : children') = (parent' -<|- child') -<|= children'
+    bracketPartition = breakByNest bracketNC (tu' : tus')
