@@ -30,6 +30,7 @@ data BinaryRelationalPolyTree a
 type ParseTree = BinaryRelationalPolyTree TokenUnit
 
 instance TreeIO BinaryRelationalPolyTree where
+  fPrintTree d Empty = concat (replicate (d * 4 - 1) "-") ++ ">" ++ "Empty\n"
   fPrintTree d (BRPT n a b) = concat (replicate (d * 4 - 1) "-") ++ ">" ++ show n ++ "\n" ++ concatMap (fPrintTree (d + 1)) (a ++ b)
   ioPrintTree t = putStrLn $ fPrintTree 0 t
 
@@ -105,11 +106,12 @@ makeHeadlessTree (tu : tus) st
 
 getCompleteBracketNCArguments :: [TokenUnit] -> [[TokenUnit]]
 getCompleteBracketNCArguments [] = [[]]
-getCompleteBracketNCArguments tus = if any (\x -> Data (Punct ",") == unit x) tus then splitOn (\x -> Data (Punct ",") == unit x) tus else [tus]
+getCompleteBracketNCArguments tus = if any tokenUnitIsComma tus then splitTopLevelNCOn bracketNC tokenUnitIsComma tus else [tus]
 
 generateParseTree :: [TokenUnit] -> ParseTree
 generateParseTree tus = insertIntoParseTree tus (tree (PacketUnit (Data (Id "main")) 0)) Return
 
+-- |Works pretty well for single, unnested functions
 insertIntoParseTree :: [TokenUnit] -> ParseTree -> ScopeType -> ParseTree
 insertIntoParseTree [] parent _ = parent
 insertIntoParseTree (tu' : tus') parent st
