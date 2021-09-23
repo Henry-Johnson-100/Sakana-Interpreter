@@ -95,11 +95,17 @@ groupReturnPartitions tus = map partitionReturnGroup (breakReturnGroups tus) whe
 
 -- | Receptacle for all possible pattern matches of a TriplePartition when making a tree
 putReturnPartition :: ReturnPartition -> ParseTreeMonad
-putReturnPartition (TriplePartition x [] []) = putOnlyNonTerminals (TriplePartition x [] [])
-putReturnPartition (TriplePartition x [] z) = putNoArgs (TriplePartition x [] z)
-putReturnPartition (TriplePartition x y []) = putFunctionCall (TriplePartition x y [])
-putReturnPartition (TriplePartition [] y z) = putAnonFunction (TriplePartition [] y z)
-putReturnPartition (TriplePartition x y z) = do
+putReturnPartition (TriplePartition [] [] []) = put                 (Empty::ParseTree)
+putReturnPartition (TriplePartition x  [] []) = putOnlyNonTerminals (TriplePartition x [] [])
+putReturnPartition (TriplePartition [] y  []) = collapseParseTreeMonadList $ putConcurrentBracketGroups y
+putReturnPartition (TriplePartition [] [] z ) = putOnlyValue        (TriplePartition [] [] z)
+putReturnPartition (TriplePartition x  [] z ) = putNoArgs           (TriplePartition x [] z)
+putReturnPartition (TriplePartition x  y  []) = putFunctionCall     (TriplePartition x y [])
+putReturnPartition (TriplePartition [] y  z ) = putAnonFunction     (TriplePartition [] y z)
+putReturnPartition (TriplePartition x  y  z ) = putFullDeclaration  (TriplePartition x y z)
+
+putFullDeclaration :: ReturnPartition -> ParseTreeMonad
+putFullDeclaration (TriplePartition x y z) = do
   declaration <- put (serialTree x)
   funcReturn <- putSingleBracketGroup z
   args <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
@@ -114,6 +120,9 @@ putFunctionCall (TriplePartition x y []) = do
 putOnlyNonTerminals :: ReturnPartition -> ParseTreeMonad
 putOnlyNonTerminals (TriplePartition x [] []) = do
   put (serialTree x)
+
+putOnlyValue :: ReturnPartition -> ParseTreeMonad
+putOnlyValue (TriplePartition [] [] z) = putSingleBracketGroup z
 
 putAnonFunction :: ReturnPartition -> ParseTreeMonad
 putAnonFunction (TriplePartition [] y z) = do
@@ -139,11 +148,10 @@ collapseParseTreeMonadList [] = put (Empty::ParseTree)
 collapseParseTreeMonadList ptms = put $ tree (PacketUnit (Data (Id "::headless::")) 0) -<<= map get ptms
 
 putConcurrentBracketGroups :: [TokenUnit] -> [ParseTreeMonad]
-putConcurrentBracketGroups tus = map putSingleBracketGroup (groupBrackets tus)
-
-groupBrackets :: [TokenUnit] -> [[TokenUnit]]
-groupBrackets [] = [[]]
-groupBrackets tus = groupAllTopLevelNestedCollapsibles bracketNC tus
+putConcurrentBracketGroups tus = map putSingleBracketGroup (groupBrackets tus) where
+  groupBrackets :: [TokenUnit] -> [[TokenUnit]]
+  groupBrackets [] = [[]]
+  groupBrackets tus = groupAllTopLevelNestedCollapsibles bracketNC tus
 
 -- putSendGroup :: [TokenUnit] -> [ParseTreeMonad]
 -- putSendGroup [] = [put (Empty::ParseTree)]
@@ -151,7 +159,10 @@ groupBrackets tus = groupAllTopLevelNestedCollapsibles bracketNC tus
 
 putSingleBracketGroup :: [TokenUnit] -> ParseTreeMonad
 putSingleBracketGroup [] = put (Empty::ParseTree)
-putSingleBracketGroup xs = put (serialTree xs)
+putSingleBracketGroup xs
+    | isCompleteNestedCollapsible bracketNC xs = putSingleBracketGroup (takeNestWhileComplete bracketNC xs)
+    | hasNestedCollapsible bracketNC xs = collapseParseTreeMonadList $ map putReturnPartition $ groupReturnPartitions xs
+    | otherwise = put (serialTree xs)
 
 putUnnestedBracketContents :: [TokenUnit] -> ParseTreeMonad
 putUnnestedBracketContents [] = put Empty
