@@ -14,7 +14,7 @@ import Token.Keyword
 import Token.Operator
 import Token.Util.EagerCollapsible
 import Token.Util.NestedCollapsible
-import Token.Util.NestedCollapsible (nestedCollapsibleIsPrefixOf, TriplePartition (TriplePartition))
+
 
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
@@ -67,6 +67,8 @@ instance Monad MonadicContainer where
 
 type ParseTreeMonad = MonadicContainer ParseTree
 
+type ReturnPartition = TriplePartition TokenUnit
+
 put :: a -> MonadicContainer a
 put = MonadicContainer
 
@@ -78,47 +80,53 @@ breakScopeOnReturnGroup [] = ([],[])
 breakScopeOnReturnGroup tus = (takenThroughReturn, dropInfix takenThroughReturn tus) where
   takenThroughReturn = takeBracketNCIncludingReturn tus
 
-partitionReturnGroup :: [TokenUnit] -> TriplePartition TokenUnit
+partitionReturnGroup :: [TokenUnit] -> ReturnPartition
 partitionReturnGroup [] = TriplePartition [] [] []
 partitionReturnGroup tus = TriplePartition w a r where
   w = takeWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) tus
   a = takeBracketNCExcludingReturn (dropInfix w tus)
   r = dropInfix (w ++ a) tus
 
-fstBifunctor :: (a, b) -> (a -> z) -> (z, b)
-fstBifunctor (x,y) f = (f x, y)
-
-sndBifunctor :: (a,b) -> (b -> z) -> (a, z)
-sndBifunctor (x,y) f = (x, f y)
-
-nextReturnPartition :: [TokenUnit] -> (TriplePartition TokenUnit, [TokenUnit])
-nextReturnPartition tus = fstBifunctor (breakScopeOnReturnGroup tus) partitionReturnGroup
-
-groupReturnPartitions :: [TokenUnit] -> [TriplePartition TokenUnit]
+groupReturnPartitions :: [TokenUnit] -> [ReturnPartition]
 groupReturnPartitions [] = []
 groupReturnPartitions tus = map partitionReturnGroup (breakReturnGroups tus) where
   breakReturnGroups [] = []
   breakReturnGroups tus' = fst (breakScopeOnReturnGroup tus') : breakReturnGroups (snd (breakScopeOnReturnGroup tus'))
 
 -- | Receptacle for all possible pattern matches of a TriplePartition when making a tree
-putReturnPartition :: TriplePartition TokenUnit -> ParseTreeMonad
+putReturnPartition :: ReturnPartition -> ParseTreeMonad
 putReturnPartition (TriplePartition x [] []) = putOnlyNonTerminals (TriplePartition x [] [])
+putReturnPartition (TriplePartition x [] z) = putNoArgs (TriplePartition x [] z)
 putReturnPartition (TriplePartition x y []) = putFunctionCall (TriplePartition x y [])
+putReturnPartition (TriplePartition [] y z) = putAnonFunction (TriplePartition [] y z)
 putReturnPartition (TriplePartition x y z) = do
   declaration <- put (serialTree x)
   funcReturn <- putSingleBracketGroup z
   args <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
   put $ (declaration -<<= treeChildren args) -<<- funcReturn
 
-putFunctionCall :: TriplePartition TokenUnit -> ParseTreeMonad
+putFunctionCall :: ReturnPartition -> ParseTreeMonad
 putFunctionCall (TriplePartition x y []) = do
   funcId <- put (serialTree x)
   funcArgs <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
-  put $ funcId -<<= funcArgs
+  put $ funcId -<<- funcArgs
 
-putOnlyNonTerminals :: TriplePartition TokenUnit -> ParseTreeMonad
+putOnlyNonTerminals :: ReturnPartition -> ParseTreeMonad
 putOnlyNonTerminals (TriplePartition x [] []) = do
   put (serialTree x)
+
+putAnonFunction :: ReturnPartition -> ParseTreeMonad
+putAnonFunction (TriplePartition [] y z) = do
+  declaration <- put (serialTree [PacketUnit (Keyword Fish) 0, PacketUnit (Data (Id "anon")) 0]) --idk what else to put here
+  funcReturn <- putSingleBracketGroup z
+  args <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
+  put $ (declaration -<<= treeChildren args) -<<- funcReturn
+
+putNoArgs :: ReturnPartition -> ParseTreeMonad
+putNoArgs (TriplePartition x [] z) = do
+  declaration <- put (serialTree x)
+  funcReturn <- putSingleBracketGroup z
+  put $ declaration -<<- funcReturn
 
 bracketNC :: NCCase TokenUnit
 bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> unit x `elem` [Bracket Send Close, Bracket Return Close])
