@@ -1,6 +1,7 @@
 module ParseTree
   (
-
+    generateParseTree,
+    TreeIO(..)
   )
 where
 
@@ -74,6 +75,10 @@ put = MonadicContainer
 
 get :: MonadicContainer a -> a
 get (MonadicContainer x) = x
+
+generateParseTree :: [TokenUnit] -> ParseTree
+generateParseTree [] = Empty
+generateParseTree tus = get $ collapseParseTreeMonadList $ map putReturnPartition $ groupReturnPartitions tus
 
 groupReturnPartitions :: [TokenUnit] -> [ReturnPartition]
 groupReturnPartitions [] = []
