@@ -1,5 +1,5 @@
 module Token.Util.NestedCollapsible
-  ( NestPartition (..),
+  ( TriplePartition (..),
     unwrapPartition,
     NCCase (..),
     isCompleteNestedCollapsible,
@@ -11,27 +11,29 @@ module Token.Util.NestedCollapsible
     takeNestSameDepth,
     takeNestDeeper,
     takeNestFirstComplete,
+    takeNestWhileComplete,
     breakByNest,
     getNestedCollapsibleContents,
     split,
     splitOn,
     splitTopLevelNCOn,
     groupAllTopLevelNestedCollapsibles,
+    groupTopLevelByNestedCollapsiblePartition
   )
 where
 
 import Data.List
 import Token.Util.EagerCollapsible (dropInfix)
 
-data NestPartition a = NestPartition
+data TriplePartition a = TriplePartition
   { partFst :: [a],
     partSnd :: [a],
     partThd :: [a]
   }
   deriving (Show, Read, Eq)
 
-unwrapPartition :: NestPartition a -> [[a]]
-unwrapPartition (NestPartition f s t) = [f, s, t]
+unwrapPartition :: TriplePartition a -> [[a]]
+unwrapPartition (TriplePartition f s t) = [f, s, t]
 
 data NCCase a = NCCase
   { beginCase :: a -> Bool,
@@ -83,8 +85,8 @@ dropWhileList f xs
 takeWhileList :: ([a] -> Bool) -> [a] -> [a]
 takeWhileList _ [] = []
 takeWhileList f (x : xs)
-  | f (x : xs) = []
-  | otherwise = x : takeWhileList f xs
+  | f (x : xs) = x : takeWhileList f xs
+  | otherwise = []
 
 split :: (Eq a) => [a] -> a -> [[a]]
 split [] _ = [[]]
@@ -143,17 +145,23 @@ takeNestFirstComplete nCCase xs
           else x : takeNestFirstComplete' nCCase' (terminations - 1) xs
       | otherwise = x : takeNestFirstComplete' nCCase' terminations xs
 
+takeNestWhileComplete :: NCCase a -> [a] -> [a]
+takeNestWhileComplete _ [] = []
+takeNestWhileComplete nc xs
+    | isCompleteNestedCollapsible nc xs = takeNestWhileComplete nc (getNestedCollapsibleContents nc xs)
+    | otherwise                         = xs
+
 getNestedCollapsibleContents :: NCCase a -> [a] -> [a]
 getNestedCollapsibleContents _ [] = []
 getNestedCollapsibleContents nc xs
   | isCompleteNestedCollapsible nc xs = tail $ init xs
   | otherwise = xs
 
-breakByNest :: (Eq a) => NCCase a -> [a] -> NestPartition a --bBN law => partFst ++ partSnd ++ partThd == xs ALWAYS
-breakByNest _ [] = NestPartition [] [] []
-breakByNest nCCase xs = NestPartition first second third
+breakByNest :: (Eq a) => NCCase a -> [a] -> TriplePartition a --bBN law => partFst ++ partSnd ++ partThd == xs ALWAYS
+breakByNest _ [] = TriplePartition [] [] []
+breakByNest nCCase xs = TriplePartition first second third
   where
-    first = takeWhileList (nestedCollapsibleIsPrefixOf nCCase) xs
+    first = takeWhileList (not . nestedCollapsibleIsPrefixOf nCCase) xs
     second = takeNestFirstComplete nCCase xs
     third = dropInfix (first ++ second) xs
 
@@ -163,6 +171,14 @@ groupAllTopLevelNestedCollapsibles _ [] = []
 groupAllTopLevelNestedCollapsibles nc xs
     | null (partThd part) = [partSnd part]
     | otherwise           = partSnd part : groupAllTopLevelNestedCollapsibles nc (partThd part)
+    where
+      part = breakByNest nc xs
+
+groupTopLevelByNestedCollapsiblePartition :: (Eq a) => NCCase a -> [a] -> [[a]]
+groupTopLevelByNestedCollapsiblePartition _ [] = []
+groupTopLevelByNestedCollapsiblePartition nc xs
+    | null (partThd part) = [partFst part, partSnd part]
+    | otherwise           = partFst part : partSnd part : groupTopLevelByNestedCollapsiblePartition nc (partThd part)
     where
       part = breakByNest nc xs
 
