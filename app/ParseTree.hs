@@ -129,7 +129,7 @@ putOnlyValue (TriplePartition [] [] z) = putSingleBracketGroup z
 
 putAnonFunction :: ReturnPartition -> ParseTreeMonad
 putAnonFunction (TriplePartition [] y z) = do
-  declaration <- put (serialTree [PacketUnit (Keyword Fish) 0, PacketUnit (Data (Id "anon")) 0]) --idk what else to put here
+  declaration <- put (serialTree [PacketUnit (Keyword Fish) 0, PacketUnit (Data (Id "::anon::")) 0]) --idk what else to put here
   funcReturn <- putSingleBracketGroup z
   args <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
   put $ (declaration -<<= treeChildren args) -<<- funcReturn
