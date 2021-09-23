@@ -42,6 +42,20 @@ executable FISH
                       Test
     default-language: Haskell2010
 
+executable FISHParseTreeIO
+    main-is: PTIO.hs
+    other-modules:
+        Lexer,
+        ParseTree
+    build-depends:
+        base ^>=4.15.0.0
+    hs-source-dirs: app
+                    app/Grammar
+                    app/Token
+                    app/Token/Util
+                    Test
+    default-language: Haskell2010
+
 test-suite Token_Util_EagerCollapsible
     default-language:
         Haskell2010
@@ -72,59 +86,6 @@ test-suite Token_Data
     other-modules:
         Token.Data,
         Token.Util.EagerCollapsible,
-        Token.Util.Like,
-        Token.Util.String
-    build-depends:
-        base ^>=4.15.0.0
-      , tasty >= 0.7 && < 1.4.1
-      , tasty-hunit ^>=0.10.0.3
-
-test-suite Lexer
-    default-language:
-        Haskell2010
-    type:
-        exitcode-stdio-1.0
-    hs-source-dirs:
-        Test
-        app
-    main-is:
-        LexerTest.hs
-    other-modules:
-        Lexer,
-        Token.Bracket,
-        Token.Control,
-        Token.Data,
-        Token.Keyword,
-        Token.Operator,
-        Token.Util.EagerCollapsible,
-        Token.Util.NestedCollapsible,
-        Token.Util.Like,
-        Token.Util.String
-    build-depends:
-        base ^>=4.15.0.0
-      , tasty >= 0.7 && < 1.4.1
-      , tasty-hunit ^>=0.10.0.3
-
-test-suite ParseTree
-    default-language:
-        Haskell2010
-    type:
-        exitcode-stdio-1.0
-    hs-source-dirs:
-        Test
-        app
-    main-is:
-        ParseTreeTest.hs
-    other-modules:
-        Lexer,
-        ParseTree,
-        Token.Bracket,
-        Token.Control,
-        Token.Data,
-        Token.Keyword,
-        Token.Operator,
-        Token.Util.EagerCollapsible,
-        Token.Util.NestedCollapsible,
         Token.Util.Like,
         Token.Util.String
     build-depends:
