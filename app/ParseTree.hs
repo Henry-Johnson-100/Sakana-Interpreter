@@ -19,12 +19,17 @@ class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
   ioPrintTree :: (Show a) => r a -> IO ()
 
-data Tree a = Empty | a :-<-: [Tree a] deriving (Show, Eq)
+data Tree a = Empty | a :-<-: [Tree a] | Headless [Tree a] deriving (Show, Eq)
 
 instance TreeIO Tree where
   fPrintTree d Empty = concat (replicate (d * 4 - 1) "-") ++ ">" ++ "Empty\n"
+  fPrintTree d (Headless a) = concat (replicate (d * 4 - 1) "-") ++ ">" ++ "HEADLESS\n" ++ concatMap (fPrintTree (d + 1)) a
   fPrintTree d (n :-<-: a) = concat (replicate (d * 4 - 1) "-") ++ ">" ++ show n ++ "\n" ++ concatMap (fPrintTree (d + 1)) a
   ioPrintTree t = putStrLn $ fPrintTree 0 t
+
+isHeadless :: Tree a -> Bool
+isHeadless (Headless _) = True
+isHeadless _            = False
 
 tree :: a -> Tree a
 tree x = x :-<-: []
@@ -35,22 +40,27 @@ trees = map (:-<-: [])
 serialTree :: [a] -> Tree a
 serialTree [] = Empty
 serialTree [x] = tree x
-serialTree (x : xs) = tree x -<<- serialTree xs
+serialTree (x : xs) = tree x -<- serialTree xs
 
 treeNode :: Tree a -> a
 treeNode (b :-<-: _) = b
 
 treeChildren :: Tree a -> [Tree a]
 treeChildren (_ :-<-: cs) = cs
+treeChildren (Headless cs) = cs
 
 transplantChildren :: Tree a -> Tree a -> Tree a
-transplantChildren t (_ :-<-: cs) = t -<<= cs
+transplantChildren t (_ :-<-: cs) = t -<= cs
 
-(-<<-) :: Tree a -> Tree a -> Tree a
-(b :-<-: cs) -<<- t = b :-<-: (cs ++ [t])
+(-<-) :: Tree a -> Tree a -> Tree a
+t -<- (Headless cs) = t -<= cs
+(b :-<-: cs) -<- t = b :-<-: (cs ++ [t])
+(Headless cs) -<- t = Headless (cs ++ [t])
 
-(-<<=) :: Tree a -> [Tree a] -> Tree a
-(b :-<-: cs) -<<= ts = b :-<-: (cs ++ ts)
+
+(-<=) :: Tree a -> [Tree a] -> Tree a
+(b :-<-: cs) -<= ts = b :-<-: (cs ++ ts)
+(Headless cs) -<= ts = Headless (cs ++ ts)
 
 type ParseTree = Tree TokenUnit
 
@@ -84,8 +94,12 @@ generateParseTree :: [TokenUnit] -> ParseTree
 generateParseTree [] = Empty
 generateParseTree tus = get $ collapseParseTreeMonadList $ map putReturnPartition $ groupReturnPartitions tus
 
-filterHeadlessChildren :: ParseTree -> ParseTree
-filterHeadlessChildren t = t -<<= map (\x -> if unitLine (treeNode x) == -1 then transplantChildren t x else x) (treeChildren t)
+liftHeadlessChildren :: ParseTree -> ParseTree
+liftHeadlessChildren (Headless cs) = Headless cs
+liftHeadlessChildren (n :-<-: cs) = tree n -<= concatMap (\c -> if isHeadless c then treeChildren c else [c]) cs
+
+liftHeadlessChildrenMonadically :: ParseTree -> ParseTreeMonad
+liftHeadlessChildrenMonadically t = put $ liftHeadlessChildren t
 
 takeBracketNCExcludingReturn :: [TokenUnit] -> [TokenUnit]
 takeBracketNCExcludingReturn [] = []
@@ -143,13 +157,13 @@ putFullDeclaration (TriplePartition x y z) = do
   declaration <- put (serialTree x)
   funcReturn <- putSingleBracketGroup z
   args <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
-  put $ (declaration -<<= treeChildren args) -<<- funcReturn
+  liftHeadlessChildrenMonadically $ (declaration -<= treeChildren args) -<- funcReturn
 
 putFunctionCall :: ReturnPartition -> ParseTreeMonad
 putFunctionCall (TriplePartition x y []) = do
   funcId <- put (serialTree x)
   funcArgs <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
-  put $ funcId -<<- funcArgs
+  liftHeadlessChildrenMonadically $ funcId -<- funcArgs
 
 putOnlyNonTerminals :: ReturnPartition -> ParseTreeMonad
 putOnlyNonTerminals (TriplePartition x [] []) = put (serialTree x)
@@ -159,16 +173,15 @@ putOnlyValue (TriplePartition [] [] z) = putSingleBracketGroup z
 
 putAnonFunction :: ReturnPartition -> ParseTreeMonad
 putAnonFunction (TriplePartition [] y z) = do
-  declaration <- put (serialTree [PacketUnit (Keyword Fish) 0, PacketUnit (Data (Id "::anon::")) (-1)]) --idk what else to put here
   funcReturn <- putSingleBracketGroup z
   args <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
-  put $ (declaration -<<= treeChildren args) -<<- funcReturn
+  put $ (Headless [] -<= treeChildren args) -<- funcReturn
 
 putNoArgs :: ReturnPartition -> ParseTreeMonad
 putNoArgs (TriplePartition x [] z) = do
   declaration <- put (serialTree x)
   funcReturn <- putSingleBracketGroup z
-  put $ declaration -<<- funcReturn
+  liftHeadlessChildrenMonadically $ declaration -<- funcReturn
 
 bracketNC :: NCCase TokenUnit
 bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> unit x `elem` [Bracket Send Close, Bracket Return Close])
@@ -178,7 +191,7 @@ bracketReturnNC = NCCase (\x -> unit x == Bracket Return Open) (\x -> unit x == 
 
 collapseParseTreeMonadList :: [ParseTreeMonad] -> ParseTreeMonad
 collapseParseTreeMonadList [] = put (Empty :: ParseTree)
-collapseParseTreeMonadList ptms = put $ tree (PacketUnit (Data (Id "::headless::")) (-1)) -<<= map get ptms
+collapseParseTreeMonadList ptms = put $ Headless (map get ptms)
 
 putConcurrentBracketGroups :: [TokenUnit] -> [ParseTreeMonad]
 putConcurrentBracketGroups tus = map putSingleBracketGroup (groupBrackets tus)
