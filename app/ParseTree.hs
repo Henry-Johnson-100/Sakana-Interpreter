@@ -81,7 +81,7 @@ breakScopeOnReturnGroup tus = (takenThroughReturn, dropInfix takenThroughReturn 
 partitionReturnGroup :: [TokenUnit] -> TriplePartition TokenUnit
 partitionReturnGroup [] = TriplePartition [] [] []
 partitionReturnGroup tus = TriplePartition w a r where
-  w = takeWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) tus 
+  w = takeWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) tus
   a = takeBracketNCExcludingReturn (dropInfix w tus)
   r = dropInfix (w ++ a) tus
 
@@ -94,9 +94,18 @@ sndBifunctor (x,y) f = (x, f y)
 nextReturnPartition :: [TokenUnit] -> (TriplePartition TokenUnit, [TokenUnit])
 nextReturnPartition tus = fstBifunctor (breakScopeOnReturnGroup tus) partitionReturnGroup
 
--- putReturnGroup :: [TokenUnit] -> ParseTreeMonad
--- putReturnGroup [] = put Empty
--- putReturnGroup tus 
+groupReturnPartitions :: [TokenUnit] -> [TriplePartition TokenUnit]
+groupReturnPartitions [] = []
+groupReturnPartitions tus = map partitionReturnGroup (breakReturnGroups tus) where
+  breakReturnGroups [] = []
+  breakReturnGroups tus' = fst (breakScopeOnReturnGroup tus') : breakReturnGroups (snd (breakScopeOnReturnGroup tus'))
+
+putReturnPartition :: TriplePartition TokenUnit -> ParseTreeMonad
+putReturnPartition (TriplePartition x y z) = do
+  declaration <- put (serialTree x)
+  funcReturn <- putSingleBracketGroup z
+  args <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
+  put $ (declaration -<<= treeChildren args) -<<- funcReturn
 
 bracketNC :: NCCase TokenUnit
 bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> unit x `elem` [Bracket Send Close, Bracket Return Close])
@@ -104,19 +113,12 @@ bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]
 bracketReturnNC :: NCCase TokenUnit
 bracketReturnNC = NCCase (\x -> unit x == Bracket Return Open) (\x -> unit x == Bracket Return Close)
 
-putFunctionOrDataDeclaration :: [TokenUnit] -> ParseTreeMonad
-putFunctionOrDataDeclaration [] = put Empty
-putFunctionOrDataDeclaration (tu:tus) = do
-  keyword <- put (tree tu)
-  id <- put (tree (head tus))
-  -- funcArgs <- putSendGroup $ takeBracketNCExcludingReturn tus
-  funcReturn <- putSingleBracketGroup $ takeNestFirstComplete bracketReturnNC tus
-  funcBody <- put $ id -<<- funcReturn
-  func <- put $ keyword -<<- funcBody
-  put func
+collapseParseTreeMonadList :: [ParseTreeMonad] -> ParseTreeMonad
+collapseParseTreeMonadList [] = put (Empty::ParseTree)
+collapseParseTreeMonadList ptms = put $ tree (PacketUnit (Data (Id "::headless::")) 0) -<<= map get ptms
 
-putConcurrentBrackets :: [TokenUnit] -> [ParseTreeMonad]
-putConcurrentBrackets tus = map putSingleBracketGroup (groupBrackets tus)
+putConcurrentBracketGroups :: [TokenUnit] -> [ParseTreeMonad]
+putConcurrentBracketGroups tus = map putSingleBracketGroup (groupBrackets tus)
 
 groupBrackets :: [TokenUnit] -> [[TokenUnit]]
 groupBrackets [] = [[]]
