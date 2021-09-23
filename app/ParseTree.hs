@@ -75,23 +75,21 @@ put = MonadicContainer
 get :: MonadicContainer a -> a
 get (MonadicContainer x) = x
 
-breakScopeOnReturnGroup :: [TokenUnit] -> ([TokenUnit], [TokenUnit])
-breakScopeOnReturnGroup [] = ([],[])
-breakScopeOnReturnGroup tus = (takenThroughReturn, dropInfix takenThroughReturn tus) where
-  takenThroughReturn = takeBracketNCIncludingReturn tus
-
-partitionReturnGroup :: [TokenUnit] -> ReturnPartition
-partitionReturnGroup [] = TriplePartition [] [] []
-partitionReturnGroup tus = TriplePartition w a r where
-  w = takeWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) tus
-  a = takeBracketNCExcludingReturn (dropInfix w tus)
-  r = dropInfix (w ++ a) tus
-
 groupReturnPartitions :: [TokenUnit] -> [ReturnPartition]
 groupReturnPartitions [] = []
 groupReturnPartitions tus = map partitionReturnGroup (breakReturnGroups tus) where
+  partitionReturnGroup :: [TokenUnit] -> ReturnPartition
+  partitionReturnGroup [] = TriplePartition [] [] []
+  partitionReturnGroup tus = TriplePartition w a r where
+    w = takeWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) tus
+    a = takeBracketNCExcludingReturn (dropInfix w tus)
+    r = dropInfix (w ++ a) tus
   breakReturnGroups [] = []
-  breakReturnGroups tus' = fst (breakScopeOnReturnGroup tus') : breakReturnGroups (snd (breakScopeOnReturnGroup tus'))
+  breakReturnGroups tus' = fst (breakScopeOnReturnGroup tus') : breakReturnGroups (snd (breakScopeOnReturnGroup tus')) where
+    breakScopeOnReturnGroup :: [TokenUnit] -> ([TokenUnit], [TokenUnit])
+    breakScopeOnReturnGroup [] = ([],[])
+    breakScopeOnReturnGroup tus = (takenThroughReturn, dropInfix takenThroughReturn tus) where
+      takenThroughReturn = takeBracketNCIncludingReturn tus
 
 -- | Receptacle for all possible pattern matches of a TriplePartition when making a tree
 putReturnPartition :: ReturnPartition -> ParseTreeMonad
