@@ -14,7 +14,7 @@ import Token.Keyword
 import Token.Operator
 import Token.Util.EagerCollapsible
 import Token.Util.NestedCollapsible
-import Token.Util.NestedCollapsible (nestedCollapsibleIsPrefixOf)
+import Token.Util.NestedCollapsible (nestedCollapsibleIsPrefixOf, TriplePartition)
 
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
@@ -84,6 +84,15 @@ partitionReturnGroup tus = TriplePartition w a r where
   w = takeWhileList (not . nestedCollapsibleIsPrefixOf bracketNC) tus 
   a = takeBracketNCExcludingReturn (dropInfix w tus)
   r = dropInfix (w ++ a) tus
+
+fstBifunctor :: (a, b) -> (a -> z) -> (z, b)
+fstBifunctor (x,y) f = (f x, y)
+
+sndBifunctor :: (a,b) -> (b -> z) -> (a, z)
+sndBifunctor (x,y) f = (x, f y)
+
+nextReturnPartition :: [TokenUnit] -> (TriplePartition TokenUnit, [TokenUnit])
+nextReturnPartition tus = fstBifunctor (breakScopeOnReturnGroup tus) partitionReturnGroup
 
 -- putReturnGroup :: [TokenUnit] -> ParseTreeMonad
 -- putReturnGroup [] = put Empty
