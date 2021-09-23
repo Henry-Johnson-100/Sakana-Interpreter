@@ -14,7 +14,7 @@ import Token.Keyword
 import Token.Operator
 import Token.Util.EagerCollapsible
 import Token.Util.NestedCollapsible
-import Token.Util.NestedCollapsible (nestedCollapsibleIsPrefixOf, TriplePartition)
+import Token.Util.NestedCollapsible (nestedCollapsibleIsPrefixOf, TriplePartition (TriplePartition))
 
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
@@ -100,12 +100,25 @@ groupReturnPartitions tus = map partitionReturnGroup (breakReturnGroups tus) whe
   breakReturnGroups [] = []
   breakReturnGroups tus' = fst (breakScopeOnReturnGroup tus') : breakReturnGroups (snd (breakScopeOnReturnGroup tus'))
 
+-- | Receptacle for all possible pattern matches of a TriplePartition when making a tree
 putReturnPartition :: TriplePartition TokenUnit -> ParseTreeMonad
+putReturnPartition (TriplePartition x [] []) = putOnlyNonTerminals (TriplePartition x [] [])
+putReturnPartition (TriplePartition x y []) = putFunctionCall (TriplePartition x y [])
 putReturnPartition (TriplePartition x y z) = do
   declaration <- put (serialTree x)
   funcReturn <- putSingleBracketGroup z
   args <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
   put $ (declaration -<<= treeChildren args) -<<- funcReturn
+
+putFunctionCall :: TriplePartition TokenUnit -> ParseTreeMonad
+putFunctionCall (TriplePartition x y []) = do
+  funcId <- put (serialTree x)
+  funcArgs <- collapseParseTreeMonadList $ putConcurrentBracketGroups y
+  put $ funcId -<<= funcArgs
+
+putOnlyNonTerminals :: TriplePartition TokenUnit -> ParseTreeMonad
+putOnlyNonTerminals (TriplePartition x [] []) = do
+  put (serialTree x)
 
 bracketNC :: NCCase TokenUnit
 bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> unit x `elem` [Bracket Send Close, Bracket Return Close])
