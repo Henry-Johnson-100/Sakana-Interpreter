@@ -10,23 +10,48 @@ module Lexer
     genericControl,
     genericOperator,
     genericBracket,
-    dataTokenIsId
+    dataTokenIsId,
   )
 where
 
 import qualified Control.Arrow as Data.Bifunctor
 import Data.Char (isSpace)
-import Data.List
+import Data.List (isPrefixOf, isSuffixOf)
 import Data.Tuple (uncurry)
 import Token.Bracket as B
+  ( BracketTerminal (Open),
+    ScopeType (Send),
+    fromBracket,
+    readBracket,
+    repr,
+  )
 import Token.Control as C
+  ( Control (..),
+    fromControl,
+    readControl,
+    repr,
+  )
 import Token.Data as D
+  ( Data (Comment, Id, String),
+    fromData,
+    miscRepr,
+    readData,
+  )
 import Token.Keyword as K
-import Token.Operator as O
+  ( Keyword (Fish),
+    fromKeyword,
+    readKeyword,
+    repr,
+  )
+import Token.Operator as O (Operator (Add), fromOp, readOp, repr)
 import Token.Util.EagerCollapsible
-import Token.Util.Like
-import Token.Util.NestedCollapsible
-import Token.Util.String
+  ( dropBetween,
+    dropInfix,
+    isEagerCollapsible,
+    takeBetween,
+  )
+import Token.Util.Like (Like (..))
+import Token.Util.String (padEqual)
 
 data Token = Bracket ScopeType BracketTerminal | Control Control | Data Data | Keyword Keyword | Operator Operator deriving (Show, Read, Eq)
 

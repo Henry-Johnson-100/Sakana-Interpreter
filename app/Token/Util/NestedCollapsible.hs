@@ -18,11 +18,10 @@ module Token.Util.NestedCollapsible
     splitOn,
     splitTopLevelNCOn,
     groupAllTopLevelNestedCollapsibles,
-    groupTopLevelByNestedCollapsiblePartition
+    groupTopLevelByNestedCollapsiblePartition,
   )
 where
 
-import Data.List
 import Token.Util.EagerCollapsible (dropInfix)
 
 data TriplePartition a = TriplePartition
@@ -39,10 +38,6 @@ data NCCase a = NCCase
   { beginCase :: a -> Bool,
     endCase :: a -> Bool
   }
-
-tnc = NCCase ('(' ==) (')' ==)
-
-ts = "some (a,b) test (cd(ef(gh)))"
 
 isCompleteNestedCollapsible :: NCCase a -> [a] -> Bool
 isCompleteNestedCollapsible nCCase xs = isCompleteNestedCollapsible' nCCase 0 0 xs && beginCase nCCase (head xs) && endCase nCCase (last xs)
@@ -103,13 +98,14 @@ splitOn splitF xs = filter (not . null) $ takeWhile (not . splitF) xs : splitOn 
     tail' (x : xs) = xs
 
 splitTopLevelNCOn :: (Eq a) => NCCase a -> (a -> Bool) -> [a] -> [[a]]
-splitTopLevelNCOn nc splitF xs = filter (not . null) $ splitTopLevelNCOn' nc splitF xs where
-  splitTopLevelNCOn' :: (Eq a) => NCCase a -> (a -> Bool) -> [a] -> [[a]]
-  splitTopLevelNCOn' _ _ [] = [[]]
-  splitTopLevelNCOn' nc splitF xs
-      | null (partFst part)          = partSnd part : splitTopLevelNCOn' nc splitF (partThd part)
+splitTopLevelNCOn nc splitF xs = filter (not . null) $ splitTopLevelNCOn' nc splitF xs
+  where
+    splitTopLevelNCOn' :: (Eq a) => NCCase a -> (a -> Bool) -> [a] -> [[a]]
+    splitTopLevelNCOn' _ _ [] = [[]]
+    splitTopLevelNCOn' nc splitF xs
+      | null (partFst part) = partSnd part : splitTopLevelNCOn' nc splitF (partThd part)
       | splitF (last (partFst part)) = (splitOn splitF (partFst part) ++ [partSnd part]) ++ splitTopLevelNCOn' nc splitF (partThd part)
-      | otherwise                    = (init (splitOn splitF (partFst part)) ++ [last (splitOn splitF (partFst part)) ++ partSnd part]) ++ splitTopLevelNCOn' nc splitF (partThd part)
+      | otherwise = (init (splitOn splitF (partFst part)) ++ [last (splitOn splitF (partFst part)) ++ partSnd part]) ++ splitTopLevelNCOn' nc splitF (partThd part)
       where
         part = breakByNest nc xs
 
@@ -148,8 +144,8 @@ takeNestFirstComplete nCCase xs
 takeNestWhileComplete :: NCCase a -> [a] -> [a]
 takeNestWhileComplete _ [] = []
 takeNestWhileComplete nc xs
-    | isCompleteNestedCollapsible nc xs = takeNestWhileComplete nc (getNestedCollapsibleContents nc xs)
-    | otherwise                         = xs
+  | isCompleteNestedCollapsible nc xs = takeNestWhileComplete nc (getNestedCollapsibleContents nc xs)
+  | otherwise = xs
 
 getNestedCollapsibleContents :: NCCase a -> [a] -> [a]
 getNestedCollapsibleContents _ [] = []
@@ -165,22 +161,22 @@ breakByNest nCCase xs = TriplePartition first second third
     second = takeNestFirstComplete nCCase xs
     third = dropInfix (first ++ second) xs
 
--- |Only groups the collapsibles and not any free components not contained outside of them
+-- | Only groups the collapsibles and not any free components not contained outside of them
 groupAllTopLevelNestedCollapsibles :: (Eq a) => NCCase a -> [a] -> [[a]]
 groupAllTopLevelNestedCollapsibles _ [] = []
 groupAllTopLevelNestedCollapsibles nc xs
-    | null (partThd part) = [partSnd part]
-    | otherwise           = partSnd part : groupAllTopLevelNestedCollapsibles nc (partThd part)
-    where
-      part = breakByNest nc xs
+  | null (partThd part) = [partSnd part]
+  | otherwise = partSnd part : groupAllTopLevelNestedCollapsibles nc (partThd part)
+  where
+    part = breakByNest nc xs
 
 groupTopLevelByNestedCollapsiblePartition :: (Eq a) => NCCase a -> [a] -> [[a]]
 groupTopLevelByNestedCollapsiblePartition _ [] = []
 groupTopLevelByNestedCollapsiblePartition nc xs
-    | null (partThd part) = [partFst part, partSnd part]
-    | otherwise           = partFst part : partSnd part : groupTopLevelByNestedCollapsiblePartition nc (partThd part)
-    where
-      part = breakByNest nc xs
+  | null (partThd part) = [partFst part, partSnd part]
+  | otherwise = partFst part : partSnd part : groupTopLevelByNestedCollapsiblePartition nc (partThd part)
+  where
+    part = breakByNest nc xs
 
 numberOfTerminations :: NCCase a -> [a] -> (Int, Int)
 numberOfTerminations ncCase xs = numberOfTerminations' ncCase 0 0 xs

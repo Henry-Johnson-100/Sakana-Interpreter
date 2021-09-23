@@ -1,16 +1,20 @@
+import Lexer (tokenize)
+import ParseTree (TreeIO (fPrintTree), generateParseTree)
+import System.Environment (getArgs)
 import System.IO
-import System.Environment
-import ParseTree
-import Lexer
-import Token.Data
+  ( IOMode (ReadMode),
+    hClose,
+    hGetContents,
+    openFile,
+  )
 
-printTokens xs = concatMap show (tokenize xs)
+printTree :: String -> String
+printTree c = fPrintTree 0 (generateParseTree (tokenize c))
 
-printTree c = fPrintTree 0 (generateParseTree (tokenize c) )
-
+main :: IO ()
 main = do
-    args <- getArgs
-    handle <- openFile (head args) ReadMode
-    contents <- hGetContents handle
-    putStr $ printTree contents
-    hClose handle
+  args <- getArgs
+  handle <- openFile (head args) ReadMode
+  contents <- hGetContents handle
+  putStr $ printTree contents
+  hClose handle

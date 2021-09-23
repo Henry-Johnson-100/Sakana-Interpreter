@@ -6,7 +6,6 @@ where
 
 import Data.List
 import Lexer
-import Syntax.SyntaxUnit
 import Token.Bracket
 import Token.Control
 import Token.Data
