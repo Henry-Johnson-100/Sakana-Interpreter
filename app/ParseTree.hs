@@ -4,17 +4,39 @@ module ParseTree
   )
 where
 
-import Data.List
 import Lexer
+  ( PacketUnit (unit),
+    Token (Bracket),
+    TokenUnit,
+    getTokenBracketScopeType,
+  )
 import Token.Bracket
-import Token.Control
-import Token.Data
-import Token.Keyword
-import Token.Operator
-import Token.Util.EagerCollapsible
-import Token.Util.MonadicContainer
+  ( BracketTerminal (Close, Open),
+    ScopeType (Return, Send),
+  )
+import Token.Util.EagerCollapsible (dropInfix)
+import Token.Util.MonadicContainer (MonadicContainer, get, put)
 import Token.Util.NestedCollapsible
+  ( NCCase (NCCase),
+    TriplePartition (..),
+    breakByNest,
+    groupAllTopLevelNestedCollapsibles,
+    hasNestedCollapsible,
+    isCompleteNestedCollapsible,
+    nestedCollapsibleIsPrefixOf,
+    takeNestWhileComplete,
+    takeWhileList,
+  )
 import Token.Util.Tree
+  ( Tree (..),
+    TreeIO (..),
+    isHeadless,
+    serialTree,
+    tree,
+    treeChildren,
+    (-<-),
+    (-<=),
+  )
 
 type ParseTree = Tree TokenUnit
 
