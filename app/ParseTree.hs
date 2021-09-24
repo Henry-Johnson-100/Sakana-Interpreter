@@ -1,5 +1,6 @@
 module ParseTree
   ( generateParseTree,
+    ParseTree,
     TreeIO (..),
   )
 where

@@ -48,3 +48,9 @@ t -<- (Headless cs) = t -<= cs
 (-<=) :: Tree a -> [Tree a] -> Tree a
 (b :-<-: cs) -<= ts = b :-<-: (cs ++ ts)
 (Headless cs) -<= ts = Headless (cs ++ ts)
+
+lookupOn :: Tree a -> (Tree a -> Bool) -> [Tree a]
+lookupOn Empty _ = [Empty]
+lookupOn t tf
+    | tf t = [t]
+    | otherwise = concatMap (`lookupOn` tf) (treeChildren t)
