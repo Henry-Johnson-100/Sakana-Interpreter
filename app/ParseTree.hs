@@ -43,7 +43,7 @@ type ReturnPartition = TriplePartition TokenUnit
 
 generateParseTree :: [TokenUnit] -> ParseTree
 generateParseTree [] = Empty
-generateParseTree tus = collapseParseTreeMonadList $ map putReturnPartition $ groupReturnPartitions tus
+generateParseTree tus = collapseTreeListToHeadless $ map returnPartitionTree $ groupReturnPartitions tus
 
 bracketNC :: NCCase TokenUnit
 bracketNC = NCCase (\x -> unit x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> unit x `elem` [Bracket Send Close, Bracket Return Close])
@@ -89,68 +89,65 @@ groupReturnPartitions tus = map partitionReturnGroup (breakReturnGroups tus)
             takenThroughReturn = takeBracketNCIncludingReturn tus
 
 -- | Receptacle for all possible pattern matches of a TriplePartition when making a tree
-putReturnPartition :: ReturnPartition -> ParseTree
-putReturnPartition (TriplePartition [] [] []) = Empty
-putReturnPartition (TriplePartition x [] []) = putOnlyNonTerminals (TriplePartition x [] [])
-putReturnPartition (TriplePartition [] y []) = collapseParseTreeMonadList $ putConcurrentBracketGroups y
-putReturnPartition (TriplePartition [] [] z) = putOnlyValue (TriplePartition [] [] z)
-putReturnPartition (TriplePartition x [] z) = putNoArgs (TriplePartition x [] z)
-putReturnPartition (TriplePartition x y []) = putFunctionCall (TriplePartition x y [])
-putReturnPartition (TriplePartition [] y z) = putAnonFunction (TriplePartition [] y z)
-putReturnPartition (TriplePartition x y z) = putFullDeclaration (TriplePartition x y z)
+returnPartitionTree :: ReturnPartition -> ParseTree
+returnPartitionTree (TriplePartition [] [] []) = Empty
+returnPartitionTree (TriplePartition x [] []) = treeOnlyNonTerminals (TriplePartition x [] [])
+returnPartitionTree (TriplePartition [] y []) = collapseTreeListToHeadless $ treeConcurrentBracketGroups y
+returnPartitionTree (TriplePartition [] [] z) = treeOnlyValue (TriplePartition [] [] z)
+returnPartitionTree (TriplePartition x [] z) = treeNoArgs (TriplePartition x [] z)
+returnPartitionTree (TriplePartition x y []) = treeFunctionCall (TriplePartition x y [])
+returnPartitionTree (TriplePartition [] y z) = treeAnonFunction (TriplePartition [] y z)
+returnPartitionTree (TriplePartition x y z) = treeFullDeclaration (TriplePartition x y z)
 
-putOnlyNonTerminals :: ReturnPartition -> ParseTree
-putOnlyNonTerminals (TriplePartition x [] []) = serialTree x
+treeOnlyNonTerminals :: ReturnPartition -> ParseTree
+treeOnlyNonTerminals (TriplePartition x [] []) = serialTree x
 
-putOnlyValue :: ReturnPartition -> ParseTree
-putOnlyValue (TriplePartition [] [] z) = putSingleBracketGroup z
+treeOnlyValue :: ReturnPartition -> ParseTree
+treeOnlyValue (TriplePartition [] [] z) = treeSingleBracketGroup z
 
-putNoArgs :: ReturnPartition -> ParseTree
-putNoArgs (TriplePartition x [] z) = putLiftHeadlessChildren $ declaration -<- funcReturn
+treeNoArgs :: ReturnPartition -> ParseTree
+treeNoArgs (TriplePartition x [] z) = liftHeadlessChildren $ declaration -<- funcReturn
   where
     declaration = serialTree x
-    funcReturn = putSingleBracketGroup z
+    funcReturn = treeSingleBracketGroup z
 
-putFunctionCall :: ReturnPartition -> ParseTree
-putFunctionCall (TriplePartition x y []) = putLiftHeadlessChildren $ funcId -<- funcArgs
+treeFunctionCall :: ReturnPartition -> ParseTree
+treeFunctionCall (TriplePartition x y []) = liftHeadlessChildren $ funcId -<- funcArgs
   where
     funcId = serialTree x
-    funcArgs = collapseParseTreeMonadList $ putConcurrentBracketGroups y
+    funcArgs = collapseTreeListToHeadless $ treeConcurrentBracketGroups y
 
-putAnonFunction :: ReturnPartition -> ParseTree
-putAnonFunction (TriplePartition [] y z) = (Headless [] -<= treeChildren args) -<- funcReturn
+treeAnonFunction :: ReturnPartition -> ParseTree
+treeAnonFunction (TriplePartition [] y z) = (Headless [] -<= treeChildren args) -<- funcReturn
   where
-    funcReturn = putSingleBracketGroup z
-    args = collapseParseTreeMonadList $ putConcurrentBracketGroups y
+    funcReturn = treeSingleBracketGroup z
+    args = collapseTreeListToHeadless $ treeConcurrentBracketGroups y
 
-putFullDeclaration :: ReturnPartition -> ParseTree
-putFullDeclaration (TriplePartition x y z) = putLiftHeadlessChildren $ (declaration -<= treeChildren args) -<- funcReturn
+treeFullDeclaration :: ReturnPartition -> ParseTree
+treeFullDeclaration (TriplePartition x y z) = liftHeadlessChildren $ (declaration -<= treeChildren args) -<- funcReturn
   where
     declaration = serialTree x
-    funcReturn = putSingleBracketGroup z
-    args = collapseParseTreeMonadList $ putConcurrentBracketGroups y
+    funcReturn = treeSingleBracketGroup z
+    args = collapseTreeListToHeadless $ treeConcurrentBracketGroups y
 
-collapseParseTreeMonadList :: [ParseTree] -> ParseTree
-collapseParseTreeMonadList [] = Empty
-collapseParseTreeMonadList ptms = Headless ptms
+collapseTreeListToHeadless :: [ParseTree] -> ParseTree
+collapseTreeListToHeadless [] = Empty
+collapseTreeListToHeadless ptms = Headless ptms
 
-putConcurrentBracketGroups :: [TokenUnit] -> [ParseTree]
-putConcurrentBracketGroups tus = map putSingleBracketGroup (groupBrackets tus)
+treeConcurrentBracketGroups :: [TokenUnit] -> [ParseTree]
+treeConcurrentBracketGroups tus = map treeSingleBracketGroup (groupBrackets tus)
   where
     groupBrackets :: [TokenUnit] -> [[TokenUnit]]
     groupBrackets [] = [[]]
     groupBrackets tus = groupAllTopLevelNestedCollapsibles bracketNC tus
 
-putSingleBracketGroup :: [TokenUnit] -> ParseTree
-putSingleBracketGroup [] = Empty
-putSingleBracketGroup xs
-  | isCompleteNestedCollapsible bracketNC xs = putSingleBracketGroup (takeNestWhileComplete bracketNC xs)
-  | hasNestedCollapsible bracketNC xs = collapseParseTreeMonadList $ map putReturnPartition $ groupReturnPartitions xs
+treeSingleBracketGroup :: [TokenUnit] -> ParseTree
+treeSingleBracketGroup [] = Empty
+treeSingleBracketGroup xs
+  | isCompleteNestedCollapsible bracketNC xs = treeSingleBracketGroup (takeNestWhileComplete bracketNC xs)
+  | hasNestedCollapsible bracketNC xs = collapseTreeListToHeadless $ map returnPartitionTree $ groupReturnPartitions xs
   | otherwise = serialTree xs
 
-putLiftHeadlessChildren :: ParseTree -> ParseTree
-putLiftHeadlessChildren = liftHeadlessChildren'
-  where
-    liftHeadlessChildren' :: ParseTree -> ParseTree
-    liftHeadlessChildren' (Headless cs) = Headless cs
-    liftHeadlessChildren' (n :-<-: cs) = tree n -<= concatMap (\c -> if isHeadless c then treeChildren c else [c]) cs
+liftHeadlessChildren :: ParseTree -> ParseTree
+liftHeadlessChildren (Headless cs) = Headless cs
+liftHeadlessChildren (n :-<-: cs) = tree n -<= concatMap (\c -> if isHeadless c then treeChildren c else [c]) cs
