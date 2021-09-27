@@ -46,7 +46,7 @@ type SyntaxPartition = TriplePartition SyntaxUnit
 
 generateParseTree :: [TokenUnit] -> SyntaxTree
 generateParseTree [] = Empty
-generateParseTree tus = collapseTreeListToHeadless $ map syntaxChunkTree $ groupSyntaxChunks $ scanTokensToSyntaxes tus
+generateParseTree tus = collapseTreeListToHeadless $ map syntaxChunkTree $ (groupSyntaxChunks . scanTokensToSyntaxes) tus
 
 bracketNestCase :: NCCase SyntaxUnit
 bracketNestCase = NCCase (\x -> token x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> token x `elem` [Bracket Send Close, Bracket Return Close])
@@ -111,7 +111,7 @@ groupSyntaxChunks tus = map partitionSyntaxChunk (breakSyntaxChunk tus)
 syntaxChunkTree :: SyntaxPartition -> SyntaxTree
 syntaxChunkTree (TriplePartition [] [] []) = Empty
 syntaxChunkTree (TriplePartition x [] []) = treeOnlyNonTerminals (TriplePartition x [] [])
-syntaxChunkTree (TriplePartition [] y []) = collapseTreeListToHeadless $ treeConcurrentBracketGroups y
+syntaxChunkTree (TriplePartition [] y []) = (collapseTreeListToHeadless . treeConcurrentBracketGroups) y
 syntaxChunkTree (TriplePartition [] [] z) = treeOnlyValue (TriplePartition [] [] z)
 syntaxChunkTree (TriplePartition x [] z) = treeNoArgs (TriplePartition x [] z)
 syntaxChunkTree (TriplePartition x y []) = treeFunctionCall (TriplePartition x y [])
