@@ -132,7 +132,10 @@ addSpaces str
   | null str = ""
   | isAnyReprInHeadGroup B.repr = padReprElemFromHeadGroup B.repr 1 ++ addSpaces (dropReprElemFromHeadGroup B.repr str)
   | isAnyReprInHeadGroup D.miscRepr = padReprElemFromHeadGroup D.miscRepr 1 ++ addSpaces (dropReprElemFromHeadGroup D.miscRepr str)
-  | isAnyReprInHeadGroup O.repr = if length (filterReprElemsInHeadGroup O.repr) == 1 then padReprElemFromHeadGroup O.repr 1 ++ addSpaces (dropReprElemFromHeadGroup O.repr str) else padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.repr)) 1 ++ addSpaces (drop (maximum (map length (filterReprElemsInHeadGroup O.repr))) str)
+  | isAnyReprInHeadGroup O.repr =
+    if length (filterReprElemsInHeadGroup O.repr) == 1
+      then padReprElemFromHeadGroup O.repr 1 ++ addSpaces (dropReprElemFromHeadGroup O.repr str)
+      else padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.repr)) 1 ++ addSpaces (drop (maximum (map length (filterReprElemsInHeadGroup O.repr))) str)
   | otherwise = head str : addSpaces (tail str)
   where
     headGroup :: String
@@ -206,7 +209,7 @@ wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str
 
 prepareRawString :: String -> [Packet String]
 prepareRawString "" = []
-prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPreserveStringSpacing $ mapPreserveLn addSpaces zipNumbersToLines
+prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn (wordsPreserveStringSpacing . addSpaces) zipNumbersToLines
   where
     linesStrs = reverse $ dropWhile null $ reverse $ lines strs
     --zipNumbersToLines :: [([String], Int)]
@@ -217,7 +220,7 @@ prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn wordsPr
     mapPreserveLn f = map (Data.Bifunctor.first f)
 
 tokenize :: String -> [TokenUnit]
-tokenize strs = concatMap tokenPacketToUnit $ consolidateStringTokensByLine $ filterEmptyPackets $ tokenizePreparedStringLines $ prepareRawString strs
+tokenize strs = concatMap tokenPacketToUnit $ (consolidateStringTokensByLine . filterEmptyPackets . tokenizePreparedStringLines . prepareRawString) strs
   where
     filterEmptyPackets :: [Packet a] -> [Packet a]
     filterEmptyPackets = filter (not . null . members)
