@@ -1,5 +1,5 @@
 import Lexer (tokenize)
-import ParseTree (TreeIO (fPrintTree), generateParseTree)
+import SyntaxTree (TreeIO (fPrintTree), generateSyntaxTree)
 import System.Environment (getArgs)
 import System.IO
   ( IOMode (ReadMode),
@@ -9,7 +9,7 @@ import System.IO
   )
 
 printTree :: String -> String
-printTree c = fPrintTree 0 (generateParseTree (tokenize c))
+printTree c = fPrintTree 0 (generateSyntaxTree (tokenize c))
 
 main :: IO ()
 main = do

@@ -1,7 +1,8 @@
-module ParseTree
-  ( generateParseTree,
-    ParseTree,
+module SyntaxTree
+  ( generateSyntaxTree,
+    SyntaxTree,
     TreeIO (..),
+    SyntaxUnit(..),
   )
 where
 
@@ -45,9 +46,9 @@ type SyntaxTree = Tree SyntaxUnit
 
 type SyntaxPartition = TriplePartition SyntaxUnit
 
-generateParseTree :: [TokenUnit] -> SyntaxTree
-generateParseTree [] = Empty
-generateParseTree tus = collapseTreeListToHeadless $ map syntaxChunkTree $ (groupSyntaxChunks . scanTokensToSyntaxes) tus
+generateSyntaxTree :: [TokenUnit] -> SyntaxTree
+generateSyntaxTree [] = Empty
+generateSyntaxTree tus = collapseTreeListToHeadless $ map syntaxChunkTree $ (groupSyntaxChunks . scanTokensToSyntaxes) tus
 
 bracketNestCase :: NCCase SyntaxUnit
 bracketNestCase = NCCase (\x -> token x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> token x `elem` [Bracket Send Close, Bracket Return Close])

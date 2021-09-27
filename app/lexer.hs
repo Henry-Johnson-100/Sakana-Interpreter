@@ -5,11 +5,13 @@ module Lexer
     tokenize,
     fromToken,
     like,
+    baseData,
     getTokenBracketScopeType,
     genericKeyword,
     genericControl,
     genericOperator,
     genericBracket,
+    genericData,
     dataTokenIsId,
   )
 where
@@ -32,7 +34,7 @@ import Token.Control as C
     repr,
   )
 import Token.Data as D
-  ( Data (Comment, Id, String),
+  ( Data (..),
     fromData,
     miscRepr,
     readData,
@@ -92,6 +94,9 @@ genericOperator = Operator Add
 
 genericBracket :: Token
 genericBracket = Bracket Send Open
+
+genericData :: Token
+genericData = Data (Int 0)
 
 getTokenBracketScopeType :: Token -> ScopeType
 getTokenBracketScopeType (Bracket st _) = st
