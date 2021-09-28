@@ -27,7 +27,6 @@ import Token.Util.NestedCollapsible
 import Token.Util.Tree
   ( Tree (..),
     TreeIO (..),
-    isHeadless,
     serialTree,
     tree,
     treeChildren,
@@ -46,9 +45,9 @@ type SyntaxTree = Tree SyntaxUnit
 
 type SyntaxPartition = TriplePartition SyntaxUnit
 
-generateSyntaxTree :: [TokenUnit] -> SyntaxTree
-generateSyntaxTree [] = Empty
-generateSyntaxTree tus = collapseTreeListToHeadless $ map syntaxChunkTree $ (groupSyntaxChunks . scanTokensToSyntaxes) tus
+generateSyntaxTree :: [TokenUnit] -> [SyntaxTree]
+generateSyntaxTree [] = []
+generateSyntaxTree tus = concatMap syntaxChunkTree $ (groupSyntaxChunks . scanTokensToSyntaxes) tus
 
 bracketNestCase :: NCCase SyntaxUnit
 bracketNestCase = NCCase (\x -> token x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> token x `elem` [Bracket Send Close, Bracket Return Close])
@@ -110,65 +109,57 @@ groupSyntaxChunks tus = map partitionSyntaxChunk (breakSyntaxChunk tus)
             takenThroughReturn = takeBracketNCIncludingReturn tus
 
 -- | Receptacle for all possible pattern matches of a TriplePartition when making a tree
-syntaxChunkTree :: SyntaxPartition -> SyntaxTree
-syntaxChunkTree (TriplePartition [] [] []) = Empty
+syntaxChunkTree :: SyntaxPartition -> [SyntaxTree]
+syntaxChunkTree (TriplePartition [] [] []) = []
 syntaxChunkTree (TriplePartition x [] []) = treeOnlyNonTerminals (TriplePartition x [] [])
-syntaxChunkTree (TriplePartition [] y []) = (collapseTreeListToHeadless . treeConcurrentBracketGroups) y
+syntaxChunkTree (TriplePartition [] y []) = treeConcurrentBracketGroups y
 syntaxChunkTree (TriplePartition [] [] z) = treeOnlyValue (TriplePartition [] [] z)
 syntaxChunkTree (TriplePartition x [] z) = treeNoArgs (TriplePartition x [] z)
 syntaxChunkTree (TriplePartition x y []) = treeFunctionCall (TriplePartition x y [])
 syntaxChunkTree (TriplePartition [] y z) = treeAnonFunction (TriplePartition [] y z)
 syntaxChunkTree (TriplePartition x y z) = treeFullDeclaration (TriplePartition x y z)
 
-treeOnlyNonTerminals :: SyntaxPartition -> SyntaxTree
-treeOnlyNonTerminals (TriplePartition x [] []) = serialTree x
+treeOnlyNonTerminals :: SyntaxPartition -> [SyntaxTree]
+treeOnlyNonTerminals (TriplePartition x [] []) = [serialTree x]
 
-treeOnlyValue :: SyntaxPartition -> SyntaxTree
+treeOnlyValue :: SyntaxPartition -> [SyntaxTree]
 treeOnlyValue (TriplePartition [] [] z) = treeSingleBracketGroup z
 
-treeNoArgs :: SyntaxPartition -> SyntaxTree
-treeNoArgs (TriplePartition x [] z) = liftHeadlessChildren $ declaration -<- funcReturn
+treeNoArgs :: SyntaxPartition -> [SyntaxTree]
+treeNoArgs (TriplePartition x [] z) = [declaration -<= funcReturn]
   where
     declaration = serialTree x
     funcReturn = treeSingleBracketGroup z
 
-treeFunctionCall :: SyntaxPartition -> SyntaxTree
-treeFunctionCall (TriplePartition x y []) = liftHeadlessChildren $ funcId -<- funcArgs
+treeFunctionCall :: SyntaxPartition -> [SyntaxTree]
+treeFunctionCall (TriplePartition x y []) = [funcId -<= funcArgs]
   where
     funcId = serialTree x
-    funcArgs = collapseTreeListToHeadless $ treeConcurrentBracketGroups y
+    funcArgs = treeConcurrentBracketGroups y
 
-treeAnonFunction :: SyntaxPartition -> SyntaxTree
-treeAnonFunction (TriplePartition [] y z) = (Headless [] -<= treeChildren args) -<- funcReturn
+treeAnonFunction :: SyntaxPartition -> [SyntaxTree]
+treeAnonFunction (TriplePartition [] y z) = args ++ funcReturn
   where
     funcReturn = treeSingleBracketGroup z
-    args = collapseTreeListToHeadless $ treeConcurrentBracketGroups y
+    args = treeConcurrentBracketGroups y
 
-treeFullDeclaration :: SyntaxPartition -> SyntaxTree
-treeFullDeclaration (TriplePartition x y z) = liftHeadlessChildren $ (declaration -<= treeChildren args) -<- funcReturn
+treeFullDeclaration :: SyntaxPartition -> [SyntaxTree]
+treeFullDeclaration (TriplePartition x y z) = [(declaration -<= args) -<= funcReturn]
   where
     declaration = serialTree x
     funcReturn = treeSingleBracketGroup z
-    args = collapseTreeListToHeadless $ treeConcurrentBracketGroups y
-
-collapseTreeListToHeadless :: [SyntaxTree] -> SyntaxTree
-collapseTreeListToHeadless [] = Empty
-collapseTreeListToHeadless ptms = Headless ptms
+    args = treeConcurrentBracketGroups y
 
 treeConcurrentBracketGroups :: [SyntaxUnit] -> [SyntaxTree]
-treeConcurrentBracketGroups tus = map treeSingleBracketGroup (groupBrackets tus)
+treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBrackets tus)
   where
     groupBrackets :: [SyntaxUnit] -> [[SyntaxUnit]]
     groupBrackets [] = [[]]
     groupBrackets tus = groupAllTopLevelNestedCollapsibles bracketNestCase tus
 
-treeSingleBracketGroup :: [SyntaxUnit] -> SyntaxTree
-treeSingleBracketGroup [] = Empty
+treeSingleBracketGroup :: [SyntaxUnit] -> [SyntaxTree]
+treeSingleBracketGroup [] = [Empty]
 treeSingleBracketGroup xs
   | isCompleteNestedCollapsible bracketNestCase xs = treeSingleBracketGroup (takeNestWhileComplete bracketNestCase xs)
-  | hasNestedCollapsible bracketNestCase xs = collapseTreeListToHeadless $ map syntaxChunkTree $ groupSyntaxChunks xs
-  | otherwise = serialTree xs
-
-liftHeadlessChildren :: SyntaxTree -> SyntaxTree
-liftHeadlessChildren (Headless cs) = Headless cs
-liftHeadlessChildren (n :-<-: cs) = tree n -<= concatMap (\c -> if isHeadless c then treeChildren c else [c]) cs
+  | hasNestedCollapsible bracketNestCase xs = concatMap syntaxChunkTree $ groupSyntaxChunks xs
+  | otherwise = [serialTree xs]

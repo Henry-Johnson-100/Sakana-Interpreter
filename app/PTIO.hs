@@ -9,7 +9,7 @@ import System.IO
   )
 
 printTree :: String -> String
-printTree c = fPrintTree 0 (generateSyntaxTree (tokenize c))
+printTree c = concatMap (0 `fPrintTree`) ((generateSyntaxTree . tokenize) c)
 
 main :: IO ()
 main = do
