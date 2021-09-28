@@ -34,7 +34,7 @@ import Token.Control as C
     repr,
   )
 import Token.Data as D
-  ( Data (..),
+  ( Data (Comment, Id, Int, String),
     fromData,
     miscRepr,
     readData,
@@ -45,7 +45,7 @@ import Token.Keyword as K
     readKeyword,
     repr,
   )
-import Token.Operator as O (Operator (Add), fromOp, readOp, repr)
+import Token.Operator as O (Operator (Add), fromOp, readOp, repr, spacingRepr)
 import Token.Util.EagerCollapsible
   ( dropBetween,
     dropInfix,
@@ -137,10 +137,10 @@ addSpaces str
   | null str = ""
   | isAnyReprInHeadGroup B.repr = padReprElemFromHeadGroup B.repr 1 ++ addSpaces (dropReprElemFromHeadGroup B.repr str)
   | isAnyReprInHeadGroup D.miscRepr = padReprElemFromHeadGroup D.miscRepr 1 ++ addSpaces (dropReprElemFromHeadGroup D.miscRepr str)
-  | isAnyReprInHeadGroup O.repr =
-    if length (filterReprElemsInHeadGroup O.repr) == 1
-      then padReprElemFromHeadGroup O.repr 1 ++ addSpaces (dropReprElemFromHeadGroup O.repr str)
-      else padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.repr)) 1 ++ addSpaces (drop (maximum (map length (filterReprElemsInHeadGroup O.repr))) str)
+  | isAnyReprInHeadGroup O.spacingRepr =
+    if length (filterReprElemsInHeadGroup O.spacingRepr) == 1
+      then padReprElemFromHeadGroup O.spacingRepr 1 ++ addSpaces (dropReprElemFromHeadGroup O.spacingRepr str)
+      else padEqual (getLongestStringFromList (filterReprElemsInHeadGroup O.spacingRepr)) 1 ++ addSpaces (drop (maximum (map length (filterReprElemsInHeadGroup O.spacingRepr))) str)
   | otherwise = head str : addSpaces (tail str)
   where
     headGroup :: String

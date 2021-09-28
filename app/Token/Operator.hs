@@ -3,13 +3,17 @@ module Token.Operator
     readOp,
     fromOp,
     repr,
+    spacingRepr,
   )
 where
 
-data Operator = Eq | NEq | Gt | Lt | Add | Sub | Mult | Div | Mod | GtEq | LtEq | ExplType deriving (Show, Read, Eq)
+data Operator = Eq | NEq | Gt | Lt | Add | Sub | Mult | Div | Mod | GtEq | LtEq deriving (Show, Read, Eq)
 
 repr :: [String]
-repr = ["==", "/=", "+", "-", "*", "/", "%", ">=", "<=", "<", ">", ">::>"]
+repr = ["==", "/=", "+", "-", "*", "/", "%", ">=", "<=", "<", ">"]
+
+spacingRepr :: [String]
+spacingRepr = ["==", "/=", "+", "*", "/", "%", ">=", "<=", "<", ">"]
 
 readOp :: String -> Operator
 readOp "==" = Eq
@@ -23,7 +27,6 @@ readOp "/" = Div
 readOp "%" = Mod
 readOp ">=" = GtEq
 readOp "<=" = LtEq
-readOp ">::>" = ExplType
 
 fromOp :: Operator -> String
 fromOp Eq = "=="
@@ -37,4 +40,3 @@ fromOp Div = "/"
 fromOp Mod = "%"
 fromOp GtEq = ">="
 fromOp LtEq = "<="
-fromOp ExplType = ">::>"

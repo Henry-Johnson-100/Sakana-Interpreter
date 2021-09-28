@@ -1,8 +1,8 @@
 module Token.Data
   ( Data (..),
+    miscRepr,
     readData,
     fromData,
-    miscRepr,
   )
 where
 
@@ -39,7 +39,8 @@ fromData (Other a) = a
 fromData (Comment a) = a
 
 allDigits :: String -> Bool
-allDigits = all isDigit
+allDigits ('-' : xs) = allDigits xs
+allDigits str = all isDigit str
 
 allPunct :: String -> Bool
 allPunct str = all isPunctuation str && str /= "\""
@@ -51,6 +52,7 @@ allAlpha :: String -> Bool
 allAlpha = all isAlpha
 
 isFloatStr :: String -> Bool
+isFloatStr ('-' : xs) = isFloatStr xs
 isFloatStr str = elem '.' str && allDigits (filter ('.' /=) str)
 
 couldBeId :: String -> Bool
