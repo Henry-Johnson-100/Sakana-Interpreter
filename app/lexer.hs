@@ -34,7 +34,7 @@ import Token.Control as C
     repr,
   )
 import Token.Data as D
-  ( Data (Comment, Id, Int, String),
+  ( Data (..),
     fromData,
     miscRepr,
     readData,
@@ -54,6 +54,7 @@ import Token.Util.EagerCollapsible
   )
 import Token.Util.Like (Like (..))
 import Token.Util.String (padEqual)
+import Exception.Base
 
 data Token = Bracket ScopeType BracketTerminal | Control Control | Data Data | Keyword Keyword | Operator Operator deriving (Show, Read, Eq)
 
@@ -104,6 +105,10 @@ getTokenBracketScopeType (Bracket st _) = st
 dataTokenIsId :: Token -> Bool
 dataTokenIsId (Data (Id _)) = True
 dataTokenIsId _ = False
+
+dataTokenIsOther :: Token -> Bool
+dataTokenIsOther (Data (Other _)) = True
+dataTokenIsOther _ = False
 
 tokenPacketToUnit :: Packet Token -> [TokenUnit]
 tokenPacketToUnit tp = map (\t -> PacketUnit t (packetLine tp)) (members tp)
@@ -225,7 +230,7 @@ prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn (wordsP
     mapPreserveLn f = map (Data.Bifunctor.first f)
 
 tokenize :: String -> [TokenUnit]
-tokenize strs = concatMap tokenPacketToUnit $ (consolidateStringTokensByLine . filterEmptyPackets . tokenizePreparedStringLines . prepareRawString) strs
+tokenize strs = tokenizeErrorChecking . concatMap tokenPacketToUnit $ (consolidateStringTokensByLine . filterEmptyPackets . tokenizePreparedStringLines . prepareRawString) strs
   where
     filterEmptyPackets :: [Packet a] -> [Packet a]
     filterEmptyPackets = filter (not . null . members)
@@ -252,3 +257,11 @@ tokenize strs = concatMap tokenPacketToUnit $ (consolidateStringTokensByLine . f
         tail' :: [a] -> [a]
         tail' [] = []
         tail' (x : xs) = xs
+
+tokenizeErrorChecking :: [TokenUnit] -> [TokenUnit]
+tokenizeErrorChecking tus
+    | (not . null . filterDataTokenIsOther) tus = raiseError $ newUndefinedTokenException ((unitLine . head . filterDataTokenIsOther) tus) ("Undefined token: " ++ (show . unit . head . filterDataTokenIsOther) tus)
+    | otherwise = tus
+    where
+      filterDataTokenIsOther :: [TokenUnit] -> [TokenUnit]
+      filterDataTokenIsOther = filter (dataTokenIsOther . unit)
