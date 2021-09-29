@@ -64,3 +64,6 @@ lookupOn t tf
 treeMap :: (Tree a -> Tree b) -> Tree a -> Tree b
 treeMap _ Empty = Empty
 treeMap f tra = (f . reTree) tra -<= map f (treeChildren tra)
+
+maybeOnTreeNode :: b -> (a -> b) -> Tree a -> b
+maybeOnTreeNode defaultVal f st = maybe defaultVal f (treeNode st)

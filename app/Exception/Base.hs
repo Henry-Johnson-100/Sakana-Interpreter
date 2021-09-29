@@ -15,6 +15,7 @@ data ExceptionType
   | UndefinedTokenException
   | IncompleteStringLiteralException
   | FishDeclarationMissingReturn
+  | FreeTokensInForeignScope
   deriving (Show, Eq)
 
 data ExceptionSeverity

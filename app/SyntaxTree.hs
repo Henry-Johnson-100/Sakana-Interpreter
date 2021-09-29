@@ -1,3 +1,4 @@
+
 module SyntaxTree
   ( generateSyntaxTree,
     generateModuleTree,
@@ -15,7 +16,7 @@ import Token.Bracket
   ( BracketTerminal (Close, Open),
     ScopeType (Return, Send),
   )
-import Token.Data (Data (Id))
+import Token.Data
 import Token.Keyword
 import Token.Util.EagerCollapsible (dropInfix)
 import Token.Util.Like
@@ -45,9 +46,6 @@ genericSyntaxUnit t = SyntaxUnit t 0 Return
 setContext :: SyntaxUnit -> ScopeType -> SyntaxUnit
 setContext su st = su {context = st}
 
-maybeOnTreeNode :: a -> (SyntaxUnit -> a) -> SyntaxTree -> a
-maybeOnTreeNode defaultVal f st = maybe defaultVal f (treeNode st)
-
 type SyntaxTree = Tree SyntaxUnit
 
 type SyntaxPartition = TriplePartition SyntaxUnit
@@ -60,18 +58,7 @@ nameModuleTree tr str = mutateTreeNode tr (\_ -> genericSyntaxUnit (Data (Id str
 
 generateSyntaxTree :: [TokenUnit] -> SyntaxTree
 generateSyntaxTree [] = Empty
-generateSyntaxTree tus = reContextualizeSchoolMethods $ tree (genericSyntaxUnit (Data (Id "main"))) -<= concatMap syntaxChunkTree ((groupSyntaxChunks . scanTokensToSyntaxes) tus)
-
-reContextualizeSchoolMethods :: SyntaxTree -> SyntaxTree
-reContextualizeSchoolMethods Empty = Empty
-reContextualizeSchoolMethods st
-  | null (lookupOn st (\x -> (token . fromJust . treeNode) x == Keyword School)) = st
-  | (token . fromJust . treeNode) st /= Keyword School = reTree st -<= childMap reContextualizeSchoolMethods st
-  | otherwise = reTree st -<= map reContextualizeSchoolMethods reContextualizedChildren
-  where
-    reContextualizedChildren :: [SyntaxTree]
-    reContextualizedChildren = fst breakOnSendReturn ++ map (\x -> mutateTreeNode x (`setContext` Return)) (snd breakOnSendReturn)
-    breakOnSendReturn = span (\x -> Send == (context . fromJust . treeNode) x) (treeChildren st)
+generateSyntaxTree tus = (syntaxTreeErrorChecking . reContextualizeSchoolMethods) $ tree (genericSyntaxUnit (Data (Id "main"))) -<= concatMap syntaxPartitionTree ((getSyntaxPartitions . scanTokensToSyntaxes) tus)
 
 bracketNestCase :: NCCase SyntaxUnit
 bracketNestCase = NCCase (\x -> token x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> token x `elem` [Bracket Send Close, Bracket Return Close])
@@ -80,7 +67,7 @@ takeBracketNCExcludingReturn :: [SyntaxUnit] -> [SyntaxUnit]
 takeBracketNCExcludingReturn [] = []
 takeBracketNCExcludingReturn (tu : tus)
   | null (partSnd part) = []
-  | getTokenBracketScopeType (token (head (partSnd part))) == Return = []
+  | (getTokenBracketScopeType . token . head . partSnd) part == Return = []
   | otherwise = partFstSnd ++ takeBracketNCExcludingReturn (partThd part)
   where
     part = breakByNest bracketNestCase (tu : tus)
@@ -111,37 +98,37 @@ scanTokensToSyntaxes tus = zipWith tokenUnitToSyntaxUnit tus (scanScopeTypes tus
         getScanScopeType _ (PacketUnit (Bracket Return Open) _) = Return
         getScanScopeType st _ = st
 
-groupSyntaxChunks :: [SyntaxUnit] -> [SyntaxPartition]
-groupSyntaxChunks [] = []
-groupSyntaxChunks tus = map partitionSyntaxChunk (breakSyntaxChunk tus)
+getSyntaxPartitions :: [SyntaxUnit] -> [SyntaxPartition]
+getSyntaxPartitions [] = []
+getSyntaxPartitions tus = map syntaxPartitionFromChunk (groupSyntaxChunks tus)
   where
-    partitionSyntaxChunk :: [SyntaxUnit] -> SyntaxPartition
-    partitionSyntaxChunk [] = TriplePartition [] [] []
-    partitionSyntaxChunk tus = TriplePartition w a r
+    syntaxPartitionFromChunk :: [SyntaxUnit] -> SyntaxPartition
+    syntaxPartitionFromChunk [] = TriplePartition [] [] []
+    syntaxPartitionFromChunk tus = TriplePartition w a r
       where
         w = takeWhileList (not . nestedCollapsibleIsPrefixOf bracketNestCase) tus
         a = takeBracketNCExcludingReturn (dropInfix w tus)
         r = dropInfix (w ++ a) tus
-    breakSyntaxChunk :: [SyntaxUnit] -> [[SyntaxUnit]]
-    breakSyntaxChunk [] = []
-    breakSyntaxChunk tus' = fst (breakScopeOnSyntaxChunk tus') : breakSyntaxChunk (snd (breakScopeOnSyntaxChunk tus'))
+    groupSyntaxChunks :: [SyntaxUnit] -> [[SyntaxUnit]]
+    groupSyntaxChunks [] = []
+    groupSyntaxChunks tus' = (fst . spanOnSyntaxChunk) tus' : (groupSyntaxChunks . snd . spanOnSyntaxChunk) tus'
       where
-        breakScopeOnSyntaxChunk :: [SyntaxUnit] -> ([SyntaxUnit], [SyntaxUnit])
-        breakScopeOnSyntaxChunk [] = ([], [])
-        breakScopeOnSyntaxChunk tus = (takenThroughReturn, dropInfix takenThroughReturn tus)
+        spanOnSyntaxChunk :: [SyntaxUnit] -> ([SyntaxUnit], [SyntaxUnit])
+        spanOnSyntaxChunk [] = ([], [])
+        spanOnSyntaxChunk tus = (takenThroughReturn, dropInfix takenThroughReturn tus)
           where
             takenThroughReturn = takeBracketNCIncludingReturn tus
 
 -- | Receptacle for all possible pattern matches of a TriplePartition when making a tree
-syntaxChunkTree :: SyntaxPartition -> [SyntaxTree]
-syntaxChunkTree (TriplePartition [] [] []) = []
-syntaxChunkTree (TriplePartition x [] []) = treeOnlyNonTerminals (TriplePartition x [] [])
-syntaxChunkTree (TriplePartition [] y []) = treeConcurrentBracketGroups y
-syntaxChunkTree (TriplePartition [] [] z) = treeOnlyValue (TriplePartition [] [] z)
-syntaxChunkTree (TriplePartition x [] z) = treeNoArgs (TriplePartition x [] z)
-syntaxChunkTree (TriplePartition x y []) = treeFunctionCall (TriplePartition x y [])
-syntaxChunkTree (TriplePartition [] y z) = treeAnonFunction (TriplePartition [] y z)
-syntaxChunkTree (TriplePartition x y z) = treeFullDeclaration (TriplePartition x y z)
+syntaxPartitionTree :: SyntaxPartition -> [SyntaxTree]
+syntaxPartitionTree (TriplePartition [] [] []) = []
+syntaxPartitionTree (TriplePartition x [] []) = treeOnlyNonTerminals (TriplePartition x [] [])
+syntaxPartitionTree (TriplePartition [] y []) = treeConcurrentBracketGroups y
+syntaxPartitionTree (TriplePartition [] [] z) = treeOnlyValue (TriplePartition [] [] z)
+syntaxPartitionTree (TriplePartition x [] z) = treeNoArgs (TriplePartition x [] z)
+syntaxPartitionTree (TriplePartition x y []) = treeFunctionCall (TriplePartition x y [])
+syntaxPartitionTree (TriplePartition [] y z) = treeAnonFunction (TriplePartition [] y z)
+syntaxPartitionTree (TriplePartition x y z) = treeFullDeclaration (TriplePartition x y z)
 
 treeOnlyNonTerminals :: SyntaxPartition -> [SyntaxTree]
 treeOnlyNonTerminals (TriplePartition x [] []) = [serialTree x]
@@ -182,12 +169,34 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
     groupBrackets tus = groupAllTopLevelNestedCollapsibles bracketNestCase tus
 
 treeSingleBracketGroup :: [SyntaxUnit] -> [SyntaxTree]
-treeSingleBracketGroup [] = [Empty]
+treeSingleBracketGroup [] = [(tree . genericSyntaxUnit) (Data Null)]
 treeSingleBracketGroup xs
   | isCompleteNestedCollapsible bracketNestCase xs = treeSingleBracketGroup (takeNestWhileComplete bracketNestCase xs)
-  | hasNestedCollapsible bracketNestCase xs = concatMap syntaxChunkTree $ groupSyntaxChunks xs
+  | hasNestedCollapsible bracketNestCase xs = concatMap syntaxPartitionTree $ getSyntaxPartitions xs
   | otherwise = [serialTree xs]
 
+reContextualizeSchoolMethods :: SyntaxTree -> SyntaxTree
+reContextualizeSchoolMethods Empty = Empty
+reContextualizeSchoolMethods st
+  | null (lookupOn st (\x -> (token . fromJust . treeNode) x == Keyword School)) = st
+  | (token . fromJust . treeNode) st /= Keyword School = reTree st -<= childMap reContextualizeSchoolMethods st
+  | otherwise = reTree st -<= map reContextualizeSchoolMethods reContextualizedChildren
+  where
+    reContextualizedChildren :: [SyntaxTree]
+    reContextualizedChildren = fst breakOnSendReturn ++ map (\x -> mutateTreeNode x (`setContext` Return)) (snd breakOnSendReturn)
+    breakOnSendReturn = span (\x -> Send == (context . fromJust . treeNode) x) (treeChildren st)
+
+syntaxTreeErrorChecking :: SyntaxTree -> SyntaxTree
+syntaxTreeErrorChecking = treeMap fishDeclarationHasReturnContext
+
+fishDeclarationHasReturnContext :: SyntaxTree -> SyntaxTree
+fishDeclarationHasReturnContext Empty = Empty
+fishDeclarationHasReturnContext st
+  | maybeOnTreeNode False (\x -> Keyword Fish == token x) st =
+    if nthChildMeetsCondition (-1) (maybeOnTreeNode False (\y -> Return == context y)) st
+      then st
+      else raiseError $ newException FishDeclarationMissingReturn ((line . fromJust . treeNode) st) "\'fish\' declarations require a return fish \'<()<\'" Fatal
+  | otherwise = st
 
 nthChildMeetsCondition :: Int -> (SyntaxTree -> Bool) -> SyntaxTree -> Bool
 nthChildMeetsCondition n f st

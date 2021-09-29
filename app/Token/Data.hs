@@ -11,7 +11,7 @@ import Data.List (isPrefixOf, isSuffixOf)
 import Token.Util.Like (Like (..))
 import Token.Util.String (strip)
 
-data Data = Int Int | Float Float | String String | Boolean Bool | Id String | Punct String | Other String | Comment String deriving (Show, Read, Eq, Ord)
+data Data = Int Int | Float Float | String String | Boolean Bool | Id String | Punct String | Other String | Comment String | Null deriving (Show, Read, Eq, Ord)
 
 instance Like Data where
   (Int _) `like` (Int _) = True
@@ -22,6 +22,7 @@ instance Like Data where
   (Punct _) `like` (Punct _) = True
   (Other _) `like` (Other _) = True
   (Comment _) `like` (Comment _) = True
+  Null `like` Null = True
   _ `like` _ = False
   a `notLike` b = not $ like a b
 
@@ -37,6 +38,7 @@ fromData (Id a) = a
 fromData (Punct a) = a
 fromData (Other a) = a
 fromData (Comment a) = a
+fromData Null = ""
 
 allDigits :: String -> Bool
 allDigits ('-' : xs) = allDigits xs
