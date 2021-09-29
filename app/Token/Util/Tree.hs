@@ -1,6 +1,7 @@
 module Token.Util.Tree where
 
 import Token.Util.Like
+import Data.Maybe
 
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
@@ -20,7 +21,8 @@ tree :: a -> Tree a
 tree x = x :-<-: []
 
 reTree :: Tree a -> Tree a
-reTree = tree . treeNode
+reTree Empty = Empty
+reTree tr = (tree . fromJust . treeNode) tr
 
 trees :: [a] -> [Tree a]
 trees = map (:-<-: [])
@@ -30,8 +32,9 @@ serialTree [] = Empty
 serialTree [x] = tree x
 serialTree (x : xs) = tree x -<- serialTree xs
 
-treeNode :: Tree a -> a
-treeNode (n :-<-: _) = n
+treeNode :: Tree a -> Maybe a
+treeNode Empty = Nothing
+treeNode (n :-<-: _) = Just n
 
 treeChildren :: Tree a -> [Tree a]
 treeChildren (_ :-<-: cs) = cs
@@ -58,5 +61,6 @@ lookupOn t tf
   | tf t = t : concatMap (`lookupOn` tf) (treeChildren t)
   | otherwise = concatMap (`lookupOn` tf) (treeChildren t)
 
-treeElem :: (Eq a) => Tree a -> a -> Bool
-treeElem tr check = (not . null) (lookupOn tr (\x -> treeNode x == check))
+treeMap :: (Tree a -> Tree b) -> Tree a -> Tree b
+treeMap _ Empty = Empty
+treeMap f tra = (f . reTree) tra -<= map f (treeChildren tra)

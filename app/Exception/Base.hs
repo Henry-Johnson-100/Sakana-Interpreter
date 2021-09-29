@@ -14,6 +14,7 @@ data ExceptionType
   | InvalidArgs
   | UndefinedTokenException
   | IncompleteStringLiteralException
+  | FishDeclarationMissingReturn
   deriving (Show, Eq)
 
 data ExceptionSeverity

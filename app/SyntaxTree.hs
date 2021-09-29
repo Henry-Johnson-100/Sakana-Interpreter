@@ -8,6 +8,8 @@ module SyntaxTree
 where
 
 import Data.List (mapAccumL)
+import Data.Maybe (fromJust, isNothing)
+import Exception.Base
 import Lexer
 import Token.Bracket
   ( BracketTerminal (Close, Open),
@@ -43,6 +45,9 @@ genericSyntaxUnit t = SyntaxUnit t 0 Return
 setContext :: SyntaxUnit -> ScopeType -> SyntaxUnit
 setContext su st = su {context = st}
 
+maybeOnTreeNode :: a -> (SyntaxUnit -> a) -> SyntaxTree -> a
+maybeOnTreeNode defaultVal f st = maybe defaultVal f (treeNode st)
+
 type SyntaxTree = Tree SyntaxUnit
 
 type SyntaxPartition = TriplePartition SyntaxUnit
@@ -60,13 +65,13 @@ generateSyntaxTree tus = reContextualizeSchoolMethods $ tree (genericSyntaxUnit 
 reContextualizeSchoolMethods :: SyntaxTree -> SyntaxTree
 reContextualizeSchoolMethods Empty = Empty
 reContextualizeSchoolMethods st
-  | null (lookupOn st (\x -> (token . treeNode) x == Keyword School)) = st
-  | (token . treeNode) st /= Keyword School = reTree st -<= childMap reContextualizeSchoolMethods st
+  | null (lookupOn st (\x -> (token . fromJust . treeNode) x == Keyword School)) = st
+  | (token . fromJust . treeNode) st /= Keyword School = reTree st -<= childMap reContextualizeSchoolMethods st
   | otherwise = reTree st -<= map reContextualizeSchoolMethods reContextualizedChildren
   where
     reContextualizedChildren :: [SyntaxTree]
     reContextualizedChildren = fst breakOnSendReturn ++ map (\x -> mutateTreeNode x (`setContext` Return)) (snd breakOnSendReturn)
-    breakOnSendReturn = span (\x -> Send == (context . treeNode) x) (treeChildren st)
+    breakOnSendReturn = span (\x -> Send == (context . fromJust . treeNode) x) (treeChildren st)
 
 bracketNestCase :: NCCase SyntaxUnit
 bracketNestCase = NCCase (\x -> token x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> token x `elem` [Bracket Send Close, Bracket Return Close])
@@ -182,3 +187,10 @@ treeSingleBracketGroup xs
   | isCompleteNestedCollapsible bracketNestCase xs = treeSingleBracketGroup (takeNestWhileComplete bracketNestCase xs)
   | hasNestedCollapsible bracketNestCase xs = concatMap syntaxChunkTree $ groupSyntaxChunks xs
   | otherwise = [serialTree xs]
+
+
+nthChildMeetsCondition :: Int -> (SyntaxTree -> Bool) -> SyntaxTree -> Bool
+nthChildMeetsCondition n f st
+  | n < 0 = nthChildMeetsCondition ((length . treeChildren) st + n) f st
+  | n > ((length . treeChildren) st - 1) = False
+  | otherwise = (f . (!! n) . treeChildren) st
