@@ -1,8 +1,9 @@
 module SyntaxTree
   ( generateSyntaxTree,
+    generateModuleTree,
     SyntaxTree,
     TreeIO (..),
-    SyntaxUnit(..),
+    SyntaxUnit (..),
   )
 where
 
@@ -12,6 +13,7 @@ import Token.Bracket
   ( BracketTerminal (Close, Open),
     ScopeType (Return, Send),
   )
+import Token.Data (Data (Id))
 import Token.Util.EagerCollapsible (dropInfix)
 import Token.Util.NestedCollapsible
   ( NCCase (NCCase),
@@ -45,9 +47,15 @@ type SyntaxTree = Tree SyntaxUnit
 
 type SyntaxPartition = TriplePartition SyntaxUnit
 
-generateSyntaxTree :: [TokenUnit] -> [SyntaxTree]
-generateSyntaxTree [] = []
-generateSyntaxTree tus = concatMap syntaxChunkTree $ (groupSyntaxChunks . scanTokensToSyntaxes) tus
+generateModuleTree :: String -> [TokenUnit] -> SyntaxTree
+generateModuleTree name = flip nameModuleTree name . generateSyntaxTree
+
+nameModuleTree :: SyntaxTree -> String -> SyntaxTree
+nameModuleTree (_ :-<-: cs) str = tree (SyntaxUnit (Data (Id str)) 0 Return) -<= cs
+
+generateSyntaxTree :: [TokenUnit] -> SyntaxTree
+generateSyntaxTree [] = Empty
+generateSyntaxTree tus = tree (SyntaxUnit (Data (Id "main")) 0 Return) -<= concatMap syntaxChunkTree ((groupSyntaxChunks . scanTokensToSyntaxes) tus)
 
 bracketNestCase :: NCCase SyntaxUnit
 bracketNestCase = NCCase (\x -> token x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> token x `elem` [Bracket Send Close, Bracket Return Close])
