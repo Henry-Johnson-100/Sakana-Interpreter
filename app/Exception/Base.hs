@@ -1,32 +1,24 @@
-module Exception.Base
-  ( ExceptionType (..),
-    ExceptionSeverity (..),
-    ExceptionInfo (..),
-    Exception (..),
-    newUndefinedTokenException,
-    setExceptionSeverity,
-    raiseError,
-  )
-where
+module Exception.Base where
 
 import Data.List (findIndex)
 import Data.Ord (Ordering)
 import System.Exit (die)
 
-data ExceptionType = General | InvalidBracketing | InvalidID | InvalidArgs deriving (Show, Eq)
+data ExceptionType
+  = General
+  | InvalidBracketing
+  | InvalidID
+  | InvalidArgs
+  | UndefinedTokenException
+  | IncompleteStringLiteralException
+  deriving (Show, Eq)
 
-exceptionTypeOrder :: [[ExceptionType]]
-exceptionTypeOrder = [[General], [InvalidBracketing, InvalidID, InvalidArgs]]
-
-instance Ord ExceptionType where
-  compare x y
-    | findIndex' x > findIndex' y = LT
-    | findIndex' x < findIndex' y = GT
-    | otherwise = EQ
-    where
-      findIndex' x' = findIndex (elem x') exceptionTypeOrder
-
-data ExceptionSeverity = Fatal | NonFatal | Debug | Log deriving (Show, Eq, Ord)
+data ExceptionSeverity
+  = Fatal
+  | NonFatal
+  | Debug
+  | Log
+  deriving (Show, Eq, Ord)
 
 data ExceptionInfo
   = NoInfo
@@ -37,23 +29,42 @@ data ExceptionInfo
       }
   deriving (Eq)
 
-instance Show ExceptionInfo where
-  show NoInfo = "No Information."
-  show (ExceptionInfo ln msg sev) = "On line " ++ show ln ++ ", " ++ show sev ++ " error: " ++ msg ++ "\n"
-
 data Exception = Exception
   { exceptionType :: ExceptionType,
     information :: ExceptionInfo
   }
   deriving (Eq)
 
+instance Ord ExceptionType where
+  compare x y
+    | findIndex' x > findIndex' y = LT
+    | findIndex' x < findIndex' y = GT
+    | otherwise = EQ
+    where
+      findIndex' x' = findIndex (elem x') exceptionTypeOrder
+
+instance Show ExceptionInfo where
+  show NoInfo = "No Information."
+  show (ExceptionInfo ln msg sev) = "On line " ++ show ln ++ ",\n" ++ show sev ++ " error, " ++ msg ++ "\n"
+
 instance Ord Exception where
   compare x y
     | exceptionType x /= exceptionType y = compare (exceptionType x) (exceptionType y)
-    | otherwise = compare (severity (information x)) (severity (information y))
+    | otherwise = compare ((severity . information) x) ((severity . information) y)
 
 instance Show Exception where
   show (Exception et info) = show info
+
+exceptionTypeOrder :: [[ExceptionType]]
+exceptionTypeOrder =
+  [ [General],
+    [ UndefinedTokenException,
+      IncompleteStringLiteralException,
+      InvalidBracketing,
+      InvalidID,
+      InvalidArgs
+    ]
+  ]
 
 setExceptionSeverity :: Exception -> ExceptionSeverity -> Exception
 setExceptionSeverity e es =
@@ -67,39 +78,15 @@ setExceptionSeverity e es =
           }
     }
 
-newFunctionBindArgException :: Int -> String -> Exception
-newFunctionBindArgException ln s =
+newException :: ExceptionType -> Int -> String -> ExceptionSeverity -> Exception
+newException et ln s es =
   Exception
-    { exceptionType = InvalidArgs,
+    { exceptionType = et,
       information =
         ExceptionInfo
           { exceptionLine = ln,
             exceptionMessage = s,
-            severity = Fatal
-          }
-    }
-
-newFunctionBindIDException :: Int -> String -> Exception
-newFunctionBindIDException ln s =
-  Exception
-    { exceptionType = InvalidID,
-      information =
-        ExceptionInfo
-          { exceptionLine = ln,
-            exceptionMessage = s,
-            severity = Fatal
-          }
-    }
-
-newUndefinedTokenException :: Int -> String -> Exception
-newUndefinedTokenException ln s =
-  Exception
-    { exceptionType = General,
-      information =
-        ExceptionInfo
-          { exceptionLine = ln,
-            exceptionMessage = s,
-            severity = Fatal
+            severity = es
           }
     }
 

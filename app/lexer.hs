@@ -219,15 +219,17 @@ wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str
 
 prepareRawString :: String -> [Packet String]
 prepareRawString "" = []
-prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn (wordsPreserveStringSpacing . addSpaces) zipNumbersToLines
+prepareRawString strs = zippedLineNumbersToStringPackets $ mapPreserveLn (wordsPreserveStringSpacing . addSpaces) $ map incompleteStringLiteralErrorCheck' zipNumbersToLines
   where
-    linesStrs = reverse $ dropWhile null $ reverse $ lines strs
-    --zipNumbersToLines :: [([String], Int)]
+    linesStrs = (reverse . dropWhile null . reverse . lines) strs
+    zipNumbersToLines :: [(String, Int)]
     zipNumbersToLines = zip linesStrs [1 .. (length linesStrs + 1)]
     zippedLineNumbersToStringPackets :: [([String], Int)] -> [Packet String]
     zippedLineNumbersToStringPackets = map (uncurry Packet)
     mapPreserveLn :: (a -> b) -> [(a, Int)] -> [(b, Int)]
     mapPreserveLn f = map (Data.Bifunctor.first f)
+    incompleteStringLiteralErrorCheck' :: (String, Int) -> (String, Int)
+    incompleteStringLiteralErrorCheck' (str, ln) = (incompleteStringLiteralErrorCheck ln str, ln)
 
 tokenize :: String -> [TokenUnit]
 tokenize strs = tokenizeErrorChecking . concatMap tokenPacketToUnit $ (consolidateStringTokensByLine . filterEmptyPackets . tokenizePreparedStringLines . prepareRawString) strs
@@ -258,9 +260,14 @@ tokenize strs = tokenizeErrorChecking . concatMap tokenPacketToUnit $ (consolida
         tail' [] = []
         tail' (x : xs) = xs
 
+incompleteStringLiteralErrorCheck :: Int -> String -> String
+incompleteStringLiteralErrorCheck ln str
+  | (odd . length . filter ('\"' ==)) str = raiseError $ newException IncompleteStringLiteralException ln ("Incomplete string literal: " ++ str) Fatal
+  | otherwise = str
+
 tokenizeErrorChecking :: [TokenUnit] -> [TokenUnit]
 tokenizeErrorChecking tus
-  | (not . null . filterDataTokenIsOther) tus = raiseError $ newUndefinedTokenException ((unitLine . head . filterDataTokenIsOther) tus) ("Undefined token: " ++ (show . unit . head . filterDataTokenIsOther) tus)
+  | (not . null . filterDataTokenIsOther) tus = raiseError $ newException UndefinedTokenException  ((unitLine . head . filterDataTokenIsOther) tus) ("Undefined token: " ++ (fromToken . unit . head . filterDataTokenIsOther) tus) Fatal
   | otherwise = tus
   where
     filterDataTokenIsOther :: [TokenUnit] -> [TokenUnit]
