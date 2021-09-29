@@ -1,8 +1,11 @@
+{-#LANGUAGE MagicHash #-}
 module Exception.Base where
 
 import Data.List (findIndex)
 import Data.Ord (Ordering)
 import System.Exit (die)
+import GHC.Prim (raise#)
+import GHC.Exception (errorCallException)
 
 data ExceptionType
   = General
@@ -91,4 +94,4 @@ newException et ln s es =
     }
 
 raiseError :: Show a1 => a1 -> a2
-raiseError exc = error (show exc)
+raiseError exc = raise# (errorCallException (show exc))
