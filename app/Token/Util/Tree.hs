@@ -1,5 +1,7 @@
 module Token.Util.Tree where
 
+import Token.Util.Like
+
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
   ioPrintTree :: (Show a) => r a -> IO ()
@@ -16,6 +18,9 @@ instance Functor Tree where
 
 tree :: a -> Tree a
 tree x = x :-<-: []
+
+reTree :: Tree a -> Tree a
+reTree = tree . treeNode
 
 trees :: [a] -> [Tree a]
 trees = map (:-<-: [])
@@ -34,6 +39,13 @@ treeChildren (_ :-<-: cs) = cs
 transplantChildren :: Tree a -> Tree a -> Tree a
 transplantChildren t (_ :-<-: cs) = t -<= cs
 
+mutateTreeNode :: Tree a -> (a -> a) -> Tree a
+mutateTreeNode Empty _ = Empty
+mutateTreeNode (n :-<-: cs) f = f n :-<-: cs
+
+childMap :: (Tree a -> b) -> Tree a -> [b]
+childMap f tr = map f (treeChildren tr)
+
 (-<-) :: Tree a -> Tree a -> Tree a
 (b :-<-: cs) -<- t = b :-<-: (cs ++ [t])
 
@@ -41,7 +53,10 @@ transplantChildren t (_ :-<-: cs) = t -<= cs
 (b :-<-: cs) -<= ts = b :-<-: (cs ++ ts)
 
 lookupOn :: Tree a -> (Tree a -> Bool) -> [Tree a]
-lookupOn Empty _ = [Empty]
+lookupOn Empty _ = []
 lookupOn t tf
-    | tf t = [t]
-    | otherwise = concatMap (`lookupOn` tf) (treeChildren t)
+  | tf t = t : concatMap (`lookupOn` tf) (treeChildren t)
+  | otherwise = concatMap (`lookupOn` tf) (treeChildren t)
+
+treeElem :: (Eq a) => Tree a -> a -> Bool
+treeElem tr check = (not . null) (lookupOn tr (\x -> treeNode x == check))

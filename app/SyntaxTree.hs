@@ -14,7 +14,9 @@ import Token.Bracket
     ScopeType (Return, Send),
   )
 import Token.Data (Data (Id))
+import Token.Keyword
 import Token.Util.EagerCollapsible (dropInfix)
+import Token.Util.Like
 import Token.Util.NestedCollapsible
   ( NCCase (NCCase),
     TriplePartition (..),
@@ -27,14 +29,6 @@ import Token.Util.NestedCollapsible
     takeWhileList,
   )
 import Token.Util.Tree
-  ( Tree (..),
-    TreeIO (..),
-    serialTree,
-    tree,
-    treeChildren,
-    (-<-),
-    (-<=),
-  )
 
 data SyntaxUnit = SyntaxUnit
   { token :: Token,
@@ -42,6 +36,12 @@ data SyntaxUnit = SyntaxUnit
     context :: ScopeType
   }
   deriving (Show, Eq)
+
+genericSyntaxUnit :: Token -> SyntaxUnit
+genericSyntaxUnit t = SyntaxUnit t 0 Return
+
+setContext :: SyntaxUnit -> ScopeType -> SyntaxUnit
+setContext su st = su {context = st}
 
 type SyntaxTree = Tree SyntaxUnit
 
@@ -51,11 +51,22 @@ generateModuleTree :: String -> [TokenUnit] -> SyntaxTree
 generateModuleTree name = flip nameModuleTree name . generateSyntaxTree
 
 nameModuleTree :: SyntaxTree -> String -> SyntaxTree
-nameModuleTree (_ :-<-: cs) str = tree (SyntaxUnit (Data (Id str)) 0 Return) -<= cs
+nameModuleTree tr str = mutateTreeNode tr (\_ -> genericSyntaxUnit (Data (Id str)))
 
 generateSyntaxTree :: [TokenUnit] -> SyntaxTree
 generateSyntaxTree [] = Empty
-generateSyntaxTree tus = tree (SyntaxUnit (Data (Id "main")) 0 Return) -<= concatMap syntaxChunkTree ((groupSyntaxChunks . scanTokensToSyntaxes) tus)
+generateSyntaxTree tus = reContextualizeSchoolMethods $ tree (genericSyntaxUnit (Data (Id "main"))) -<= concatMap syntaxChunkTree ((groupSyntaxChunks . scanTokensToSyntaxes) tus)
+
+reContextualizeSchoolMethods :: SyntaxTree -> SyntaxTree
+reContextualizeSchoolMethods Empty = Empty
+reContextualizeSchoolMethods st
+  | null (lookupOn st (\x -> (token . treeNode) x == Keyword School)) = st
+  | (token . treeNode) st /= Keyword School = reTree st -<= childMap reContextualizeSchoolMethods st
+  | otherwise = reTree st -<= map reContextualizeSchoolMethods reContextualizedChildren
+  where
+    reContextualizedChildren :: [SyntaxTree]
+    reContextualizedChildren = fst breakOnSendReturn ++ map (\x -> mutateTreeNode x (`setContext` Return)) (snd breakOnSendReturn)
+    breakOnSendReturn = span (\x -> Send == (context . treeNode) x) (treeChildren st)
 
 bracketNestCase :: NCCase SyntaxUnit
 bracketNestCase = NCCase (\x -> token x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> token x `elem` [Bracket Send Close, Bracket Return Close])

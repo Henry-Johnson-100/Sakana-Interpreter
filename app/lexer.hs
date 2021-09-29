@@ -20,6 +20,7 @@ import qualified Control.Arrow as Data.Bifunctor
 import Data.Char (isSpace)
 import Data.List (isPrefixOf, isSuffixOf)
 import Data.Tuple (uncurry)
+import Exception.Base
 import Token.Bracket as B
   ( BracketTerminal (Open),
     ScopeType (Send),
@@ -54,7 +55,6 @@ import Token.Util.EagerCollapsible
   )
 import Token.Util.Like (Like (..))
 import Token.Util.String (padEqual)
-import Exception.Base
 
 data Token = Bracket ScopeType BracketTerminal | Control Control | Data Data | Keyword Keyword | Operator Operator deriving (Show, Read, Eq)
 
@@ -260,8 +260,8 @@ tokenize strs = tokenizeErrorChecking . concatMap tokenPacketToUnit $ (consolida
 
 tokenizeErrorChecking :: [TokenUnit] -> [TokenUnit]
 tokenizeErrorChecking tus
-    | (not . null . filterDataTokenIsOther) tus = raiseError $ newUndefinedTokenException ((unitLine . head . filterDataTokenIsOther) tus) ("Undefined token: " ++ (show . unit . head . filterDataTokenIsOther) tus)
-    | otherwise = tus
-    where
-      filterDataTokenIsOther :: [TokenUnit] -> [TokenUnit]
-      filterDataTokenIsOther = filter (dataTokenIsOther . unit)
+  | (not . null . filterDataTokenIsOther) tus = raiseError $ newUndefinedTokenException ((unitLine . head . filterDataTokenIsOther) tus) ("Undefined token: " ++ (show . unit . head . filterDataTokenIsOther) tus)
+  | otherwise = tus
+  where
+    filterDataTokenIsOther :: [TokenUnit] -> [TokenUnit]
+    filterDataTokenIsOther = filter (dataTokenIsOther . unit)
