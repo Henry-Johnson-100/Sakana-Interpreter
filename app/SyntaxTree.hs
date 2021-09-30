@@ -29,7 +29,7 @@ import Token.Util.NestedCollapsible
     isCompleteNestedCollapsible,
     nestedCollapsibleIsPrefixOf,
     takeNestWhileComplete,
-    takeWhileList,
+    takeWhileList, groupByPartition, unwrapPartition,
   )
 import Token.Util.Tree
 
@@ -166,7 +166,13 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
   where
     groupBrackets :: [SyntaxUnit] -> [[SyntaxUnit]]
     groupBrackets [] = [[]]
-    groupBrackets tus = groupAllTopLevelNestedCollapsibles bracketNestCase tus
+    groupBrackets tus = groupTopLevelAndErrorCheck --this is where free tokens get removed
+      where
+        groupTopLevelAndErrorCheck = map (partSnd . partitionHasFreeTokenErrorCheck) (groupByPartition bracketNestCase tus)
+        partitionHasFreeTokenErrorCheck :: SyntaxPartition -> SyntaxPartition
+        partitionHasFreeTokenErrorCheck sp
+          | (not . null . partFst) sp = raiseError $ newException FreeTokensInForeignScope [(line . head . partFst) sp .. (line . last . partFst) sp] ("Free token(s) in ambiguous scope: \'" ++ (unwords . map (fromToken . token) . partFst) sp ++ "\', Is it meant to be in a fish?") NonFatal
+          | otherwise = sp
 
 treeSingleBracketGroup :: [SyntaxUnit] -> [SyntaxTree]
 treeSingleBracketGroup [] = [(tree . genericSyntaxUnit) (Data Null)]
@@ -195,7 +201,7 @@ fishDeclarationHasReturnContext st
   | maybeOnTreeNode False (\x -> Keyword Fish == token x) st =
     if nthChildMeetsCondition (-1) (maybeOnTreeNode False (\y -> Return == context y)) st
       then st
-      else raiseError $ newException FishDeclarationMissingReturn ((line . fromJust . treeNode) st) "\'fish\' declarations require a return fish \'<()<\'" Fatal
+      else raiseError $ newException FishDeclarationMissingReturn [getSyntaxAttributeFromTree line st] "\'fish\' declarations require a return fish \'<()<\'" Fatal
   | otherwise = st
 
 nthChildMeetsCondition :: Int -> (SyntaxTree -> Bool) -> SyntaxTree -> Bool
@@ -203,3 +209,6 @@ nthChildMeetsCondition n f st
   | n < 0 = nthChildMeetsCondition ((length . treeChildren) st + n) f st
   | n > ((length . treeChildren) st - 1) = False
   | otherwise = (f . (!! n) . treeChildren) st
+
+getSyntaxAttributeFromTree :: (SyntaxUnit -> a) -> SyntaxTree ->  a
+getSyntaxAttributeFromTree attr = maybeOnTreeNode ((attr . genericSyntaxUnit) (Data Null)) attr

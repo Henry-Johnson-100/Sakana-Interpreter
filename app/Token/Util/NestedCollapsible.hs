@@ -19,6 +19,7 @@ module Token.Util.NestedCollapsible
     splitTopLevelNCOn,
     groupAllTopLevelNestedCollapsibles,
     groupTopLevelByNestedCollapsiblePartition,
+    groupByPartition,
   )
 where
 
@@ -177,6 +178,14 @@ groupTopLevelByNestedCollapsiblePartition nc xs
   | otherwise = partFst part : partSnd part : groupTopLevelByNestedCollapsiblePartition nc (partThd part)
   where
     part = breakByNest nc xs
+
+groupByPartition :: (Eq a) => NCCase a -> [a] -> [TriplePartition a]
+groupByPartition _ [] = []
+groupByPartition nc xs
+  | (null . partThd) part = [TriplePartition (partFst part) (partSnd part) []]
+  | otherwise = TriplePartition (partFst part) (partSnd part) [] : groupByPartition nc (partThd part)
+    where
+      part = breakByNest nc xs
 
 numberOfTerminations :: NCCase a -> [a] -> (Int, Int)
 numberOfTerminations ncCase xs = numberOfTerminations' ncCase 0 0 xs

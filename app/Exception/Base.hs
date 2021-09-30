@@ -28,7 +28,7 @@ data ExceptionSeverity
 data ExceptionInfo
   = NoInfo
   | ExceptionInfo
-      { exceptionLine :: Int,
+      { exceptionLines :: [Int],
         exceptionMessage :: String,
         severity :: ExceptionSeverity
       }
@@ -50,7 +50,7 @@ instance Ord ExceptionType where
 
 instance Show ExceptionInfo where
   show NoInfo = "No Information."
-  show (ExceptionInfo ln msg sev) = "On line " ++ show ln ++ ",\n" ++ show sev ++ " error, " ++ msg ++ "\n"
+  show (ExceptionInfo ln msg sev) = "On line(s) " ++ (case length ln of 0 -> show 0; 1 -> (show . head) ln; _ -> concat [(show . head) ln, "..", (show . last) ln]) ++ ",\n" ++ show sev ++ " error, " ++ msg ++ "\n"
 
 instance Ord Exception where
   compare x y
@@ -77,19 +77,19 @@ setExceptionSeverity e es =
     { exceptionType = exceptionType e,
       information =
         ExceptionInfo
-          { exceptionLine = (exceptionLine . information) e,
+          { exceptionLines = (exceptionLines . information) e,
             exceptionMessage = (exceptionMessage . information) e,
             severity = es
           }
     }
 
-newException :: ExceptionType -> Int -> String -> ExceptionSeverity -> Exception
+newException :: ExceptionType -> [Int] -> String -> ExceptionSeverity -> Exception
 newException et ln s es =
   Exception
     { exceptionType = et,
       information =
         ExceptionInfo
-          { exceptionLine = ln,
+          { exceptionLines = ln,
             exceptionMessage = s,
             severity = es
           }
