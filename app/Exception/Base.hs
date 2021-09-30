@@ -1,11 +1,12 @@
-{-#LANGUAGE MagicHash #-}
+{-# LANGUAGE MagicHash #-}
+
 module Exception.Base where
 
 import Data.List (findIndex)
 import Data.Ord (Ordering)
-import System.Exit (die)
-import GHC.Prim (raise#)
 import GHC.Exception (errorCallException)
+import GHC.Prim (raise#)
+import System.Exit (die)
 
 data ExceptionType
   = General
@@ -50,7 +51,18 @@ instance Ord ExceptionType where
 
 instance Show ExceptionInfo where
   show NoInfo = "No Information."
-  show (ExceptionInfo ln msg sev) = "On line(s) " ++ (case length ln of 0 -> show 0; 1 -> (show . head) ln; _ -> concat [(show . head) ln, "..", (show . last) ln]) ++ ",\n" ++ show sev ++ " error, " ++ msg ++ "\n"
+  show (ExceptionInfo ln msg sev) =
+    "On line(s) "
+      ++ ( case length ln of
+             0 -> show 0
+             1 -> (show . head) ln
+             _ -> concat [(show . head) ln, "..", (show . last) ln]
+         )
+      ++ ",\n"
+      ++ show sev
+      ++ " error, "
+      ++ msg
+      ++ "\n"
 
 instance Ord Exception where
   compare x y

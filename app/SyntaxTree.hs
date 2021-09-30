@@ -1,4 +1,3 @@
-
 module SyntaxTree
   ( generateSyntaxTree,
     generateModuleTree,
@@ -25,11 +24,13 @@ import Token.Util.NestedCollapsible
     TriplePartition (..),
     breakByNest,
     groupAllTopLevelNestedCollapsibles,
+    groupByPartition,
     hasNestedCollapsible,
     isCompleteNestedCollapsible,
     nestedCollapsibleIsPrefixOf,
     takeNestWhileComplete,
-    takeWhileList, groupByPartition, unwrapPartition,
+    takeWhileList,
+    unwrapPartition,
   )
 import Token.Util.Tree
 
@@ -58,7 +59,10 @@ nameModuleTree tr str = mutateTreeNode tr (\_ -> genericSyntaxUnit (Data (Id str
 
 generateSyntaxTree :: [TokenUnit] -> SyntaxTree
 generateSyntaxTree [] = Empty
-generateSyntaxTree tus = (syntaxTreeErrorChecking . reContextualizeSchoolMethods) $ tree (genericSyntaxUnit (Data (Id "main"))) -<= concatMap syntaxPartitionTree ((getSyntaxPartitions . scanTokensToSyntaxes) tus)
+generateSyntaxTree tus =
+  (syntaxTreeErrorChecking . reContextualizeSchoolMethods) $
+    tree (genericSyntaxUnit (Data (Id "main")))
+      -<= concatMap syntaxPartitionTree ((getSyntaxPartitions . scanTokensToSyntaxes) tus)
 
 bracketNestCase :: NCCase SyntaxUnit
 bracketNestCase = NCCase (\x -> token x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> token x `elem` [Bracket Send Close, Bracket Return Close])
@@ -171,8 +175,19 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
         groupTopLevelAndErrorCheck = map (partSnd . partitionHasFreeTokenErrorCheck) (groupByPartition bracketNestCase tus)
         partitionHasFreeTokenErrorCheck :: SyntaxPartition -> SyntaxPartition
         partitionHasFreeTokenErrorCheck sp
-          | (not . null . partFst) sp = raiseError $ newException FreeTokensInForeignScope [(line . head . partFst) sp .. (line . last . partFst) sp] ("Free token(s) in ambiguous scope: \'" ++ (unwords . map (fromToken . token) . partFst) sp ++ "\', Is it meant to be in a fish?") NonFatal
+          | (not . null . partFst) sp = freeTokensInForeignScopeException
           | otherwise = sp
+          where
+            freeTokensInForeignScopeException =
+              raiseError $
+                newException
+                  FreeTokensInForeignScope
+                  [(line . head . partFst) sp .. (line . last . partFst) sp]
+                  ( "Free token(s) in ambiguous scope: \'"
+                      ++ (unwords . map (fromToken . token) . partFst) sp
+                      ++ "\', Is it meant to be in a fish?"
+                  )
+                  NonFatal
 
 treeSingleBracketGroup :: [SyntaxUnit] -> [SyntaxTree]
 treeSingleBracketGroup [] = [(tree . genericSyntaxUnit) (Data Null)]
@@ -201,7 +216,13 @@ fishDeclarationHasReturnContext st
   | maybeOnTreeNode False (\x -> Keyword Fish == token x) st =
     if nthChildMeetsCondition (-1) (maybeOnTreeNode False (\y -> Return == context y)) st
       then st
-      else raiseError $ newException FishDeclarationMissingReturn [getSyntaxAttributeFromTree line st] "\'fish\' declarations require a return fish \'<()<\'" Fatal
+      else
+        raiseError $
+          newException
+            FishDeclarationMissingReturn
+            [getSyntaxAttributeFromTree line st]
+            "\'fish\' declarations require a return fish \'<()<\'"
+            Fatal
   | otherwise = st
 
 nthChildMeetsCondition :: Int -> (SyntaxTree -> Bool) -> SyntaxTree -> Bool
@@ -210,5 +231,5 @@ nthChildMeetsCondition n f st
   | n > ((length . treeChildren) st - 1) = False
   | otherwise = (f . (!! n) . treeChildren) st
 
-getSyntaxAttributeFromTree :: (SyntaxUnit -> a) -> SyntaxTree ->  a
+getSyntaxAttributeFromTree :: (SyntaxUnit -> a) -> SyntaxTree -> a
 getSyntaxAttributeFromTree attr = maybeOnTreeNode ((attr . genericSyntaxUnit) (Data Null)) attr
