@@ -177,19 +177,17 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
         groupTopLevelAndErrorCheck = map (partSnd . partitionHasFreeTokenErrorCheck#) (groupByPartition bracketNestCase tus)
         partitionHasFreeTokenErrorCheck# :: SyntaxPartition -> SyntaxPartition
         partitionHasFreeTokenErrorCheck# sp
-          | (not . null . partFst) sp = freeTokensInForeignScopeException
+          | (not . null . partFst) sp = freeTokenError# (partFst sp)
           | otherwise = sp
           where
-            freeTokensInForeignScopeException =
-              raiseError $
-                newException
-                  FreeTokensInForeignScope
-                  [(line . head . partFst) sp .. (line . last . partFst) sp]
-                  ( "Free token(s) in ambiguous scope: \'"
-                      ++ (unwords . map (fromToken . token) . partFst) sp
-                      ++ "\', Is it meant to be in a fish?"
-                  )
-                  NonFatal
+            freeTokenError# :: [SyntaxUnit] -> SyntaxPartition --Never returns anything, therefore, this function signature is useless at best or misleading at worst
+            freeTokenError# sus
+              | (keywordTokenIsDeclarationRequiringId . token . head) sus = raiseFreeTokenError# getTokenLines ("Free tokens in ambiguous scope, \'" ++ getTokenStrings ++ "\' Is there a missing return fish before this declaration?") Fatal
+              | otherwise = raiseFreeTokenError# getTokenLines ("Free token(s) in ambiguous scope, \'" ++ getTokenStrings ++ "\' are they meant to be in a fish?") NonFatal
+              where
+                getTokenLines = map line sus
+                getTokenStrings = (intercalate ", " . map (fromToken . token)) sus
+                raiseFreeTokenError# ln str sev = raiseError $ newException FreeTokensInForeignScope ln str sev
 
 treeSingleBracketGroup :: [SyntaxUnit] -> [SyntaxTree]
 treeSingleBracketGroup [] = [(tree . genericSyntaxUnit) (Data Null)]
