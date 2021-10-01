@@ -8,14 +8,15 @@ module Token.Util.String
   )
 where
 
-import Data.Char ( isSpace )
-import Data.List ( isPrefixOf )
-import Token.Util.EagerCollapsible ( dropInfix )
+import qualified Data.Char (isSpace)
+import qualified Data.List (isPrefixOf)
+import qualified Token.Util.EagerCollapsible as EagerCollapsible (dropInfix)
 
 replaceAll :: String -> String -> String -> String
 replaceAll (s : str) find replace
   | null str = s : ""
-  | find `isPrefixOf` (s : str) = replace ++ replaceAll (dropInfix find (s : str)) find replace
+  | find `Data.List.isPrefixOf` (s : str) =
+    replace ++ replaceAll (EagerCollapsible.dropInfix find (s : str)) find replace
   | otherwise = s : replaceAll str find replace
 
 genSpace :: Int -> String
@@ -31,4 +32,8 @@ padEqual :: String -> Int -> String
 padEqual str space = padRear (padFront str space) space
 
 strip :: String -> String
-strip str = reverse $ dropWhile isSpace $ reverse $ dropWhile isSpace str
+strip str =
+  reverse $
+    dropWhile Data.Char.isSpace $
+      reverse $
+        dropWhile Data.Char.isSpace str

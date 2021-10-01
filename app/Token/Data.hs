@@ -6,14 +6,24 @@ module Token.Data
   )
 where
 
-import Data.Char (isAlpha, isAlphaNum, isDigit, isPunctuation)
-import Data.List (isPrefixOf, isSuffixOf)
-import Token.Util.Like (Like (..))
-import Token.Util.String (strip)
+import qualified Data.Char (isAlpha, isAlphaNum, isDigit, isPunctuation)
+import qualified Data.List (isPrefixOf, isSuffixOf)
+import qualified Token.Util.Like as LikeClass (Like (..))
+import qualified Token.Util.String (strip)
 
-data Data = Int Int | Float Float | String String | Boolean Bool | Id String | Punct String | Other String | Comment String | Null deriving (Show, Read, Eq, Ord)
+data Data
+  = Int Int
+  | Float Float
+  | String String
+  | Boolean Bool
+  | Id String
+  | Punct String
+  | Other String
+  | Comment String
+  | Null
+  deriving (Show, Read, Eq, Ord)
 
-instance Like Data where
+instance LikeClass.Like Data where
   (Int _) `like` (Int _) = True
   (Float _) `like` (Float _) = True
   (String _) `like` (String _) = True
@@ -24,7 +34,7 @@ instance Like Data where
   (Comment _) `like` (Comment _) = True
   Null `like` Null = True
   _ `like` _ = False
-  a `notLike` b = not $ like a b
+  a `notLike` b = not $ LikeClass.like a b
 
 miscRepr :: [String]
 miscRepr = [",", "/*", "*/"]
@@ -42,16 +52,17 @@ fromData Null = ""
 
 allDigits :: String -> Bool
 allDigits ('-' : xs) = allDigits xs
-allDigits str = all isDigit str
+allDigits str = all Data.Char.isDigit str
 
 allPunct :: String -> Bool
-allPunct str = all isPunctuation str && str /= "\""
+allPunct str = all Data.Char.isPunctuation str && str /= "\""
 
 allAlphaNum :: String -> Bool
-allAlphaNum str = (any isDigit str && any isAlpha str) && all isAlphaNum str
+allAlphaNum str =
+  (any Data.Char.isDigit str && any Data.Char.isAlpha str) && all Data.Char.isAlphaNum str
 
 allAlpha :: String -> Bool
-allAlpha = all isAlpha
+allAlpha = all Data.Char.isAlpha
 
 isFloatStr :: String -> Bool
 isFloatStr ('-' : xs) = isFloatStr xs
@@ -62,19 +73,19 @@ couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNo
   where
     maybeContainsSnakeCaseOrDot = (elem '.' str || elem '_' str) || allAlpha str
     isOtherWiseAllAlpha = allAlpha (filter (\x -> ('.' /= x) && ('_' /= x)) str)
-    containsNoDigits = not $ any isDigit str
+    containsNoDigits = not $ any Data.Char.isDigit str
 
 readData :: String -> Data --These guards are order dependent which is annoying
 readData paddedStr
   | null str = Other ""
-  | isPrefixOf "/*" str || isSuffixOf "*/" str = Comment str
-  | allAlphaNum $ strip str = Other str
-  | allDigits $ strip str = Int (read str :: Int)
-  | isFloatStr $ strip str = Float (read str :: Float)
-  | allPunct $ strip str = Punct str
+  | Data.List.isPrefixOf "/*" str || Data.List.isSuffixOf "*/" str = Comment str
+  | allAlphaNum $ Token.Util.String.strip str = Other str
+  | allDigits $ Token.Util.String.strip str = Int (read str :: Int)
+  | isFloatStr $ Token.Util.String.strip str = Float (read str :: Float)
+  | allPunct $ Token.Util.String.strip str = Punct str
   | '\"' `elem` str = String str --Don't like this one
   | str == "True" || str == "False" = Boolean (read str :: Bool)
-  | couldBeId $ strip str = Id str
+  | couldBeId $ Token.Util.String.strip str = Id str
   | otherwise = Other str
   where
-    str = strip paddedStr
+    str = Token.Util.String.strip paddedStr

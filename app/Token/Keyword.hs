@@ -6,7 +6,13 @@ module Token.Keyword
   )
 where
 
-data Keyword = Fish | Route | School | Shoal | Migrate deriving (Show, Read, Eq, Ord) --idk if Ord is really necessary
+data Keyword
+  = Fish
+  | Route
+  | School
+  | Shoal
+  | Migrate
+  deriving (Show, Read, Eq, Ord) --idk if Ord is really necessary
 
 repr :: [String]
 repr = ["route", "fish", "school", "shoal", "migrate"]

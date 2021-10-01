@@ -1,7 +1,25 @@
-module Token.Util.Tree where
+module Token.Util.Tree
+  ( Tree (..),
+    TreeIO (..),
+    tree,
+    reTree,
+    trees,
+    serialTree,
+    treeNode,
+    treeChildren,
+    childrenOfChildren,
+    transplantChildren,
+    mutateTreeNode,
+    childMap,
+    (-<-),
+    (-<=),
+    lookupOn,
+    treeMap,
+    maybeOnTreeNode,
+  )
+where
 
-import Data.Maybe
-import Token.Util.Like
+import qualified Data.Maybe (fromJust)
 
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
@@ -10,8 +28,16 @@ class TreeIO r where
 data Tree a = Empty | a :-<-: [Tree a] deriving (Show, Eq)
 
 instance TreeIO Tree where
-  fPrintTree d Empty = concat (replicate (d * 4 - 1) "-") ++ ">" ++ "Empty\n"
-  fPrintTree d (n :-<-: a) = concat (replicate (d * 4 - 1) "-") ++ ">" ++ show n ++ "\n" ++ concatMap (fPrintTree (d + 1)) a
+  fPrintTree d Empty =
+    concat (replicate (d * 4 - 1) "-")
+      ++ ">"
+      ++ "Empty\n"
+  fPrintTree d (n :-<-: a) =
+    concat (replicate (d * 4 - 1) "-")
+      ++ ">"
+      ++ show n
+      ++ "\n"
+      ++ concatMap (fPrintTree (d + 1)) a
   ioPrintTree t = putStrLn $ fPrintTree 0 t
 
 instance Functor Tree where
@@ -22,10 +48,10 @@ tree x = x :-<-: []
 
 reTree :: Tree a -> Tree a
 reTree Empty = Empty
-reTree tr = (tree . fromJust . treeNode) tr
+reTree tr = (tree . Data.Maybe.fromJust . treeNode) tr
 
 trees :: [a] -> [Tree a]
-trees = map (:-<-: [])
+trees = map tree
 
 serialTree :: [a] -> Tree a
 serialTree [] = Empty
@@ -37,6 +63,7 @@ treeNode Empty = Nothing
 treeNode (n :-<-: _) = Just n
 
 treeChildren :: Tree a -> [Tree a]
+treeChildren Empty = []
 treeChildren (_ :-<-: cs) = cs
 
 childrenOfChildren :: Tree a -> [[Tree a]]
@@ -54,10 +81,11 @@ childMap :: (Tree a -> b) -> Tree a -> [b]
 childMap f tr = map f (treeChildren tr)
 
 (-<-) :: Tree a -> Tree a -> Tree a
-(b :-<-: cs) -<- t = b :-<-: (cs ++ [t])
+Empty -<- t = t
+tr -<- t = tr -<= [t]
 
 (-<=) :: Tree a -> [Tree a] -> Tree a
-(b :-<-: cs) -<= ts = b :-<-: (cs ++ ts)
+(n :-<-: cs) -<= ts = n :-<-: (cs ++ ts)
 
 lookupOn :: Tree a -> (Tree a -> Bool) -> [Tree a]
 lookupOn Empty _ = []

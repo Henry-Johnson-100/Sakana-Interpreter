@@ -1,14 +1,9 @@
-import Lexer (tokenize)
-import System.Environment (getArgs)
+import qualified Lexer (tokenize)
+import System.Environment
 import System.IO
-  ( IOMode (ReadMode),
-    hClose,
-    hGetContents,
-    openFile,
-  )
 
 printTokens :: String -> String
-printTokens xs = unlines $ map show $ tokenize xs
+printTokens xs = (unlines . map show . Lexer.tokenize) xs
 
 main :: IO ()
 main = do

@@ -6,7 +6,7 @@ module Token.Util.EagerCollapsible
   )
 where
 
-import Data.List (delete, foldl', isInfixOf, isPrefixOf)
+import qualified Data.List (isPrefixOf)
 
 isEagerCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
 isEagerCollapsible _ _ [] = False
@@ -23,28 +23,34 @@ foldEC beginCase endCase bool (x : xs)
   where
     sameCase t = beginCase t && endCase t
 
--- | For elements in a list where f(x) is True, take that element and all elements after it until the next such element.
--- | Works inclusively, the list returned has the property f(head xs) == True and f(end xs) == true and every element in between evaluates to False.
+-- | For elements in a list where f(x) is True,
+-- take that element and all elements after it until the next such element.
+-- Works inclusively, the list returned has the property f(head xs) == True
+-- and f(end xs) == true and every element in between evaluates to False.
 takeBetween :: (Eq a) => (a -> Bool) -> (a -> Bool) -> [a] -> [a]
 takeBetween _ _ [] = []
 takeBetween beginCase endCase xs
   | not (isEagerCollapsible beginCase endCase xs) = xs
   | notBeginCase (head xs) = takeBetween beginCase endCase (dropWhile notBeginCase xs)
-  | otherwise = head xs : takeWhile notEndCase (tail xs) ++ [head (dropWhile notEndCase (tail xs))]
+  | otherwise =
+    head xs : takeWhile notEndCase (tail xs) ++ [head (dropWhile notEndCase (tail xs))]
   where
     notBeginCase x = not $ beginCase x
     notEndCase x = not $ endCase x
 
--- | take two lists, the first being a list infixed in the second, return a list with that infix removed
--- | Drops nothing if the first list is not an infix in the second list
+-- | take two lists, the first being a list infixed in the second,
+-- return a list with that infix removed
+-- Drops nothing if the first list is not an infix in the second list
 dropInfix :: (Eq a) => [a] -> [a] -> [a]
 dropInfix _ [] = []
 dropInfix [] xs = xs
 dropInfix infixList (x : xs)
-  | not (infixList `isPrefixOf` (x : xs)) = x : dropInfix infixList xs
+  | not (infixList `Data.List.isPrefixOf` (x : xs)) = x : dropInfix infixList xs
   | otherwise = dropInfix (tail infixList) xs
 
--- | For elements in a list where f(x) is True, drop that element and all elements after it until the next such element.
--- | Works inclusively, the list returned has the property f(head xs) == True and f(end xs) == true and every element in between evaluates to False.
+-- | For elements in a list where f(x) is True, drop that element
+-- and all elements after it until the next such element.
+-- Works inclusively, the list returned has the property f(head xs) == True
+-- and f(end xs) == true and every element in between evaluates to False.
 dropBetween :: (Eq a) => (a -> Bool) -> (a -> Bool) -> [a] -> [a]
 dropBetween beginCase endCase xs = dropInfix (takeBetween beginCase endCase xs) xs

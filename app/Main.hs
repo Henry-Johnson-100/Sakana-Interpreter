@@ -1,6 +1,7 @@
 module Main where
 
-import Token.Util.EagerCollapsible
+import qualified Token.Util.EagerCollapsible as EagerCollapsible
+    ( dropInfix )
 
 main :: IO ()
-main = putStrLn $ concat $ dropInfix ["2", "3"] ["1", "2", "3", "4"]
+main = putStrLn $ concat $ EagerCollapsible.dropInfix ["2", "3"] ["1", "2", "3", "4"]

@@ -2,11 +2,9 @@
 
 module Exception.Base where
 
-import Data.List (findIndex)
-import Data.Ord (Ordering)
-import GHC.Exception (errorCallException)
-import GHC.Prim (raise#)
-import System.Exit (die)
+import qualified Data.List (findIndex)
+import qualified GHC.Exception (errorCallException)
+import qualified GHC.Prim (raise#)
 
 data ExceptionType
   = General
@@ -48,7 +46,7 @@ instance Ord ExceptionType where
     | findIndex' x < findIndex' y = GT
     | otherwise = EQ
     where
-      findIndex' x' = findIndex (elem x') exceptionTypeOrder
+      findIndex' x' = Data.List.findIndex (elem x') exceptionTypeOrder
 
 instance Show ExceptionInfo where
   show NoInfo = "No Information."
@@ -109,4 +107,4 @@ newException et ln s es =
     }
 
 raiseError :: Show a1 => a1 -> a2
-raiseError exc = raise# (errorCallException (show exc))
+raiseError exc = GHC.Prim.raise# (GHC.Exception.errorCallException (show exc))

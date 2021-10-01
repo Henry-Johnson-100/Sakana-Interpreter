@@ -7,7 +7,19 @@ module Token.Operator
   )
 where
 
-data Operator = Eq | NEq | Gt | Lt | Add | Sub | Mult | Div | Mod | GtEq | LtEq deriving (Show, Read, Eq)
+data Operator
+  = Eq
+  | NEq
+  | Gt
+  | Lt
+  | Add
+  | Sub
+  | Mult
+  | Div
+  | Mod
+  | GtEq
+  | LtEq
+  deriving (Show, Read, Eq)
 
 repr :: [String]
 repr = ["==", "/=", "+", "-", "*", "/", "%", ">=", "<=", "<", ">"]
