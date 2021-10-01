@@ -219,12 +219,14 @@ declarationErrorCheck# = readTreeForError# (maybeOnTreeNode False (keywordTokenI
         raiseError $
           newException
             FreeTokensInForeignScope
-            (map (getSyntaxAttributeFromTree line) ((concat . childrenOfChildren . head . treeChildren) tr))
+            (map (getSyntaxAttributeFromTree line) (allChildrenOfDeclarationId tr))
             ( "Free tokens, \'"
-                ++ intercalate ", " (map (fromToken . getSyntaxAttributeFromTree token) ((concat . childrenOfChildren . head . treeChildren) tr))
+                ++ intercalate ", " (map (fromToken . getSyntaxAttributeFromTree token) (allChildrenOfDeclarationId tr))
                 ++ "\' after a declaration Id should not be included"
             )
             NonFatal
+      where
+        allChildrenOfDeclarationId = concat . childrenOfChildren . head . treeChildren
 
 nthChildMeetsCondition :: Int -> (SyntaxTree -> Bool) -> SyntaxTree -> Bool
 nthChildMeetsCondition n f st
