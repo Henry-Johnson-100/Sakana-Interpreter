@@ -13,6 +13,7 @@ module Lexer
     genericBracket,
     genericData,
     dataTokenIsId,
+    keywordTokenIsDeclarationRequiringId,
   )
 where
 
@@ -41,11 +42,6 @@ import Token.Data as D
     readData,
   )
 import Token.Keyword as K
-  ( Keyword (Fish),
-    fromKeyword,
-    readKeyword,
-    repr,
-  )
 import Token.Operator as O (Operator (Add), fromOp, readOp, repr, spacingRepr)
 import Token.Util.EagerCollapsible
   ( dropBetween,
@@ -101,6 +97,9 @@ genericData = Data (Int 0)
 
 getTokenBracketScopeType :: Token -> ScopeType
 getTokenBracketScopeType (Bracket st _) = st
+
+keywordTokenIsDeclarationRequiringId :: Token -> Bool
+keywordTokenIsDeclarationRequiringId t = t `like` genericKeyword && t /= Keyword Migrate
 
 dataTokenIsId :: Token -> Bool
 dataTokenIsId (Data (Id _)) = True
@@ -267,7 +266,7 @@ incompleteStringLiteralErrorCheck ln str
 
 tokenizeErrorChecking :: [TokenUnit] -> [TokenUnit]
 tokenizeErrorChecking tus
-  | (not . null . filterDataTokenIsOther) tus = raiseError $ newException UndefinedTokenException  [(unitLine . head . filterDataTokenIsOther) tus] ("Undefined token: " ++ (fromToken . unit . head . filterDataTokenIsOther) tus) Fatal
+  | (not . null . filterDataTokenIsOther) tus = raiseError $ newException UndefinedTokenException [(unitLine . head . filterDataTokenIsOther) tus] ("Undefined token: " ++ (fromToken . unit . head . filterDataTokenIsOther) tus) Fatal
   | otherwise = tus
   where
     filterDataTokenIsOther :: [TokenUnit] -> [TokenUnit]

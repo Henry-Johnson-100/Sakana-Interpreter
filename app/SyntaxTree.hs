@@ -1,3 +1,5 @@
+{-# LANGUAGE MagicHash #-}
+
 module SyntaxTree
   ( generateSyntaxTree,
     generateModuleTree,
@@ -7,7 +9,7 @@ module SyntaxTree
   )
 where
 
-import Data.List (mapAccumL)
+import Data.List
 import Data.Maybe (fromJust, isNothing)
 import Exception.Base
 import Lexer
@@ -60,29 +62,29 @@ nameModuleTree tr str = mutateTreeNode tr (\_ -> genericSyntaxUnit (Data (Id str
 generateSyntaxTree :: [TokenUnit] -> SyntaxTree
 generateSyntaxTree [] = Empty
 generateSyntaxTree tus =
-  (syntaxTreeErrorChecking . reContextualizeSchoolMethods) $
+  (declarationErrorCheck# . reContextualizeSchoolMethods) $
     tree (genericSyntaxUnit (Data (Id "main")))
       -<= concatMap syntaxPartitionTree ((getSyntaxPartitions . scanTokensToSyntaxes) tus)
 
 bracketNestCase :: NCCase SyntaxUnit
 bracketNestCase = NCCase (\x -> token x `elem` [Bracket Send Open, Bracket Return Open]) (\x -> token x `elem` [Bracket Send Close, Bracket Return Close])
 
-takeBracketNCExcludingReturn :: [SyntaxUnit] -> [SyntaxUnit]
-takeBracketNCExcludingReturn [] = []
-takeBracketNCExcludingReturn (tu : tus)
+takeBracketNestedCollapsibleExcludingReturn :: [SyntaxUnit] -> [SyntaxUnit]
+takeBracketNestedCollapsibleExcludingReturn [] = []
+takeBracketNestedCollapsibleExcludingReturn (tu : tus)
   | null (partSnd part) = []
   | (getTokenBracketScopeType . token . head . partSnd) part == Return = []
-  | otherwise = partFstSnd ++ takeBracketNCExcludingReturn (partThd part)
+  | otherwise = partFstSnd ++ takeBracketNestedCollapsibleExcludingReturn (partThd part)
   where
     part = breakByNest bracketNestCase (tu : tus)
     partFstSnd = partFst part ++ partSnd part
 
-takeBracketNCIncludingReturn :: [SyntaxUnit] -> [SyntaxUnit]
-takeBracketNCIncludingReturn [] = []
-takeBracketNCIncludingReturn (tu : tus)
+takeBracketNestedCollapsibleIncludingReturn :: [SyntaxUnit] -> [SyntaxUnit]
+takeBracketNestedCollapsibleIncludingReturn [] = []
+takeBracketNestedCollapsibleIncludingReturn (tu : tus)
   | null (partSnd part) = []
   | getTokenBracketScopeType (token (head (partSnd part))) == Return = partFstSnd
-  | otherwise = partFstSnd ++ takeBracketNCIncludingReturn (partThd part)
+  | otherwise = partFstSnd ++ takeBracketNestedCollapsibleIncludingReturn (partThd part)
   where
     part = breakByNest bracketNestCase (tu : tus)
     partFstSnd = partFst part ++ partSnd part
@@ -111,7 +113,7 @@ getSyntaxPartitions tus = map syntaxPartitionFromChunk (groupSyntaxChunks tus)
     syntaxPartitionFromChunk tus = TriplePartition w a r
       where
         w = takeWhileList (not . nestedCollapsibleIsPrefixOf bracketNestCase) tus
-        a = takeBracketNCExcludingReturn (dropInfix w tus)
+        a = takeBracketNestedCollapsibleExcludingReturn (dropInfix w tus)
         r = dropInfix (w ++ a) tus
     groupSyntaxChunks :: [SyntaxUnit] -> [[SyntaxUnit]]
     groupSyntaxChunks [] = []
@@ -121,7 +123,7 @@ getSyntaxPartitions tus = map syntaxPartitionFromChunk (groupSyntaxChunks tus)
         spanOnSyntaxChunk [] = ([], [])
         spanOnSyntaxChunk tus = (takenThroughReturn, dropInfix takenThroughReturn tus)
           where
-            takenThroughReturn = takeBracketNCIncludingReturn tus
+            takenThroughReturn = takeBracketNestedCollapsibleIncludingReturn tus
 
 -- | Receptacle for all possible pattern matches of a TriplePartition when making a tree
 syntaxPartitionTree :: SyntaxPartition -> [SyntaxTree]
@@ -172,9 +174,9 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
     groupBrackets [] = [[]]
     groupBrackets tus = groupTopLevelAndErrorCheck --this is where free tokens get removed
       where
-        groupTopLevelAndErrorCheck = map (partSnd . partitionHasFreeTokenErrorCheck) (groupByPartition bracketNestCase tus)
-        partitionHasFreeTokenErrorCheck :: SyntaxPartition -> SyntaxPartition
-        partitionHasFreeTokenErrorCheck sp
+        groupTopLevelAndErrorCheck = map (partSnd . partitionHasFreeTokenErrorCheck#) (groupByPartition bracketNestCase tus)
+        partitionHasFreeTokenErrorCheck# :: SyntaxPartition -> SyntaxPartition
+        partitionHasFreeTokenErrorCheck# sp
           | (not . null . partFst) sp = freeTokensInForeignScopeException
           | otherwise = sp
           where
@@ -207,23 +209,24 @@ reContextualizeSchoolMethods st
     reContextualizedChildren = fst breakOnSendReturn ++ map (\x -> mutateTreeNode x (`setContext` Return)) (snd breakOnSendReturn)
     breakOnSendReturn = span (\x -> Send == (context . fromJust . treeNode) x) (treeChildren st)
 
-syntaxTreeErrorChecking :: SyntaxTree -> SyntaxTree
-syntaxTreeErrorChecking = treeMap fishDeclarationHasReturnContext
-
-fishDeclarationHasReturnContext :: SyntaxTree -> SyntaxTree
-fishDeclarationHasReturnContext Empty = Empty
-fishDeclarationHasReturnContext st
-  | maybeOnTreeNode False (\x -> Keyword Fish == token x) st =
-    if nthChildMeetsCondition (-1) (maybeOnTreeNode False (\y -> Return == context y)) st
-      then st
-      else
+declarationErrorCheck# :: SyntaxTree -> SyntaxTree
+declarationErrorCheck# = readTreeForError# (maybeOnTreeNode False (keywordTokenIsDeclarationRequiringId . token)) (declarationHasIdToken# . declarationIdHasNoChildren#)
+  where
+    declarationHasIdToken# tr
+      | nthChildMeetsCondition 0 (maybeOnTreeNode False (dataTokenIsId . token)) tr = tr
+      | otherwise = raiseError $ newException DeclarationMissingId [getSyntaxAttributeFromTree line tr] "Declaration missing identification." Fatal
+    declarationIdHasNoChildren# tr
+      | nthChildMeetsCondition 0 (not . any (Empty /=) . treeChildren) tr = tr
+      | otherwise =
         raiseError $
           newException
-            FishDeclarationMissingReturn
-            [getSyntaxAttributeFromTree line st]
-            "\'fish\' declarations require a return fish \'<()<\'"
-            Fatal
-  | otherwise = st
+            FreeTokensInForeignScope
+            (map (getSyntaxAttributeFromTree line) ((concat . childrenOfChildren . head . treeChildren) tr))
+            ( "Free tokens, \'"
+                ++ intercalate ", " (map (fromToken . getSyntaxAttributeFromTree token) ((concat . childrenOfChildren . head . treeChildren) tr))
+                ++ "\' after a declaration Id should not be included"
+            )
+            NonFatal
 
 nthChildMeetsCondition :: Int -> (SyntaxTree -> Bool) -> SyntaxTree -> Bool
 nthChildMeetsCondition n f st
@@ -233,3 +236,9 @@ nthChildMeetsCondition n f st
 
 getSyntaxAttributeFromTree :: (SyntaxUnit -> a) -> SyntaxTree -> a
 getSyntaxAttributeFromTree attr = maybeOnTreeNode ((attr . genericSyntaxUnit) (Data Null)) attr
+
+readTreeForError# :: (SyntaxTree -> Bool) -> (SyntaxTree -> SyntaxTree) -> SyntaxTree -> SyntaxTree
+readTreeForError# _ _ Empty = Empty
+readTreeForError# stopOn readF tr
+  | stopOn tr = (reTree . readF) tr -<= map (readTreeForError# stopOn readF) (treeChildren tr)
+  | otherwise = reTree tr -<= map (readTreeForError# stopOn readF) (treeChildren tr)

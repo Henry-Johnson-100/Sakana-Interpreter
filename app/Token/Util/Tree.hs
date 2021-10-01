@@ -1,7 +1,7 @@
 module Token.Util.Tree where
 
-import Token.Util.Like
 import Data.Maybe
+import Token.Util.Like
 
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
@@ -39,6 +39,10 @@ treeNode (n :-<-: _) = Just n
 treeChildren :: Tree a -> [Tree a]
 treeChildren (_ :-<-: cs) = cs
 
+childrenOfChildren :: Tree a -> [[Tree a]]
+childrenOfChildren Empty = []
+childrenOfChildren (_ :-<-: cs) = cs : concatMap childrenOfChildren cs
+
 transplantChildren :: Tree a -> Tree a -> Tree a
 transplantChildren t (_ :-<-: cs) = t -<= cs
 
@@ -62,8 +66,9 @@ lookupOn t tf
   | otherwise = concatMap (`lookupOn` tf) (treeChildren t)
 
 treeMap :: (Tree a -> Tree b) -> Tree a -> Tree b
-treeMap _ Empty = Empty
-treeMap f tra = (f . reTree) tra -<= map f (treeChildren tra)
+-- treeMap _ Empty = Empty
+-- treeMap f (n :-<-: []) = (f . tree) n
+treeMap f tra = (f . reTree) tra -<= map (treeMap f) (treeChildren tra)
 
 maybeOnTreeNode :: b -> (a -> b) -> Tree a -> b
 maybeOnTreeNode defaultVal f st = maybe defaultVal f (treeNode st)
