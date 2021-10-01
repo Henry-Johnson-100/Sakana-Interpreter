@@ -2,7 +2,7 @@
 
 module SyntaxTree
   ( SyntaxTree,
-    TreeStruct.TreeIO,
+    Tree.TreeIO,
     SyntaxUnit (..),
     generateSyntaxTree,
     generateModuleTree,
@@ -44,7 +44,8 @@ import qualified Token.Util.NestedCollapsible as NestedCollapsible
     takeNestWhileComplete,
     takeWhileList,
   )
-import qualified Token.Util.Tree as TreeStruct
+import Token.Util.Tree (Tree ((:-<-:)), (-<=))
+import qualified Token.Util.Tree as Tree
   ( Tree (Empty),
     TreeIO (..),
     childMap,
@@ -57,7 +58,6 @@ import qualified Token.Util.Tree as TreeStruct
     tree,
     treeChildren,
     treeNode,
-    (-<=),
   )
 
 data SyntaxUnit = SyntaxUnit
@@ -73,7 +73,7 @@ genericSyntaxUnit t = SyntaxUnit t 0 B.Return
 setContext :: SyntaxUnit -> B.ScopeType -> SyntaxUnit
 setContext su st = su {context = st}
 
-type SyntaxTree = TreeStruct.Tree SyntaxUnit
+type SyntaxTree = Tree.Tree SyntaxUnit
 
 type SyntaxPartition = NestedCollapsible.TriplePartition SyntaxUnit
 
@@ -82,16 +82,16 @@ generateModuleTree name = flip nameModuleTree name . generateSyntaxTree
 
 nameModuleTree :: SyntaxTree -> String -> SyntaxTree
 nameModuleTree tr str =
-  TreeStruct.mutateTreeNode
+  Tree.mutateTreeNode
     tr
     (\_ -> genericSyntaxUnit (Lexer.Data (D.Id str)))
 
 generateSyntaxTree :: [Lexer.TokenUnit] -> SyntaxTree
-generateSyntaxTree [] = TreeStruct.Empty
+generateSyntaxTree [] = Tree.Empty
 generateSyntaxTree tus =
   (declarationErrorCheck# . reContextualizeSchoolMethods) $
-    TreeStruct.tree (genericSyntaxUnit (Lexer.Data (D.Id "main")))
-      TreeStruct.-<= concatMap
+    genericSyntaxUnit (Lexer.Data (D.Id "main"))
+      :-<-: concatMap
         syntaxPartitionTree
         ((getSyntaxPartitions . scanTokensToSyntaxes) tus)
 
@@ -191,23 +191,23 @@ syntaxPartitionTree (NestedCollapsible.TriplePartition x y z) =
 
 treeOnlyNonTerminals :: SyntaxPartition -> [SyntaxTree]
 treeOnlyNonTerminals (NestedCollapsible.TriplePartition x [] []) =
-  [TreeStruct.serialTree x]
+  [Tree.serialTree x]
 
 treeOnlyValue :: SyntaxPartition -> [SyntaxTree]
 treeOnlyValue (NestedCollapsible.TriplePartition [] [] z) = treeSingleBracketGroup z
 
 treeNoArgs :: SyntaxPartition -> [SyntaxTree]
 treeNoArgs (NestedCollapsible.TriplePartition x [] z) =
-  [declaration TreeStruct.-<= funcReturn]
+  [declaration -<= funcReturn]
   where
-    declaration = TreeStruct.serialTree x
+    declaration = Tree.serialTree x
     funcReturn = treeSingleBracketGroup z
 
 treeFunctionCall :: SyntaxPartition -> [SyntaxTree]
 treeFunctionCall (NestedCollapsible.TriplePartition x y []) =
-  [funcId TreeStruct.-<= funcArgs]
+  [funcId -<= funcArgs]
   where
-    funcId = TreeStruct.serialTree x
+    funcId = Tree.serialTree x
     funcArgs = treeConcurrentBracketGroups y
 
 treeAnonFunction :: SyntaxPartition -> [SyntaxTree]
@@ -218,9 +218,9 @@ treeAnonFunction (NestedCollapsible.TriplePartition [] y z) = args ++ funcReturn
 
 treeFullDeclaration :: SyntaxPartition -> [SyntaxTree]
 treeFullDeclaration (NestedCollapsible.TriplePartition x y z) =
-  [(declaration TreeStruct.-<= args) TreeStruct.-<= funcReturn]
+  [(declaration -<= args) -<= funcReturn]
   where
-    declaration = TreeStruct.serialTree x
+    declaration = Tree.serialTree x
     funcReturn = treeSingleBracketGroup z
     args = treeConcurrentBracketGroups y
 
@@ -274,34 +274,34 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
                       sev
 
 treeSingleBracketGroup :: [SyntaxUnit] -> [SyntaxTree]
-treeSingleBracketGroup [] = [(TreeStruct.tree . genericSyntaxUnit) (Lexer.Data D.Null)]
+treeSingleBracketGroup [] = [(Tree.tree . genericSyntaxUnit) (Lexer.Data D.Null)]
 treeSingleBracketGroup xs
   | NestedCollapsible.isCompleteNestedCollapsible bracketNestCase xs =
     treeSingleBracketGroup (NestedCollapsible.takeNestWhileComplete bracketNestCase xs)
   | NestedCollapsible.hasNestedCollapsible bracketNestCase xs =
     concatMap syntaxPartitionTree $ getSyntaxPartitions xs
-  | otherwise = [TreeStruct.serialTree xs]
+  | otherwise = [Tree.serialTree xs]
 
 reContextualizeSchoolMethods :: SyntaxTree -> SyntaxTree
-reContextualizeSchoolMethods TreeStruct.Empty = TreeStruct.Empty
+reContextualizeSchoolMethods Tree.Empty = Tree.Empty
 reContextualizeSchoolMethods st
   | null
-      ( TreeStruct.lookupOn
+      ( Tree.lookupOn
           st
           ( \x ->
-              (token . Data.Maybe.fromJust . TreeStruct.treeNode) x
+              (token . Data.Maybe.fromJust . Tree.treeNode) x
                 == Lexer.Keyword K.School
           )
       ) =
     st
-  | (token . Data.Maybe.fromJust . TreeStruct.treeNode) st /= Lexer.Keyword K.School =
-    TreeStruct.reTree st
-      TreeStruct.-<= TreeStruct.childMap
+  | (token . Data.Maybe.fromJust . Tree.treeNode) st /= Lexer.Keyword K.School =
+    Tree.reTree st
+      -<= Tree.childMap
         reContextualizeSchoolMethods
         st
   | otherwise =
-    TreeStruct.reTree st
-      TreeStruct.-<= map
+    Tree.reTree st
+      -<= map
         reContextualizeSchoolMethods
         reContextualizedChildren
   where
@@ -309,17 +309,17 @@ reContextualizeSchoolMethods st
     reContextualizedChildren =
       fst breakOnSendReturn
         ++ map
-          (\x -> TreeStruct.mutateTreeNode x (`setContext` B.Return))
+          (\x -> Tree.mutateTreeNode x (`setContext` B.Return))
           (snd breakOnSendReturn)
     breakOnSendReturn =
       span
-        (\x -> B.Send == (context . Data.Maybe.fromJust . TreeStruct.treeNode) x)
-        (TreeStruct.treeChildren st)
+        (\x -> B.Send == (context . Data.Maybe.fromJust . Tree.treeNode) x)
+        (Tree.treeChildren st)
 
 declarationErrorCheck# :: SyntaxTree -> SyntaxTree
 declarationErrorCheck# =
   readTreeForError#
-    ( TreeStruct.maybeOnTreeNode
+    ( Tree.maybeOnTreeNode
         False
         (Lexer.keywordTokenIsDeclarationRequiringId . token)
     )
@@ -328,7 +328,7 @@ declarationErrorCheck# =
     declarationHasIdToken# tr
       | nthChildMeetsCondition
           0
-          (TreeStruct.maybeOnTreeNode False (Lexer.dataTokenIsId . token))
+          (Tree.maybeOnTreeNode False (Lexer.dataTokenIsId . token))
           tr =
         tr
       | otherwise =
@@ -341,7 +341,7 @@ declarationErrorCheck# =
     declarationIdHasNoChildren# tr
       | nthChildMeetsCondition
           0
-          (not . any (TreeStruct.Empty /=) . TreeStruct.treeChildren)
+          (not . any (Tree.Empty /=) . Tree.treeChildren)
           tr =
         tr
       | otherwise =
@@ -361,32 +361,32 @@ declarationErrorCheck# =
             Exception.Base.NonFatal
       where
         allChildrenOfDeclarationId =
-          concat . TreeStruct.childrenOfChildren . head . TreeStruct.treeChildren
+          concat . Tree.childrenOfChildren . head . Tree.treeChildren
 
 nthChildMeetsCondition :: Int -> (SyntaxTree -> Bool) -> SyntaxTree -> Bool
 nthChildMeetsCondition n f st
-  | n < 0 = nthChildMeetsCondition ((length . TreeStruct.treeChildren) st + n) f st
-  | n > ((length . TreeStruct.treeChildren) st - 1) = False
-  | otherwise = (f . (!! n) . TreeStruct.treeChildren) st
+  | n < 0 = nthChildMeetsCondition ((length . Tree.treeChildren) st + n) f st
+  | n > ((length . Tree.treeChildren) st - 1) = False
+  | otherwise = (f . (!! n) . Tree.treeChildren) st
 
 getSyntaxAttributeFromTree :: (SyntaxUnit -> a) -> SyntaxTree -> a
 getSyntaxAttributeFromTree attr =
-  TreeStruct.maybeOnTreeNode ((attr . genericSyntaxUnit) (Lexer.Data D.Null)) attr
+  Tree.maybeOnTreeNode ((attr . genericSyntaxUnit) (Lexer.Data D.Null)) attr
 
 readTreeForError# ::
   (SyntaxTree -> Bool) ->
   (SyntaxTree -> SyntaxTree) ->
   SyntaxTree ->
   SyntaxTree
-readTreeForError# _ _ TreeStruct.Empty = TreeStruct.Empty
+readTreeForError# _ _ Tree.Empty = Tree.Empty
 readTreeForError# stopOn readF tr
   | stopOn tr =
-    (TreeStruct.reTree . readF) tr
-      TreeStruct.-<= map
+    (Tree.reTree . readF) tr
+      -<= map
         (readTreeForError# stopOn readF)
-        (TreeStruct.treeChildren tr)
+        (Tree.treeChildren tr)
   | otherwise =
-    TreeStruct.reTree tr
-      TreeStruct.-<= map
+    Tree.reTree tr
+      -<= map
         (readTreeForError# stopOn readF)
-        (TreeStruct.treeChildren tr)
+        (Tree.treeChildren tr)
