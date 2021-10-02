@@ -3,11 +3,12 @@ module ExecutionTree
   )
 where
 
-import qualified Data.Maybe (fromJust)
+import qualified Data.Maybe (fromJust, fromMaybe, isNothing, maybe)
 import qualified Data.Tuple (uncurry)
 import qualified Exception.Base as Exception
 import qualified Lexer
 import qualified SyntaxTree
+import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
 import qualified Token.Bracket as B
 import qualified Token.Data as D
 import qualified Token.Keyword as K
@@ -29,27 +30,16 @@ After that, calling a built-in function,
 After that, defining a function,
 After that, calling a defined function.-}
 
-nodeIsDataToken :: SyntaxTree.SyntaxUnit -> Bool
-nodeIsDataToken = LikeClass.like Lexer.genericData . SyntaxTree.token
-
-getNodeTokenBaseData :: SyntaxTree.SyntaxTree -> D.Data
-getNodeTokenBaseData =
-  Tree.maybeOnTreeNode
-    D.Null
-    (Lexer.baseData . SyntaxTree.token)
-
-getNodeToken :: SyntaxTree.SyntaxTree -> Lexer.Token
-getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxTree.token
-
-nodeIsPrimitiveValue :: SyntaxTree.SyntaxTree -> Bool
-nodeIsPrimitiveValue = D.isPrimitive . getNodeTokenBaseData
-
+-- | The main entry point as of right now
 evaluatePrimitiveNode :: SyntaxTree.SyntaxTree -> D.Data
 evaluatePrimitiveNode Tree.Empty = D.Null
 evaluatePrimitiveNode tr
-  | Tree.maybeOnTreeNode False nodeIsDataToken tr
+  | nodeStrictlySatisfies nodeIsDataToken tr
       && (D.isPrimitive . getNodeTokenBaseData) tr =
     evaluatePrimitiveData tr
+  | nodeStrictlySatisfies nodeIsOperator tr = evaluatePrimitiveOperator tr
+  where
+    nodeStrictlySatisfies = Tree.maybeOnTreeNode False
 
 evaluatePrimitiveData :: SyntaxTree.SyntaxTree -> D.Data
 evaluatePrimitiveData = getNodeTokenBaseData
@@ -111,7 +101,7 @@ evaluatePrimitiveOperator tr
       Exception.raiseError $
         Exception.newException
           Exception.OperatorTypeError
-          [SyntaxTree.getSyntaxAttributeFromTree SyntaxTree.line tr]
+          [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
           ( "The operator \'" ++ opString
               ++ "\' cannot be aaplied to the arguments of incompatible types: "
               ++ unwords argStrAndType
@@ -122,13 +112,33 @@ evaluatePrimitiveOperator tr
       Exception.raiseError $
         Exception.newException
           Exception.UndefinedOperatorBehavior
-          [SyntaxTree.getSyntaxAttributeFromTree SyntaxTree.line tr]
+          [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
           ( "The operator \'" ++ opString
               ++ "\' does not have defined usage for the types of: "
               ++ unwords argStrAndType
               ++ "."
           )
           Exception.Fatal
+
+nodeIsDataToken :: SyntaxUnit.SyntaxUnit -> Bool
+nodeIsDataToken = LikeClass.like Lexer.genericData . SyntaxUnit.token
+
+nodeIsOperator :: SyntaxUnit.SyntaxUnit -> Bool
+nodeIsOperator = LikeClass.like Lexer.genericOperator . SyntaxUnit.token
+
+getNodeTokenBaseData :: SyntaxTree.SyntaxTree -> D.Data
+getNodeTokenBaseData =
+  Tree.maybeOnTreeNode
+    D.Null
+    (Data.Maybe.fromMaybe D.Null . (Lexer.baseData . SyntaxUnit.token))
+
+getNodeToken :: SyntaxTree.SyntaxTree -> Lexer.Token
+getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
+
+nodeIsPrimitiveValue :: SyntaxTree.SyntaxTree -> Bool
+nodeIsPrimitiveValue tr =
+  Tree.maybeOnTreeNode False nodeIsDataToken tr
+    && (D.isPrimitive . getNodeTokenBaseData) tr
 
 both :: (a -> Bool) -> (a, a) -> Bool
 both f (x, y) = f x && f y

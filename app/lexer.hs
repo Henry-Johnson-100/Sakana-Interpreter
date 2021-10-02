@@ -19,6 +19,7 @@ module Lexer
   )
 where
 
+import qualified Data.Maybe (Maybe(..), maybe, fromJust, isNothing)
 import qualified Control.Arrow as Bifunctor
 import qualified Data.Char (isSpace)
 import qualified Data.List (isPrefixOf, isSuffixOf)
@@ -134,11 +135,12 @@ dataTokenIsOther _ = False
 tokenPacketToUnit :: Packet Token -> [TokenUnit]
 tokenPacketToUnit tp = map (\t -> PacketUnit t (packetLine tp)) (members tp)
 
-baseData :: Token -> D.Data
-baseData (Data d) = d
+baseData :: Token -> Data.Maybe.Maybe D.Data
+baseData (Data d) = Data.Maybe.Just d
+baseData _ = Data.Maybe.Nothing
 
 baseDataString :: Token -> String
-baseDataString t = D.fromData $ baseData t
+baseDataString t = maybe "" D.fromData (baseData t)
 
 fromToken :: Token -> String
 fromToken (Bracket st bt) = B.fromBracket st bt
@@ -244,7 +246,7 @@ consolidateEagerCollapsibleTokens (t : ts)
   where
     mapTakeBetween :: Token -> [Token] -> [Token]
     mapTakeBetween emptyTokenDataType xs =
-      map (constructDataToken emptyTokenDataType . D.fromData . baseData) $
+      map (constructDataToken emptyTokenDataType . baseDataString) $
         EagerCollapsible.takeBetween
           (isDataTypePrefix emptyTokenDataType)
           (isDataTypeSuffix emptyTokenDataType)
@@ -253,7 +255,7 @@ consolidateEagerCollapsibleTokens (t : ts)
     mapToConsolidatedData emptyTokenDataType xs =
       [ constructDataToken
           emptyTokenDataType
-          (concatMap (D.fromData . baseData) (mapTakeBetween emptyTokenDataType xs))
+          (concatMap baseDataString (mapTakeBetween emptyTokenDataType xs))
       ]
     isDataTypePrefix :: Token -> Token -> Bool
     isDataTypePrefix (Data (D.String _)) = tokenIsStringPrefix
