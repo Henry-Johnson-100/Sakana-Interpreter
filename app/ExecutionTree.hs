@@ -3,6 +3,7 @@ module ExecutionTree
   )
 where
 
+import qualified Data.Char (isSpace)
 import qualified Data.Maybe (fromJust, fromMaybe, isNothing, maybe)
 import qualified Data.Tuple (uncurry)
 import qualified Exception.Base as Exception
@@ -10,11 +11,24 @@ import qualified Lexer
 import qualified SyntaxTree
 import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
 import qualified Token.Bracket as B
+import qualified Token.Control as C
 import qualified Token.Data as D
 import qualified Token.Keyword as K
 import qualified Token.Operator as O
 import qualified Token.Util.Like as LikeClass
 import qualified Token.Util.Tree as Tree
+
+-- | Unsure if this should be an instance but I will keep it for now
+class Truthy a where
+  truthy :: a -> Bool
+  falsy :: a -> Bool
+
+instance Truthy D.Data where
+  truthy (D.Num x) = x == 1.0
+  truthy (D.String x) = (not . all Data.Char.isSpace) x && (not . null) x
+  truthy (D.Boolean x) = x
+  truthy _ = False
+  falsy = not . truthy
 
 s' =
   "fish add >(n)> >(m)> <(+ >(n)> >(m)> )<"
@@ -23,6 +37,17 @@ s' =
 t' = Lexer.tokenize s'
 
 pt' = SyntaxTree.generateSyntaxTree t'
+
+calct' =
+  head
+    . Tree.treeChildren
+    . SyntaxTree.generateSyntaxTree
+    . Lexer.tokenize
+
+calc' :: String -> D.Data
+calc' =
+  evaluatePrimitiveNode
+    . calct'
 
 {-The most fundamental node execution is returning a primitive value
 After that, performing a primitive operation like addition or subtraction
@@ -38,6 +63,7 @@ evaluatePrimitiveNode tr
       && (D.isPrimitive . getNodeTokenBaseData) tr =
     evaluatePrimitiveData tr
   | nodeStrictlySatisfies nodeIsOperator tr = evaluatePrimitiveOperator tr
+  | nodeStrictlySatisfies nodeIsFin tr = evaluateFin tr
   where
     nodeStrictlySatisfies = Tree.maybeOnTreeNode False
 
@@ -120,11 +146,19 @@ evaluatePrimitiveOperator tr
           )
           Exception.Fatal
 
+evaluateFin :: SyntaxTree.SyntaxTree -> D.Data
+evaluateFin tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
+  where
+    args = getNodeArgs tr
+
 nodeIsDataToken :: SyntaxUnit.SyntaxUnit -> Bool
 nodeIsDataToken = LikeClass.like Lexer.genericData . SyntaxUnit.token
 
 nodeIsOperator :: SyntaxUnit.SyntaxUnit -> Bool
 nodeIsOperator = LikeClass.like Lexer.genericOperator . SyntaxUnit.token
+
+nodeIsFin :: SyntaxUnit.SyntaxUnit -> Bool
+nodeIsFin = LikeClass.like (Lexer.Control C.Fin) . SyntaxUnit.token
 
 getNodeTokenBaseData :: SyntaxTree.SyntaxTree -> D.Data
 getNodeTokenBaseData =
@@ -142,6 +176,9 @@ nodeIsPrimitiveValue tr =
 
 both :: (a -> Bool) -> (a, a) -> Bool
 both f (x, y) = f x && f y
+
+getNodeArgs :: SyntaxTree.SyntaxTree -> [D.Data]
+getNodeArgs = map evaluatePrimitiveNode . Tree.treeChildren
 
 getOperatorArgs :: SyntaxTree.SyntaxTree -> (D.Data, D.Data)
 getOperatorArgs tr =
