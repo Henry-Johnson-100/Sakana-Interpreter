@@ -18,13 +18,14 @@ data Operator
   | Div
   | GtEq
   | LtEq
+  | Pow
   deriving (Show, Read, Eq)
 
 repr :: [String]
-repr = ["==", "/=", "+", "-", "*", "/", ">=", "<=", "<", ">"]
+repr = ["==", "/=", "+", "-", "*", "/", ">=", "<=", "<", ">", "^"]
 
 spacingRepr :: [String]
-spacingRepr = ["==", "/=", "+", "*", "/", ">=", "<=", "<", ">"]
+spacingRepr = ["==", "/=", "+", "*", "/", ">=", "<=", "<", ">", "^"]
 
 readOp :: String -> Operator
 readOp "==" = Eq
@@ -37,6 +38,7 @@ readOp "*" = Mult
 readOp "/" = Div
 readOp ">=" = GtEq
 readOp "<=" = LtEq
+readOp "^" = Pow
 
 fromOp :: Operator -> String
 fromOp Eq = "=="
@@ -49,3 +51,4 @@ fromOp Mult = "*"
 fromOp Div = "/"
 fromOp GtEq = ">="
 fromOp LtEq = "<="
+fromOp Pow = "^"

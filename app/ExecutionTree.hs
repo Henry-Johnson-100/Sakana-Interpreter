@@ -77,6 +77,7 @@ evaluatePrimitiveOperator tr
     O.Sub -> uncurryArgsToNumOperator (-)
     O.Mult -> uncurryArgsToNumOperator (*)
     O.Div -> uncurryArgsToNumOperator (/)
+    O.Pow -> uncurryArgsToNumOperator (**)
     O.Eq -> uncurryArgsToBoolOperator (==) numArgVals
     O.Gt -> uncurryArgsToBoolOperator (>) numArgVals
     O.Lt -> uncurryArgsToBoolOperator (<) numArgVals
