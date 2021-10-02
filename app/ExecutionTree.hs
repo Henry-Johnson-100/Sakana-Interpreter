@@ -47,32 +47,32 @@ evaluatePrimitiveData = getNodeTokenBaseData
 evaluatePrimitiveOperator :: SyntaxTree.SyntaxTree -> D.Data
 evaluatePrimitiveOperator tr
   | both D.isNumeric args = case getNodeOperator tr of
-    O.Add -> uncurriedNumOperator (+)
-    O.Sub -> uncurriedNumOperator (-)
-    O.Mult -> uncurriedNumOperator (*)
-    O.Div -> uncurriedNumOperator (/)
-    O.Eq -> uncurriedBoolOperator (==) numArgVals
-    O.Gt -> uncurriedBoolOperator (>) numArgVals
-    O.Lt -> uncurriedBoolOperator (<) numArgVals
-    O.GtEq -> uncurriedBoolOperator (>=) numArgVals
-    O.LtEq -> uncurriedBoolOperator (<=) numArgVals
+    O.Add -> uncurryArgsToNumOperator (+)
+    O.Sub -> uncurryArgsToNumOperator (-)
+    O.Mult -> uncurryArgsToNumOperator (*)
+    O.Div -> uncurryArgsToNumOperator (/)
+    O.Eq -> uncurryArgsToBoolOperator (==) numArgVals
+    O.Gt -> uncurryArgsToBoolOperator (>) numArgVals
+    O.Lt -> uncurryArgsToBoolOperator (<) numArgVals
+    O.GtEq -> uncurryArgsToBoolOperator (>=) numArgVals
+    O.LtEq -> uncurryArgsToBoolOperator (<=) numArgVals
   | both (D.String "" `LikeClass.like`) args = case getNodeOperator tr of
-    O.Add -> uncurriedStringOperator (++)
-    O.Eq -> uncurriedBoolOperator (==) stringArgVals
-    O.Gt -> uncurriedBoolOperator (>) stringArgVals
-    O.Lt -> uncurriedBoolOperator (<) stringArgVals
-    O.GtEq -> uncurriedBoolOperator (>=) stringArgVals
-    O.LtEq -> uncurriedBoolOperator (<=) stringArgVals
+    O.Add -> uncurryArgsToStringOperator (++)
+    O.Eq -> uncurryArgsToBoolOperator (==) stringArgVals
+    O.Gt -> uncurryArgsToBoolOperator (>) stringArgVals
+    O.Lt -> uncurryArgsToBoolOperator (<) stringArgVals
+    O.GtEq -> uncurryArgsToBoolOperator (>=) stringArgVals
+    O.LtEq -> uncurryArgsToBoolOperator (<=) stringArgVals
     o ->
       undefinedOperatorBehaviorException
         (O.fromOp o)
         (map show ([fst, snd] <*> [args]))
   | both (D.Boolean True `LikeClass.like`) args = case getNodeOperator tr of
-    O.Eq -> uncurriedBoolOperator (==) boolArgVals
-    O.Gt -> uncurriedBoolOperator (>) boolArgVals
-    O.Lt -> uncurriedBoolOperator (<) boolArgVals
-    O.GtEq -> uncurriedBoolOperator (>=) boolArgVals
-    O.LtEq -> uncurriedBoolOperator (<=) boolArgVals
+    O.Eq -> uncurryArgsToBoolOperator (==) boolArgVals
+    O.Gt -> uncurryArgsToBoolOperator (>) boolArgVals
+    O.Lt -> uncurryArgsToBoolOperator (<) boolArgVals
+    O.GtEq -> uncurryArgsToBoolOperator (>=) boolArgVals
+    O.LtEq -> uncurryArgsToBoolOperator (<=) boolArgVals
     o ->
       undefinedOperatorBehaviorException
         (O.fromOp o)
@@ -94,9 +94,9 @@ evaluatePrimitiveOperator tr
         (Data.Maybe.fromJust . D.unBoolean . snd) args
       )
     getNodeOperator tr' = case getNodeToken tr' of (Lexer.Operator o) -> o; _ -> O.Eq
-    uncurriedNumOperator op = D.Num (op `Data.Tuple.uncurry` numArgVals)
-    uncurriedStringOperator op = D.String (op `Data.Tuple.uncurry` stringArgVals)
-    uncurriedBoolOperator op argVals = D.Boolean (op `Data.Tuple.uncurry` argVals)
+    uncurryArgsToNumOperator op = D.Num (op `Data.Tuple.uncurry` numArgVals)
+    uncurryArgsToStringOperator op = D.String (op `Data.Tuple.uncurry` stringArgVals)
+    uncurryArgsToBoolOperator op argVals = D.Boolean (op `Data.Tuple.uncurry` argVals)
     operatorTypeError opString argStrAndType =
       Exception.raiseError $
         Exception.newException
