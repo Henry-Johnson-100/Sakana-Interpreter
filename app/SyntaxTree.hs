@@ -1,11 +1,15 @@
 {-# LANGUAGE MagicHash #-}
+-- #TODO institute error checking for nodes containing primitive data types
+-- They should not have children trees, if so, they will probably be ignored
 
+-- binary operators should only have two children
 module SyntaxTree
   ( SyntaxTree,
     Tree.TreeIO,
     SyntaxUnit (..),
     generateSyntaxTree,
     generateModuleTree,
+    genericSyntaxUnit,
   )
 where
 

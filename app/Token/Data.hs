@@ -3,6 +3,7 @@ module Token.Data
     miscRepr,
     readData,
     fromData,
+    isPrimitive,
   )
 where
 
@@ -10,7 +11,7 @@ import qualified Data.Char (isAlpha, isAlphaNum, isDigit, isPunctuation)
 import qualified Data.List (isPrefixOf, isSuffixOf)
 import qualified Token.Util.Like as LikeClass (Like (..))
 import qualified Token.Util.String (strip)
-
+-- #TODO I suuspect I will want to rewrite the data struct monadically
 data Data
   = Int Int
   | Float Float
@@ -74,6 +75,12 @@ couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNo
     maybeContainsSnakeCaseOrDot = (elem '.' str || elem '_' str) || allAlpha str
     isOtherWiseAllAlpha = allAlpha (filter (\x -> ('.' /= x) && ('_' /= x)) str)
     containsNoDigits = not $ any Data.Char.isDigit str
+
+isPrimitive :: Data -> Bool
+isPrimitive d = any (d `LikeClass.like`) [Int 0, Float 0.0, String "", Boolean True, Null]
+
+isNumeric :: Data -> Bool
+isNumeric d = any (d `LikeClass.like`) [Int 0, Float 0]
 
 readData :: String -> Data --These guards are order dependent which is annoying
 readData paddedStr
