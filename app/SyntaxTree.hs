@@ -229,13 +229,12 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
   where
     groupBrackets :: [SyntaxUnit] -> [[SyntaxUnit]]
     groupBrackets [] = [[]]
-    groupBrackets tus = groupTopLevelAndErrorCheck --this is where free tokens get removed
+    groupBrackets tus = groupTopLevelAndErrorCheck
       where
         groupTopLevelAndErrorCheck =
           map
             (NestedCollapsible.partSnd . partitionHasFreeTokenErrorCheck#)
             (NestedCollapsible.groupByPartition bracketNestCase tus)
-        partitionHasFreeTokenErrorCheck# :: SyntaxPartition -> SyntaxPartition
         partitionHasFreeTokenErrorCheck# sp
           | (not . null . NestedCollapsible.partFst) sp =
             freeTokenError# (NestedCollapsible.partFst sp)
@@ -243,7 +242,6 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
           where
             -- Never returns anything, therefore,
             -- this function signature is useless at best or misleading at worst
-            freeTokenError# :: [SyntaxUnit] -> SyntaxPartition
             freeTokenError# sus
               | (Lexer.keywordTokenIsDeclarationRequiringId . token . head) sus =
                 raiseFreeTokenError#
@@ -305,7 +303,6 @@ reContextualizeSchoolMethods st
         reContextualizeSchoolMethods
         reContextualizedChildren
   where
-    reContextualizedChildren :: [SyntaxTree]
     reContextualizedChildren =
       fst breakOnSendReturn
         ++ map
