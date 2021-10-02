@@ -16,6 +16,8 @@ data ExceptionType
   | FishDeclarationMissingReturn
   | FreeTokensInForeignScope
   | DeclarationMissingId
+  | UndefinedOperatorBehavior
+  | OperatorTypeError
   deriving (Show, Eq)
 
 data ExceptionSeverity

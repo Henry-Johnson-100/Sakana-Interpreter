@@ -1,4 +1,5 @@
-{-#LANGUAGE MagicHash #-}
+{-# LANGUAGE MagicHash #-}
+
 module Lexer
   ( Token (..),
     PacketUnit (..),
@@ -44,7 +45,7 @@ import qualified Token.Control as C
     repr,
   )
 import qualified Token.Data as D
-  ( Data (Comment, Id, Int, Other, String),
+  ( Data (Comment, Id, Num, Other, String),
     fromData,
     miscRepr,
     readData,
@@ -112,7 +113,7 @@ genericBracket :: Token
 genericBracket = Bracket B.Send B.Open
 
 genericData :: Token
-genericData = Data (D.Int 0)
+genericData = Data (D.Num 0)
 
 getTokenBracketScopeType :: Token -> B.ScopeType
 getTokenBracketScopeType (Bracket st _) = st

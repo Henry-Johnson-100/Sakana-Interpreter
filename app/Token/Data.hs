@@ -4,6 +4,10 @@ module Token.Data
     readData,
     fromData,
     isPrimitive,
+    isNumeric,
+    unNum,
+    unString,
+    unBoolean,
   )
 where
 
@@ -13,8 +17,7 @@ import qualified Token.Util.Like as LikeClass (Like (..))
 import qualified Token.Util.String (strip)
 -- #TODO I suuspect I will want to rewrite the data struct monadically
 data Data
-  = Int Int
-  | Float Float
+  = Num Float
   | String String
   | Boolean Bool
   | Id String
@@ -25,8 +28,7 @@ data Data
   deriving (Show, Read, Eq, Ord)
 
 instance LikeClass.Like Data where
-  (Int _) `like` (Int _) = True
-  (Float _) `like` (Float _) = True
+  (Num _) `like` (Num _) = True
   (String _) `like` (String _) = True
   (Boolean _) `like` (Boolean _) = True
   (Id _) `like` (Id _) = True
@@ -42,8 +44,7 @@ miscRepr = [",", "/*", "*/"]
 
 fromData :: Data -> String
 fromData (String a) = a
-fromData (Int a) = show a
-fromData (Float a) = show a
+fromData (Num a) = show a
 fromData (Boolean a) = show a
 fromData (Id a) = a
 fromData (Punct a) = a
@@ -77,18 +78,33 @@ couldBeId str = maybeContainsSnakeCaseOrDot && isOtherWiseAllAlpha && containsNo
     containsNoDigits = not $ any Data.Char.isDigit str
 
 isPrimitive :: Data -> Bool
-isPrimitive d = any (d `LikeClass.like`) [Int 0, Float 0.0, String "", Boolean True, Null]
+isPrimitive d = any (d `LikeClass.like`) [Num 0.0, String "", Boolean True, Null]
 
 isNumeric :: Data -> Bool
-isNumeric d = any (d `LikeClass.like`) [Int 0, Float 0]
+isNumeric d = any (d `LikeClass.like`) [Num 0.0, Null]
+
+unNum :: Data -> Maybe Float
+unNum (Num x) = Just x
+unNum Null = Just 0.0
+unNum _ = Nothing
+
+unString :: Data -> Maybe String
+unString (String s) = Just s 
+unString Null = Just ""
+unString _ = Nothing
+
+unBoolean :: Data -> Maybe Bool
+unBoolean (Boolean b) = Just b
+unBoolean Null = Just False
+unBoolean _ = Nothing
 
 readData :: String -> Data --These guards are order dependent which is annoying
 readData paddedStr
   | null str = Other ""
   | Data.List.isPrefixOf "/*" str || Data.List.isSuffixOf "*/" str = Comment str
   | allAlphaNum $ Token.Util.String.strip str = Other str
-  | allDigits $ Token.Util.String.strip str = Int (read str :: Int)
-  | isFloatStr $ Token.Util.String.strip str = Float (read str :: Float)
+  | allDigits $ Token.Util.String.strip str = Num (read str :: Float)
+  | isFloatStr $ Token.Util.String.strip str = Num (read str :: Float)
   | allPunct $ Token.Util.String.strip str = Punct str
   | '\"' `elem` str = String str --Don't like this one
   | str == "True" || str == "False" = Boolean (read str :: Bool)

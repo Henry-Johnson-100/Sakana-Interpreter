@@ -10,6 +10,7 @@ module SyntaxTree
     generateSyntaxTree,
     generateModuleTree,
     genericSyntaxUnit,
+    getSyntaxAttributeFromTree,
   )
 where
 
