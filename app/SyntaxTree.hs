@@ -11,6 +11,7 @@ module SyntaxTree
     generateModuleTree,
     genericSyntaxUnit,
     getSyntaxAttributeFromTree,
+    nthChildMeetsCondition,
   )
 where
 

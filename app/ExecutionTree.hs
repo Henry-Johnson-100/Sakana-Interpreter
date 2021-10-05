@@ -1,10 +1,11 @@
 module ExecutionTree
-  (calc'
+  ( calc',
   )
 where
 
 import qualified Data.Char (isSpace)
-import qualified Data.Maybe (fromJust, fromMaybe, isNothing, maybe)
+import qualified Data.List (intercalate)
+import qualified Data.Maybe (fromJust, fromMaybe, isJust, isNothing, maybe)
 import qualified Data.Tuple (uncurry)
 import qualified Exception.Base as Exception
 import qualified Lexer
@@ -45,9 +46,7 @@ calct' =
     . Lexer.tokenize
 
 calc' :: String -> D.Data
-calc' =
-  evaluatePrimitiveNode
-    . calct'
+calc' = evaluatePrimitiveNode . calct'
 
 {-The most fundamental node execution is returning a primitive value
 After that, performing a primitive operation like addition or subtraction
@@ -90,9 +89,9 @@ evaluatePrimitiveOperator tr
     O.Lt -> uncurryArgsToBoolOperator (<) stringArgVals
     O.GtEq -> uncurryArgsToBoolOperator (>=) stringArgVals
     O.LtEq -> uncurryArgsToBoolOperator (<=) stringArgVals
-    o ->
+    otherOp ->
       undefinedOperatorBehaviorException
-        (O.fromOp o)
+        (O.fromOp otherOp)
         (map show ([fst, snd] <*> [args]))
   | both (D.Boolean True `LikeClass.like`) args = case getNodeOperator tr of
     O.Eq -> uncurryArgsToBoolOperator (==) boolArgVals
@@ -100,9 +99,9 @@ evaluatePrimitiveOperator tr
     O.Lt -> uncurryArgsToBoolOperator (<) boolArgVals
     O.GtEq -> uncurryArgsToBoolOperator (>=) boolArgVals
     O.LtEq -> uncurryArgsToBoolOperator (<=) boolArgVals
-    o ->
+    otherOp ->
       undefinedOperatorBehaviorException
-        (O.fromOp o)
+        (O.fromOp otherOp)
         (map show ([fst, snd] <*> [args]))
   | otherwise =
     operatorTypeError ((O.fromOp . getNodeOperator) tr) (map show ([fst, snd] <*> [args]))
@@ -141,9 +140,9 @@ evaluatePrimitiveOperator tr
           Exception.UndefinedOperatorBehavior
           [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
           ( "The operator \'" ++ opString
-              ++ "\' does not have defined usage for the types of: "
-              ++ unwords argStrAndType
-              ++ "."
+              ++ "\' does not have defined usage for the types of: \'"
+              ++ Data.List.intercalate "and" argStrAndType
+              ++ "\'."
           )
           Exception.Fatal
 
@@ -178,6 +177,10 @@ nodeIsPrimitiveValue tr =
 both :: (a -> Bool) -> (a, a) -> Bool
 both f (x, y) = f x && f y
 
+head' :: [a] -> Maybe a
+head' [] = Nothing
+head' xs = (Just . head) xs
+
 getNodeArgs :: SyntaxTree.SyntaxTree -> [D.Data]
 getNodeArgs = map evaluatePrimitiveNode . Tree.treeChildren
 
@@ -191,3 +194,6 @@ getOperatorArgs tr =
       if nodeIsPrimitiveValue tr
         then evaluatePrimitiveData tr
         else evaluatePrimitiveNode tr
+
+nodeStrictlySatisfies :: (a -> Bool) -> Tree.Tree a -> Bool
+nodeStrictlySatisfies = Tree.maybeOnTreeNode False

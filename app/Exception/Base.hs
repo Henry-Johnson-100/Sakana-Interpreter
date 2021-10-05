@@ -18,6 +18,7 @@ data ExceptionType
   | DeclarationMissingId
   | UndefinedOperatorBehavior
   | OperatorTypeError
+  | FunctionNotFound
   deriving (Show, Eq)
 
 data ExceptionSeverity
