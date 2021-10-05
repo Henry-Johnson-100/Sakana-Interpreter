@@ -1,5 +1,7 @@
 module ExecutionTree
   ( calc',
+    calct',
+    evaluateNode,
   )
 where
 
@@ -46,22 +48,24 @@ calct' =
     . Lexer.tokenize
 
 calc' :: String -> D.Data
-calc' = evaluatePrimitiveNode . calct'
+calc' = evaluateNode . calct'
 
-{-The most fundamental node execution is returning a primitive value
-After that, performing a primitive operation like addition or subtraction
-After that, calling a built-in function,
-After that, defining a function,
-After that, calling a defined function.-}
+treeIsExecutable :: SyntaxTree.SyntaxTree -> Bool
+treeIsExecutable Tree.Empty = False
+treeIsExecutable tr =
+  nodeStrictlySatisfies
+    (not . (Lexer.genericKeyword `LikeClass.like`) . SyntaxUnit.token)
+    tr
+    && nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr
 
 -- | The main entry point as of right now
-evaluatePrimitiveNode :: SyntaxTree.SyntaxTree -> D.Data
-evaluatePrimitiveNode Tree.Empty = D.Null
-evaluatePrimitiveNode tr
+evaluateNode :: SyntaxTree.SyntaxTree -> D.Data
+evaluateNode Tree.Empty = D.Null
+evaluateNode tr
   | nodeStrictlySatisfies nodeIsDataToken tr
       && (D.isPrimitive . getNodeTokenBaseData) tr =
     evaluatePrimitiveData tr
-  | nodeStrictlySatisfies nodeIsOperator tr = evaluatePrimitiveOperator tr
+  | nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator tr
   | nodeStrictlySatisfies nodeIsFin tr = evaluateFin tr
   where
     nodeStrictlySatisfies = Tree.maybeOnTreeNode False
@@ -69,8 +73,8 @@ evaluatePrimitiveNode tr
 evaluatePrimitiveData :: SyntaxTree.SyntaxTree -> D.Data
 evaluatePrimitiveData = getNodeTokenBaseData
 
-evaluatePrimitiveOperator :: SyntaxTree.SyntaxTree -> D.Data
-evaluatePrimitiveOperator tr
+evaluateOperator :: SyntaxTree.SyntaxTree -> D.Data
+evaluateOperator tr
   | both D.isNumeric args = case getNodeOperator tr of
     O.Add -> uncurryArgsToNumOperator (+)
     O.Sub -> uncurryArgsToNumOperator (-)
@@ -78,6 +82,7 @@ evaluatePrimitiveOperator tr
     O.Div -> uncurryArgsToNumOperator (/)
     O.Pow -> uncurryArgsToNumOperator (**)
     O.Eq -> uncurryArgsToBoolOperator (==) numArgVals
+    O.NEq -> uncurryArgsToBoolOperator (/=) numArgVals
     O.Gt -> uncurryArgsToBoolOperator (>) numArgVals
     O.Lt -> uncurryArgsToBoolOperator (<) numArgVals
     O.GtEq -> uncurryArgsToBoolOperator (>=) numArgVals
@@ -85,6 +90,7 @@ evaluatePrimitiveOperator tr
   | both (D.String "" `LikeClass.like`) args = case getNodeOperator tr of
     O.Add -> uncurryArgsToStringOperator (++)
     O.Eq -> uncurryArgsToBoolOperator (==) stringArgVals
+    O.NEq -> uncurryArgsToBoolOperator (/=) stringArgVals
     O.Gt -> uncurryArgsToBoolOperator (>) stringArgVals
     O.Lt -> uncurryArgsToBoolOperator (<) stringArgVals
     O.GtEq -> uncurryArgsToBoolOperator (>=) stringArgVals
@@ -95,6 +101,7 @@ evaluatePrimitiveOperator tr
         (map show ([fst, snd] <*> [args]))
   | both (D.Boolean True `LikeClass.like`) args = case getNodeOperator tr of
     O.Eq -> uncurryArgsToBoolOperator (==) boolArgVals
+    O.NEq -> uncurryArgsToBoolOperator (/=) boolArgVals
     O.Gt -> uncurryArgsToBoolOperator (>) boolArgVals
     O.Lt -> uncurryArgsToBoolOperator (<) boolArgVals
     O.GtEq -> uncurryArgsToBoolOperator (>=) boolArgVals
@@ -107,18 +114,13 @@ evaluatePrimitiveOperator tr
     operatorTypeError ((O.fromOp . getNodeOperator) tr) (map show ([fst, snd] <*> [args]))
   where
     args = getOperatorArgs tr
-    numArgVals =
-      ( (Data.Maybe.fromJust . D.unNum . fst) args,
-        (Data.Maybe.fromJust . D.unNum . snd) args
+    argValGeneric f =
+      ( (Data.Maybe.fromJust . f . fst) args,
+        (Data.Maybe.fromJust . f . snd) args
       )
-    stringArgVals =
-      ( (Data.Maybe.fromJust . D.unString . fst) args,
-        (Data.Maybe.fromJust . D.unString . snd) args
-      )
-    boolArgVals =
-      ( (Data.Maybe.fromJust . D.unBoolean . fst) args,
-        (Data.Maybe.fromJust . D.unBoolean . snd) args
-      )
+    numArgVals = argValGeneric D.unNum
+    stringArgVals = argValGeneric D.unString
+    boolArgVals = argValGeneric D.unBoolean
     getNodeOperator tr' = case getNodeToken tr' of (Lexer.Operator o) -> o; _ -> O.Eq
     uncurryArgsToNumOperator op = D.Num (op `Data.Tuple.uncurry` numArgVals)
     uncurryArgsToStringOperator op = D.String (op `Data.Tuple.uncurry` stringArgVals)
@@ -174,6 +176,23 @@ nodeIsPrimitiveValue tr =
   Tree.maybeOnTreeNode False nodeIsDataToken tr
     && (D.isPrimitive . getNodeTokenBaseData) tr
 
+getNodeArgs :: SyntaxTree.SyntaxTree -> [D.Data]
+getNodeArgs = map evaluateNode . Tree.treeChildren
+
+getOperatorArgs :: SyntaxTree.SyntaxTree -> (D.Data, D.Data)
+getOperatorArgs tr =
+  ( (getValue . Data.Maybe.fromJust . head' . Tree.treeChildren) tr,
+    (getValue . Data.Maybe.fromJust . head' . tail' . Tree.treeChildren) tr
+  )
+  where
+    getValue tr =
+      if nodeIsPrimitiveValue tr
+        then evaluatePrimitiveData tr
+        else evaluateNode tr
+
+nodeStrictlySatisfies :: (a -> Bool) -> Tree.Tree a -> Bool
+nodeStrictlySatisfies = Tree.maybeOnTreeNode False
+
 both :: (a -> Bool) -> (a, a) -> Bool
 both f (x, y) = f x && f y
 
@@ -181,19 +200,6 @@ head' :: [a] -> Maybe a
 head' [] = Nothing
 head' xs = (Just . head) xs
 
-getNodeArgs :: SyntaxTree.SyntaxTree -> [D.Data]
-getNodeArgs = map evaluatePrimitiveNode . Tree.treeChildren
-
-getOperatorArgs :: SyntaxTree.SyntaxTree -> (D.Data, D.Data)
-getOperatorArgs tr =
-  ( (getValue . head . Tree.treeChildren) tr,
-    (getValue . head . tail . Tree.treeChildren) tr
-  )
-  where
-    getValue tr =
-      if nodeIsPrimitiveValue tr
-        then evaluatePrimitiveData tr
-        else evaluatePrimitiveNode tr
-
-nodeStrictlySatisfies :: (a -> Bool) -> Tree.Tree a -> Bool
-nodeStrictlySatisfies = Tree.maybeOnTreeNode False
+tail' :: [a] -> [a]
+tail' [] = []
+tail' xs = tail xs
