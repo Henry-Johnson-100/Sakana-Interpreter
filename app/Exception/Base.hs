@@ -18,7 +18,7 @@ data ExceptionType
   | DeclarationMissingId
   | UndefinedOperatorBehavior
   | OperatorTypeError
-  | FunctionNotFound
+  | SymbolNotFound
   deriving (Show, Eq)
 
 data ExceptionSeverity

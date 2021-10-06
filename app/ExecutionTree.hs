@@ -6,11 +6,13 @@ module ExecutionTree
 where
 
 import qualified Data.Char (isSpace)
-import qualified Data.List (intercalate)
+import qualified Data.List (find, intercalate)
 import qualified Data.Maybe (fromJust, fromMaybe, isJust, isNothing, maybe)
 import qualified Data.Tuple (uncurry)
 import qualified Exception.Base as Exception
 import qualified Lexer
+import SyntaxTree (SyntaxTree)
+import SyntaxTree as SyntaxUnit (SyntaxUnit)
 import qualified SyntaxTree
 import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
 import qualified Token.Bracket as B
@@ -20,6 +22,63 @@ import qualified Token.Keyword as K
 import qualified Token.Operator as O
 import qualified Token.Util.Like as LikeClass
 import qualified Token.Util.Tree as Tree
+
+data SymbolPair = SymbolPair
+  { symbolId :: SyntaxUnit,
+    symbolVal :: SyntaxTree
+  }
+  deriving (Show, Eq)
+
+data ExecEnv = ExecEnv
+  { execEnvInclosedIn :: Maybe ExecEnv,
+    execEnvSymbolTable :: [SymbolPair]
+  }
+  deriving (Show, Eq)
+
+noEnv :: ExecEnv
+noEnv = ExecEnv Nothing []
+
+-- | Given an environment and a new symbol pair.
+-- Prepend the symbol pair onto the existing environment's symbol table
+addSymbol :: ExecEnv -> SymbolPair -> ExecEnv
+addSymbol env symPair =
+  ExecEnv (execEnvInclosedIn env) (symPair : (execEnvSymbolTable env))
+
+-- | Lookup a symbol in the provided environment using a given Token as a reference.
+-- A symbol pair is returned if a symbol id containing an equal token is found.
+lookupSymbol :: ExecEnv -> Lexer.Token -> SymbolPair
+lookupSymbol env lookupId =
+  Data.Maybe.fromMaybe
+    (symbolNotFoundError)
+    ( Data.List.find
+        (((lookupId ==) . SyntaxUnit.token . symbolId))
+        (execEnvSymbolTable env)
+    )
+  where
+    symbolNotFoundError =
+      Exception.raiseError $
+        Exception.newException Exception.SymbolNotFound [] "" Exception.Fatal
+
+-- #TODO
+
+-- | Take a syntax tree and create a symbol pair.
+-- Is NOT agnostic, should only be called on trees where it would make sense to create a
+-- symbol pair.
+makeSymbolPair :: SyntaxTree -> SymbolPair
+makeSymbolPair Tree.Empty =
+  SymbolPair
+    (SyntaxTree.genericSyntaxUnit (Lexer.Data D.Null))
+    Tree.Empty
+makeSymbolPair tr
+  | nodeStrictlySatisfies
+      nodeIsDeclarationRequiringId
+      tr =
+    SymbolPair (declId tr) tr
+  where
+    declId tr =
+      Data.Maybe.fromMaybe
+        (SyntaxTree.genericSyntaxUnit (Lexer.Data D.Null))
+        ((head' . Tree.treeChildren) tr >>= Tree.treeNode)
 
 -- | Unsure if this should be an instance but I will keep it for now
 class Truthy a where
@@ -50,7 +109,7 @@ calct' =
 calc' :: String -> D.Data
 calc' = evaluateNode . calct'
 
-treeIsExecutable :: SyntaxTree.SyntaxTree -> Bool
+treeIsExecutable :: SyntaxTree -> Bool
 treeIsExecutable Tree.Empty = False
 treeIsExecutable tr =
   nodeStrictlySatisfies
@@ -58,8 +117,10 @@ treeIsExecutable tr =
     tr
     && nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr
 
+--Evaluation functions used to take a tree and return some FISH value.
+
 -- | The main entry point as of right now
-evaluateNode :: SyntaxTree.SyntaxTree -> D.Data
+evaluateNode :: SyntaxTree -> D.Data
 evaluateNode Tree.Empty = D.Null
 evaluateNode tr
   | nodeStrictlySatisfies nodeIsDataToken tr
@@ -70,10 +131,10 @@ evaluateNode tr
   where
     nodeStrictlySatisfies = Tree.maybeOnTreeNode False
 
-evaluatePrimitiveData :: SyntaxTree.SyntaxTree -> D.Data
+evaluatePrimitiveData :: SyntaxTree -> D.Data
 evaluatePrimitiveData = getNodeTokenBaseData
 
-evaluateOperator :: SyntaxTree.SyntaxTree -> D.Data
+evaluateOperator :: SyntaxTree -> D.Data
 evaluateOperator tr
   | both D.isNumeric args = case getNodeOperator tr of
     O.Add -> uncurryArgsToNumOperator (+)
@@ -148,38 +209,47 @@ evaluateOperator tr
           )
           Exception.Fatal
 
-evaluateFin :: SyntaxTree.SyntaxTree -> D.Data
+evaluateFin :: SyntaxTree -> D.Data
 evaluateFin tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
   where
     args = getNodeArgs tr
 
-nodeIsDataToken :: SyntaxUnit.SyntaxUnit -> Bool
+--Boolean comparison functions used primarily for function guards.
+
+nodeStrictlySatisfies :: (a -> Bool) -> Tree.Tree a -> Bool
+nodeStrictlySatisfies = Tree.maybeOnTreeNode False
+
+nodeIsDataToken :: SyntaxUnit -> Bool
 nodeIsDataToken = LikeClass.like Lexer.genericData . SyntaxUnit.token
 
-nodeIsOperator :: SyntaxUnit.SyntaxUnit -> Bool
+nodeIsOperator :: SyntaxUnit -> Bool
 nodeIsOperator = LikeClass.like Lexer.genericOperator . SyntaxUnit.token
 
-nodeIsFin :: SyntaxUnit.SyntaxUnit -> Bool
+nodeIsFin :: SyntaxUnit -> Bool
 nodeIsFin = LikeClass.like (Lexer.Control C.Fin) . SyntaxUnit.token
 
-getNodeTokenBaseData :: SyntaxTree.SyntaxTree -> D.Data
+nodeIsDeclarationRequiringId :: SyntaxUnit -> Bool
+nodeIsDeclarationRequiringId =
+  Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token
+
+getNodeTokenBaseData :: SyntaxTree -> D.Data
 getNodeTokenBaseData =
   Tree.maybeOnTreeNode
     D.Null
     (Data.Maybe.fromMaybe D.Null . (Lexer.baseData . SyntaxUnit.token))
 
-getNodeToken :: SyntaxTree.SyntaxTree -> Lexer.Token
+getNodeToken :: SyntaxTree -> Lexer.Token
 getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
 
-nodeIsPrimitiveValue :: SyntaxTree.SyntaxTree -> Bool
+nodeIsPrimitiveValue :: SyntaxTree -> Bool
 nodeIsPrimitiveValue tr =
   Tree.maybeOnTreeNode False nodeIsDataToken tr
     && (D.isPrimitive . getNodeTokenBaseData) tr
 
-getNodeArgs :: SyntaxTree.SyntaxTree -> [D.Data]
+getNodeArgs :: SyntaxTree -> [D.Data]
 getNodeArgs = map evaluateNode . Tree.treeChildren
 
-getOperatorArgs :: SyntaxTree.SyntaxTree -> (D.Data, D.Data)
+getOperatorArgs :: SyntaxTree -> (D.Data, D.Data)
 getOperatorArgs tr =
   ( (getValue . Data.Maybe.fromJust . head' . Tree.treeChildren) tr,
     (getValue . Data.Maybe.fromJust . head' . tail' . Tree.treeChildren) tr
@@ -190,8 +260,7 @@ getOperatorArgs tr =
         then evaluatePrimitiveData tr
         else evaluateNode tr
 
-nodeStrictlySatisfies :: (a -> Bool) -> Tree.Tree a -> Bool
-nodeStrictlySatisfies = Tree.maybeOnTreeNode False
+-- Utility functions, including an improved head and tail
 
 both :: (a -> Bool) -> (a, a) -> Bool
 both f (x, y) = f x && f y
