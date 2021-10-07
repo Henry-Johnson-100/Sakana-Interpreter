@@ -23,6 +23,18 @@ import qualified Token.Operator as O
 import qualified Token.Util.Like as LikeClass
 import qualified Token.Util.Tree as Tree
 
+-- | Unsure if this should be an instance but I will keep it for now
+class Truthy a where
+  truthy :: a -> Bool
+  falsy :: a -> Bool
+
+instance Truthy D.Data where
+  truthy (D.Num x) = x == 1.0
+  truthy (D.String x) = (not . all Data.Char.isSpace) x && (not . null) x
+  truthy (D.Boolean x) = x
+  truthy _ = False
+  falsy = not . truthy
+
 data SymbolPair = SymbolPair
   { symbolId :: SyntaxUnit,
     symbolVal :: SyntaxTree
@@ -79,18 +91,6 @@ makeSymbolPair tr
       Data.Maybe.fromMaybe
         (SyntaxTree.genericSyntaxUnit (Lexer.Data D.Null))
         ((head' . Tree.treeChildren) tr >>= Tree.treeNode)
-
--- | Unsure if this should be an instance but I will keep it for now
-class Truthy a where
-  truthy :: a -> Bool
-  falsy :: a -> Bool
-
-instance Truthy D.Data where
-  truthy (D.Num x) = x == 1.0
-  truthy (D.String x) = (not . all Data.Char.isSpace) x && (not . null) x
-  truthy (D.Boolean x) = x
-  truthy _ = False
-  falsy = not . truthy
 
 s' =
   "fish add >(n)> >(m)> <(+ >(n)> >(m)> )<"
@@ -232,6 +232,11 @@ nodeIsDeclarationRequiringId :: SyntaxUnit -> Bool
 nodeIsDeclarationRequiringId =
   Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token
 
+nodeIsPrimitiveValue :: SyntaxTree -> Bool
+nodeIsPrimitiveValue tr =
+  Tree.maybeOnTreeNode False nodeIsDataToken tr
+    && (D.isPrimitive . getNodeTokenBaseData) tr
+
 getNodeTokenBaseData :: SyntaxTree -> D.Data
 getNodeTokenBaseData =
   Tree.maybeOnTreeNode
@@ -240,11 +245,6 @@ getNodeTokenBaseData =
 
 getNodeToken :: SyntaxTree -> Lexer.Token
 getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
-
-nodeIsPrimitiveValue :: SyntaxTree -> Bool
-nodeIsPrimitiveValue tr =
-  Tree.maybeOnTreeNode False nodeIsDataToken tr
-    && (D.isPrimitive . getNodeTokenBaseData) tr
 
 getNodeArgs :: SyntaxTree -> [D.Data]
 getNodeArgs = map evaluateNode . Tree.treeChildren
