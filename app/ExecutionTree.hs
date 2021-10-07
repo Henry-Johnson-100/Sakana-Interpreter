@@ -5,10 +5,10 @@ module ExecutionTree
   )
 where
 
-import qualified Data.Char (isSpace)
-import qualified Data.List (find, foldl', intercalate, intersperse)
-import qualified Data.Maybe (fromJust, fromMaybe, isJust, isNothing, maybe)
-import qualified Data.Tuple (uncurry)
+import qualified Data.Char as DChar (isSpace)
+import qualified Data.List as DList (find, foldl', intercalate, intersperse)
+import qualified Data.Maybe as DMaybe (fromJust, fromMaybe, isJust, isNothing, maybe)
+import qualified Data.Tuple as DTuple (uncurry)
 import qualified Exception.Base as Exception
 import qualified Lexer
 import SyntaxTree (SyntaxTree)
@@ -32,7 +32,7 @@ class Truthy a where
 
 instance Truthy D.Data where
   truthy (D.Num x) = x == 1.0
-  truthy (D.String x) = (not . all Data.Char.isSpace) x && (not . null) x
+  truthy (D.String x) = (not . all DChar.isSpace) x && (not . null) x
   truthy (D.Boolean x) = x
   truthy _ = False
   falsy = not . truthy
@@ -55,9 +55,9 @@ fPrintSymbolPair' (SymbolPair sid tr) =
 
 fPrintExecEnv' :: ExecEnv -> String
 fPrintExecEnv' (ExecEnv encl table) =
-  (Data.Maybe.maybe "No enclosing env" (fPrintExecEnv') encl)
+  (DMaybe.maybe "No enclosing env" (fPrintExecEnv') encl)
     ++ "\n"
-    ++ (concat . Data.List.intersperse "\n" . map fPrintSymbolPair') table
+    ++ (concat . DList.intersperse "\n" . map fPrintSymbolPair') table
 
 fPrintExecEnv :: ExecEnv -> IO ()
 fPrintExecEnv env = putStrLn $ fPrintExecEnv' env
@@ -89,9 +89,9 @@ isStoreable tr =
 -- A symbol pair is returned if a symbol id containing an equal token is found.
 lookupSymbol :: ExecEnv -> SyntaxUnit -> SymbolPair
 lookupSymbol env lookupId =
-  Data.Maybe.fromMaybe
+  DMaybe.fromMaybe
     symbolNotFoundError
-    ( Data.List.find
+    ( DList.find
         ((((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId))
         (execEnvSymbolTable env)
     )
@@ -122,10 +122,10 @@ makeSymbolPair tr
       nodeIsDeclarationRequiringId
       tr =
     SymbolPair (declId tr) tr
-  | treeIsSymbolValueBinding tr = SymbolPair ((Data.Maybe.fromJust . Tree.treeNode) tr) tr
+  | treeIsSymbolValueBinding tr = SymbolPair ((DMaybe.fromJust . Tree.treeNode) tr) tr
   where
     declId tr =
-      Data.Maybe.fromMaybe
+      DMaybe.fromMaybe
         (SyntaxTree.genericSyntaxUnit (Lexer.Data D.Null))
         ((head' . Tree.treeChildren) tr >>= Tree.treeNode)
 
@@ -166,7 +166,7 @@ iotest = do
 --Functions to manage scope and environments
 
 makeExecEnv :: [SyntaxTree] -> ExecEnv
-makeExecEnv = Data.List.foldl' treeToMaybeEnvFold noEnv
+makeExecEnv = DList.foldl' treeToMaybeEnvFold noEnv
   where
     treeToMaybeEnvFold env' tr' =
       if isStoreable tr'
@@ -232,16 +232,16 @@ evaluateOperator tr
   where
     args = getOperatorArgs tr
     argValGeneric f =
-      ( (Data.Maybe.fromJust . f . fst) args,
-        (Data.Maybe.fromJust . f . snd) args
+      ( (DMaybe.fromJust . f . fst) args,
+        (DMaybe.fromJust . f . snd) args
       )
     numArgVals = argValGeneric D.unNum
     stringArgVals = argValGeneric D.unString
     boolArgVals = argValGeneric D.unBoolean
     getNodeOperator tr' = case getNodeToken tr' of (Lexer.Operator o) -> o; _ -> O.Eq
-    uncurryArgsToNumOperator op = D.Num (op `Data.Tuple.uncurry` numArgVals)
-    uncurryArgsToStringOperator op = D.String (op `Data.Tuple.uncurry` stringArgVals)
-    uncurryArgsToBoolOperator op argVals = D.Boolean (op `Data.Tuple.uncurry` argVals)
+    uncurryArgsToNumOperator op = D.Num (op `DTuple.uncurry` numArgVals)
+    uncurryArgsToStringOperator op = D.String (op `DTuple.uncurry` stringArgVals)
+    uncurryArgsToBoolOperator op argVals = D.Boolean (op `DTuple.uncurry` argVals)
     operatorTypeError opString argStrAndType =
       Exception.raiseError $
         Exception.newException
@@ -260,7 +260,7 @@ evaluateOperator tr
           [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
           ( "The operator \'" ++ opString
               ++ "\' does not have defined usage for the types of: \'"
-              ++ Data.List.intercalate "and" argStrAndType
+              ++ DList.intercalate "and" argStrAndType
               ++ "\'."
           )
           Exception.Fatal
@@ -307,7 +307,7 @@ getNodeTokenBaseData :: SyntaxTree -> D.Data
 getNodeTokenBaseData =
   Tree.maybeOnTreeNode
     D.Null
-    (Data.Maybe.fromMaybe D.Null . (Lexer.baseData . SyntaxUnit.token))
+    (DMaybe.fromMaybe D.Null . (Lexer.baseData . SyntaxUnit.token))
 
 getNodeToken :: SyntaxTree -> Lexer.Token
 getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
@@ -317,8 +317,8 @@ getNodeArgs = map evaluateNode . Tree.treeChildren
 
 getOperatorArgs :: SyntaxTree -> (D.Data, D.Data)
 getOperatorArgs tr =
-  ( (getValue . Data.Maybe.fromJust . head' . Tree.treeChildren) tr,
-    (getValue . Data.Maybe.fromJust . head' . tail' . Tree.treeChildren) tr
+  ( (getValue . DMaybe.fromJust . head' . Tree.treeChildren) tr,
+    (getValue . DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr
   )
   where
     getValue tr =
