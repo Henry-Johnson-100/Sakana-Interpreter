@@ -6,7 +6,7 @@ module ExecutionTree
 where
 
 import qualified Data.Char (isSpace)
-import qualified Data.List (find, intercalate)
+import qualified Data.List (find, foldl', intercalate, intersperse)
 import qualified Data.Maybe (fromJust, fromMaybe, isJust, isNothing, maybe)
 import qualified Data.Tuple (uncurry)
 import qualified Exception.Base as Exception
@@ -15,6 +15,8 @@ import SyntaxTree (SyntaxTree)
 import SyntaxTree as SyntaxUnit (SyntaxUnit)
 import qualified SyntaxTree
 import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
+import System.Environment
+import System.IO
 import qualified Token.Bracket as B
 import qualified Token.Control as C
 import qualified Token.Data as D
@@ -46,6 +48,19 @@ data ExecEnv = ExecEnv
     execEnvSymbolTable :: [SymbolPair]
   }
   deriving (Show, Eq)
+
+fPrintSymbolPair' :: SymbolPair -> String
+fPrintSymbolPair' (SymbolPair sid tr) =
+  "Symbol ID: " ++ show sid ++ "\n" ++ Tree.fPrintTree 0 tr
+
+fPrintExecEnv' :: ExecEnv -> String
+fPrintExecEnv' (ExecEnv encl table) =
+  (Data.Maybe.maybe "No enclosing env" (fPrintExecEnv') encl)
+    ++ "\n"
+    ++ (concat . Data.List.intersperse "\n" . map fPrintSymbolPair') table
+
+fPrintExecEnv :: ExecEnv -> IO ()
+fPrintExecEnv env = putStrLn $ fPrintExecEnv' env
 
 noEnv :: ExecEnv
 noEnv = ExecEnv Nothing []
@@ -131,13 +146,15 @@ calct' =
 calc' :: String -> D.Data
 calc' = evaluateNode . calct'
 
-treeIsExecutable :: SyntaxTree -> Bool
-treeIsExecutable Tree.Empty = False
-treeIsExecutable tr =
-  nodeStrictlySatisfies
-    (not . (Lexer.genericKeyword `LikeClass.like`) . SyntaxUnit.token)
-    tr
-    && nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr
+iotest = do
+  args <- getArgs
+  handle <- openFile (head args) ReadMode
+  contents <- hGetContents handle
+  fPrintExecEnv . makeExecEnv . Tree.treeChildren
+    . SyntaxTree.generateSyntaxTree
+    . Lexer.tokenize
+    $ contents
+
 -- treeIsExecutable :: SyntaxTree -> Bool
 -- treeIsExecutable Tree.Empty = False
 -- treeIsExecutable tr =
