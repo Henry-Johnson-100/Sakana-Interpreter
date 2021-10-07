@@ -50,26 +50,47 @@ data ExecEnv = ExecEnv
 noEnv :: ExecEnv
 noEnv = ExecEnv Nothing []
 
+-- | Enclose the first ExecEnv in the second.
+encloseEnvIn :: ExecEnv -> ExecEnv -> ExecEnv
+encloseEnvIn (ExecEnv _ st) envOuter = ExecEnv (Just envOuter) st
+
 -- | Given an environment and a new symbol pair.
 -- Prepend the symbol pair onto the existing environment's symbol table
 addSymbol :: ExecEnv -> SymbolPair -> ExecEnv
 addSymbol env symPair =
   ExecEnv (execEnvInclosedIn env) (symPair : (execEnvSymbolTable env))
 
+isStoreable :: SyntaxTree -> Bool
+isStoreable tr =
+  any
+    id
+    ( [ nodeStrictlySatisfies nodeIsDeclarationRequiringId,
+        treeIsSymbolValueBinding
+      ]
+        <*> [tr]
+    )
+
 -- | Lookup a symbol in the provided environment using a given Token as a reference.
 -- A symbol pair is returned if a symbol id containing an equal token is found.
-lookupSymbol :: ExecEnv -> Lexer.Token -> SymbolPair
+lookupSymbol :: ExecEnv -> SyntaxUnit -> SymbolPair
 lookupSymbol env lookupId =
   Data.Maybe.fromMaybe
-    (symbolNotFoundError)
+    symbolNotFoundError
     ( Data.List.find
-        (((lookupId ==) . SyntaxUnit.token . symbolId))
+        ((((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId))
         (execEnvSymbolTable env)
     )
   where
     symbolNotFoundError =
       Exception.raiseError $
-        Exception.newException Exception.SymbolNotFound [] "" Exception.Fatal
+        Exception.newException
+          Exception.SymbolNotFound
+          [SyntaxUnit.line lookupId]
+          ( "A value binding with the Id, \'"
+              ++ ((Lexer.fromToken . SyntaxUnit.token) lookupId)
+              ++ "\' does not exist in the current scope."
+          )
+          Exception.Fatal
 
 -- #TODO
 
@@ -86,6 +107,7 @@ makeSymbolPair tr
       nodeIsDeclarationRequiringId
       tr =
     SymbolPair (declId tr) tr
+  | treeIsSymbolValueBinding tr = SymbolPair ((Data.Maybe.fromJust . Tree.treeNode) tr) tr
   where
     declId tr =
       Data.Maybe.fromMaybe
@@ -116,6 +138,23 @@ treeIsExecutable tr =
     (not . (Lexer.genericKeyword `LikeClass.like`) . SyntaxUnit.token)
     tr
     && nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr
+-- treeIsExecutable :: SyntaxTree -> Bool
+-- treeIsExecutable Tree.Empty = False
+-- treeIsExecutable tr =
+--   nodeStrictlySatisfies
+--     (not . (Lexer.genericKeyword `LikeClass.like`) . SyntaxUnit.token)
+--     tr
+--     && nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr
+
+--Functions to manage scope and environments
+
+makeExecEnv :: [SyntaxTree] -> ExecEnv
+makeExecEnv = Data.List.foldl' treeToMaybeEnvFold noEnv
+  where
+    treeToMaybeEnvFold env' tr' =
+      if isStoreable tr'
+        then ((addSymbol env') . makeSymbolPair) tr'
+        else env'
 
 --Evaluation functions used to take a tree and return some FISH value.
 
@@ -231,6 +270,16 @@ nodeIsFin = LikeClass.like (Lexer.Control C.Fin) . SyntaxUnit.token
 nodeIsDeclarationRequiringId :: SyntaxUnit -> Bool
 nodeIsDeclarationRequiringId =
   Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token
+
+treeIsSymbolValueBinding :: SyntaxTree -> Bool
+treeIsSymbolValueBinding tr =
+  nodeStrictlySatisfies nodeIsDataToken tr
+    && firstChildIsReturnContext tr
+  where
+    firstChildIsReturnContext tr =
+      case ((head' . Tree.treeChildren) tr) >>= Tree.treeNode of
+        Nothing -> False
+        Just x -> ((B.Return ==) . SyntaxUnit.context) x
 
 nodeIsPrimitiveValue :: SyntaxTree -> Bool
 nodeIsPrimitiveValue tr =
