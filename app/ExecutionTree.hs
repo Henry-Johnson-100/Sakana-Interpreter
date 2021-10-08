@@ -7,6 +7,7 @@ where
 
 import qualified Data.Char as DChar (isSpace)
 import qualified Data.List as DList (find, foldl', intercalate, intersperse)
+import Data.Maybe (Maybe (..))
 import qualified Data.Maybe as DMaybe (fromJust, fromMaybe, isJust, isNothing, maybe)
 import qualified Data.Tuple as DTuple (uncurry)
 import qualified Exception.Base as Exception
@@ -32,7 +33,8 @@ class Truthy a where
 
 instance Truthy D.Data where
   truthy (D.Num x) = x == 1.0
-  truthy (D.String x) = (not . all DChar.isSpace) x && (not . null) x
+  --This line kind of jumps out at me for some reason
+  truthy (D.String x) = not $ any id ([not . all DChar.isSpace, not . null] <*> [x])
   truthy (D.Boolean x) = x
   truthy _ = False
   falsy = not . truthy
@@ -49,18 +51,19 @@ data ExecEnv = ExecEnv
   }
   deriving (Show, Eq)
 
-fPrintSymbolPair' :: SymbolPair -> String
-fPrintSymbolPair' (SymbolPair sid tr) =
-  "Symbol ID: " ++ show sid ++ "\n" ++ Tree.fPrintTree 0 tr
-
-fPrintExecEnv' :: ExecEnv -> String
-fPrintExecEnv' (ExecEnv encl table) =
-  (DMaybe.maybe "No enclosing env" (fPrintExecEnv') encl)
-    ++ "\n"
-    ++ (concat . DList.intersperse "\n" . map fPrintSymbolPair') table
-
 fPrintExecEnv :: ExecEnv -> IO ()
 fPrintExecEnv env = putStrLn $ fPrintExecEnv' env
+  where
+    fPrintExecEnv' :: ExecEnv -> String
+    fPrintExecEnv' (ExecEnv encl table) =
+      concat
+        [ DMaybe.maybe "No enclosing env." fPrintExecEnv' encl,
+          "\n",
+          (concat . DList.intersperse "\n" . map fPrintSymbolPair') table
+        ]
+    fPrintSymbolPair' :: SymbolPair -> String
+    fPrintSymbolPair' (SymbolPair sid tr) =
+      concat ["Symbol ID: ", show sid, "\n", Tree.fPrintTree 0 tr]
 
 noEnv :: ExecEnv
 noEnv = ExecEnv Nothing []
@@ -85,15 +88,22 @@ isStoreable tr =
         <*> [tr]
     )
 
--- | Lookup a symbol in the provided environment using a given Token as a reference.
+-- | Lookup a symbol in the provided environment using a given SyntaxUnit as a reference.
 -- A symbol pair is returned if a symbol id containing an equal token is found.
 lookupSymbol :: ExecEnv -> SyntaxUnit -> SymbolPair
-lookupSymbol env lookupId =
+lookupSymbol (ExecEnv (Just env) table) lookupId =
+  DMaybe.fromMaybe
+    (lookupSymbol env lookupId)
+    ( DList.find
+        ((((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId))
+        (table)
+    )
+lookupSymbol (ExecEnv Nothing table) lookupId =
   DMaybe.fromMaybe
     symbolNotFoundError
     ( DList.find
         ((((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId))
-        (execEnvSymbolTable env)
+        (table)
     )
   where
     symbolNotFoundError =
