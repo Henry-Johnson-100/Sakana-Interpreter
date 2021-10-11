@@ -15,7 +15,7 @@ import qualified Data.Char (isAlpha, isAlphaNum, isDigit, isPunctuation)
 import qualified Data.List (isPrefixOf, isSuffixOf)
 import qualified Token.Util.Like as LikeClass (Like (..))
 import qualified Token.Util.String (strip)
--- #TODO I suuspect I will want to rewrite the data struct monadically
+
 data Data
   = Num Float
   | String String
@@ -89,7 +89,7 @@ unNum Null = Just 0.0
 unNum _ = Nothing
 
 unString :: Data -> Maybe String
-unString (String s) = Just s 
+unString (String s) = Just s
 unString Null = Just ""
 unString _ = Nothing
 
