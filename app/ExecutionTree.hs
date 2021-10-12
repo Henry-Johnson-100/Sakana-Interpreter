@@ -240,21 +240,18 @@ makeExecEnv = DList.foldl' treeToMaybeEnvFold noEnv
 -- will be returned.
 executeMain :: Tree.Tree SyntaxUnit -> D.Data
 executeMain tr = execute (getMainEnv tr) (getMainExecutionTree tr)
-  where
-    getMainEnv :: SyntaxTree -> ExecEnv
-    getMainEnv = (makeExecEnv . Tree.treeChildren)
-    getMainExecutionTree :: SyntaxTree -> SyntaxTree
-    getMainExecutionTree =
-      DMaybe.fromMaybe
-        ((Tree.tree . SyntaxTree.genericSyntaxUnit) (Lexer.Data (D.Null)))
-        . maybeMainExecutionTree
-      where
-        maybeMainExecutionTree :: SyntaxTree -> Maybe SyntaxTree
-        maybeMainExecutionTree =
-          ( head'
-              . filter (Tree.maybeOnTreeNode False ((B.Return ==) . SyntaxUnit.context))
-              . Tree.treeChildren
-          )
+
+getMainEnv :: SyntaxTree -> ExecEnv
+getMainEnv = (makeExecEnv . Tree.treeChildren)
+
+-- | Gets the last tree in 'main' that can be executed.
+getMainExecutionTree :: SyntaxTree -> SyntaxTree
+getMainExecutionTree =
+  DMaybe.fromMaybe ((Tree.tree . SyntaxTree.genericSyntaxUnit) (Lexer.Data (D.Null)))
+    . last'
+    . filter (treeIsExecutable)
+    . Tree.treeChildren
+
 
 execute :: ExecEnv -> SyntaxTree -> D.Data
 execute env tr = D.Null
@@ -415,6 +412,14 @@ applyIsPrimitiveEvaluable =
   )
     . DList.singleton
 
+treeIsExecutable :: SyntaxTree -> Bool
+treeIsExecutable Tree.Empty = False
+treeIsExecutable tr =
+  contextIsReturn tr
+    && (treeIsFunctionCall tr || treeIsPrimitivelyEvaluable tr)
+  where
+    contextIsReturn = nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context)
+
 treeIsPrimitivelyEvaluable :: SyntaxTree -> Bool
 treeIsPrimitivelyEvaluable = any id . applyIsPrimitiveEvaluable
 
@@ -453,3 +458,7 @@ head' xs = (Just . head) xs
 tail' :: [a] -> [a]
 tail' [] = []
 tail' xs = tail xs
+
+last' :: [a] -> Maybe a
+last' [] = Nothing
+last' xs = (Just . last) xs
