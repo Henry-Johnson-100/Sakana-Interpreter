@@ -114,6 +114,9 @@ fPrintExecEnv env = putStrLn $ fPrintExecEnv' env
 noEnv :: ExecEnv
 noEnv = ExecEnv Nothing []
 
+--Functions to manage scope and environments----------------------------------------------
+------------------------------------------------------------------------------------------
+
 -- | Enclose the first ExecEnv in the second.
 encloseEnvIn :: ExecEnv -> ExecEnv -> ExecEnv
 encloseEnvIn (ExecEnv _ st) envOuter = ExecEnv (Just envOuter) st
@@ -123,17 +126,6 @@ encloseEnvIn (ExecEnv _ st) envOuter = ExecEnv (Just envOuter) st
 addSymbol :: ExecEnv -> SymbolPair -> ExecEnv
 addSymbol env symPair =
   ExecEnv (execEnvInclosedIn env) (symPair : (execEnvSymbolTable env))
-
-isStoreable :: SyntaxTree -> Bool
-isStoreable =
-  any
-    id
-    . ( [ nodeStrictlySatisfies nodeIsDeclarationRequiringId,
-          treeIsSymbolValueBinding
-        ]
-          <*>
-      )
-    . DList.singleton
 
 -- | Lookup a symbol in the provided environment using a given SyntaxUnit as a reference.
 -- A symbol pair is returned if a symbol id containing an equal token is found.
@@ -166,8 +158,6 @@ maybeFindSyntaxUnitWithMatchingTokenInSymbolTable ::
 maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId =
   DList.find $ ((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId
 
--- #TODO
-
 -- | Take a syntax tree and create a symbol pair.
 -- Is NOT agnostic, should only be called on trees where it would make sense to create a
 -- symbol pair.
@@ -188,58 +178,16 @@ makeSymbolPair tr
         (SyntaxTree.genericSyntaxUnit (Lexer.Data D.Null))
         ((head' . Tree.treeChildren) tr >>= Tree.treeNode)
 
-s' =
-  "fish add >(n)> >(m)> <(+ >(n)> >(m)> )<"
-    ++ " fish sub >(n)> >(m)> <(- >(n)> >(m)> )< <(add >(1)> >(1)>)<"
-
-t' = Lexer.tokenize s'
-
-pt' = SyntaxTree.generateSyntaxTree t'
-
-calct' =
-  head
-    . Tree.treeChildren
-    . SyntaxTree.generateSyntaxTree
-    . Lexer.tokenize
-
-calc' :: String -> D.Data
-calc' = evaluateNode . calct'
-
-iotest = do
-  args <- getArgs
-  handle <- openFile (head args) ReadMode
-  contents <- hGetContents handle
-  fPrintExecEnv . makeExecEnv . Tree.treeChildren
-    . SyntaxTree.generateSyntaxTree
-    . Lexer.tokenize
-    $ contents
-
--- treeIsExecutable :: SyntaxTree -> Bool
--- treeIsExecutable Tree.Empty = False
--- treeIsExecutable tr =
---   nodeStrictlySatisfies
---     (not . (Lexer.genericKeyword `LikeClass.like`) . SyntaxUnit.token)
---     tr
---     && nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr
-
---Functions to manage scope and environments
-
 makeExecEnv :: [SyntaxTree] -> ExecEnv
 makeExecEnv = DList.foldl' treeToMaybeEnvFold noEnv
   where
     treeToMaybeEnvFold env' tr' =
-      if isStoreable tr'
+      if treeIsStoreable tr'
         then ((addSymbol env') . makeSymbolPair) tr'
         else env'
 
---Evaluation functions used to take a tree and return some FISH value.
--- #TODO
-
--- | This will be our new main entry point for a fish program
--- If no execution tree can be found in 'main' then a single tree containing a null value
--- will be returned.
-executeMain :: Tree.Tree SyntaxUnit -> D.Data
-executeMain tr = execute (getMainEnv tr) (getMainExecutionTree tr)
+--Evaluation functions used to take a tree and return some FISH value.--------------------
+------------------------------------------------------------------------------------------
 
 getMainEnv :: SyntaxTree -> ExecEnv
 getMainEnv = (makeExecEnv . Tree.treeChildren)
@@ -252,6 +200,11 @@ getMainExecutionTree =
     . filter (treeIsExecutable)
     . Tree.treeChildren
 
+-- | This will be our new main entry point for a fish program
+-- If no execution tree can be found in 'main' then a single tree containing a null value
+-- will be returned.
+executeMain :: Tree.Tree SyntaxUnit -> D.Data
+executeMain tr = execute (getMainEnv tr) (getMainExecutionTree tr)
 
 execute :: ExecEnv -> SyntaxTree -> D.Data
 execute env tr = D.Null
@@ -357,7 +310,9 @@ evaluateFin tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
   where
     args = getTreeChildrenPrimitiveValues tr
 
---Boolean comparison functions used primarily for function guards.
+--Boolean comparison functions used primarily for function guards.------------------------
+------------------------------------------------------------------------------------------
+----On Node-------------------------------------------------------------------------------
 
 nodeStrictlySatisfies :: (a -> Bool) -> Tree.Tree a -> Bool
 nodeStrictlySatisfies = Tree.maybeOnTreeNode False
@@ -375,6 +330,9 @@ nodeIsDataTokenAndPrimitive =
       )
     . DList.singleton
 
+nodeIsId :: SyntaxUnit -> Bool
+nodeIsId = Lexer.dataTokenIsId . SyntaxUnit.token
+
 nodeIsOperator :: SyntaxUnit -> Bool
 nodeIsOperator = LikeClass.like Lexer.genericOperator . SyntaxUnit.token
 
@@ -384,6 +342,8 @@ nodeIsFin = LikeClass.like (Lexer.Control C.Fin) . SyntaxUnit.token
 nodeIsDeclarationRequiringId :: SyntaxUnit -> Bool
 nodeIsDeclarationRequiringId =
   Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token
+
+----On Tree-------------------------------------------------------------------------------
 
 treeIsSymbolValueBinding :: SyntaxTree -> Bool
 treeIsSymbolValueBinding tr =
@@ -395,21 +355,36 @@ treeIsSymbolValueBinding tr =
         Nothing -> False
         Just x -> ((B.Return ==) . SyntaxUnit.context) x
 
--- nodeIsPrimitiveValue :: SyntaxTree -> Bool
--- nodeIsPrimitiveValue tr =
---   Tree.maybeOnTreeNode False nodeIsDataToken tr
---     && (D.isPrimitive . getNodeTokenBaseData) tr
+treeIsPrimitivelyEvaluable :: SyntaxTree -> Bool
+treeIsPrimitivelyEvaluable = any id . applyIsPrimitiveEvaluable
 
-applyIsPrimitiveEvaluable :: SyntaxTree -> [Bool]
--- Apply new boolean functions that operate on a SyntaxUnit to the second list in this function
-applyIsPrimitiveEvaluable =
-  ( [nodeStrictlySatisfies]
-      <*> [ nodeIsOperator,
-            nodeIsFin,
-            nodeIsDataTokenAndPrimitive
-          ]
-      <*>
-  )
+-- | A tree is a function call if and only if the base node is an id
+-- and it has no return children.
+treeIsFunctionCall :: SyntaxTree -> Bool
+treeIsFunctionCall tr =
+  nodeStrictlySatisfies nodeIsId tr
+    && hasNoReturnChildren tr
+  where
+    hasNoReturnChildren =
+      null
+        . filter (Tree.maybeOnTreeNode True ((B.Return ==) . SyntaxUnit.context))
+        . Tree.treeChildren
+
+-- | Can be stored in a symbol table.
+--  As of right now, treeIsStoreable and treeIsExecutable are not opposites.
+--  because an anonymous function definition is not storeable
+--  yet it is also not executable
+--  but, named lambda functions: 'x <( >(m)> <(+ >(m)> >(1)>)<' for instance,
+--  are storeable and should be stored as normal value bindings.
+treeIsStoreable :: SyntaxTree -> Bool
+treeIsStoreable =
+  any
+    id
+    . ( [ nodeStrictlySatisfies nodeIsDeclarationRequiringId,
+          treeIsSymbolValueBinding
+        ]
+          <*>
+      )
     . DList.singleton
 
 treeIsExecutable :: SyntaxTree -> Bool
@@ -420,8 +395,8 @@ treeIsExecutable tr =
   where
     contextIsReturn = nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context)
 
-treeIsPrimitivelyEvaluable :: SyntaxTree -> Bool
-treeIsPrimitivelyEvaluable = any id . applyIsPrimitiveEvaluable
+----get information from a tree-----------------------------------------------------------
+------------------------------------------------------------------------------------------
 
 getNodeTokenBaseData :: SyntaxTree -> D.Data
 getNodeTokenBaseData =
@@ -446,7 +421,24 @@ getOperatorArgs tr =
         then evaluatePrimitiveData tr
         else evaluateNode tr
 
--- Utility functions, including an improved head and tail
+----misc----------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+applyIsPrimitiveEvaluable :: SyntaxTree -> [Bool]
+-- Apply new boolean functions that operate on a
+-- SyntaxUnit to the second list in this function
+applyIsPrimitiveEvaluable =
+  ( [nodeStrictlySatisfies]
+      <*> [ nodeIsOperator,
+            nodeIsFin,
+            nodeIsDataTokenAndPrimitive
+          ]
+      <*>
+  )
+    . DList.singleton
+
+-- Utility functions, including an improved head and tail---------------------------------
+------------------------------------------------------------------------------------------
 
 both :: (a -> Bool) -> (a, a) -> Bool
 both f (x, y) = f x && f y
@@ -462,3 +454,37 @@ tail' xs = tail xs
 last' :: [a] -> Maybe a
 last' [] = Nothing
 last' xs = (Just . last) xs
+
+----testing-------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+s' :: [Char]
+s' =
+  "fish add >(n)> >(m)> <(+ >(n)> >(m)> )<"
+    ++ " fish sub >(n)> >(m)> <(- >(n)> >(m)> )< <(add >(1)> >(1)>)<"
+
+t' :: [Lexer.TokenUnit]
+t' = Lexer.tokenize s'
+
+pt' :: SyntaxTree
+pt' = SyntaxTree.generateSyntaxTree t'
+
+calct' :: String -> Tree.Tree SyntaxUnit
+calct' =
+  head
+    . Tree.treeChildren
+    . SyntaxTree.generateSyntaxTree
+    . Lexer.tokenize
+
+calc' :: String -> D.Data
+calc' = evaluateNode . calct'
+
+iotest :: IO ()
+iotest = do
+  args <- getArgs
+  handle <- openFile (head args) ReadMode
+  contents <- hGetContents handle
+  fPrintExecEnv . makeExecEnv . Tree.treeChildren
+    . SyntaxTree.generateSyntaxTree
+    . Lexer.tokenize
+    $ contents
