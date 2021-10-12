@@ -480,14 +480,20 @@ last' xs = (Just . last) xs
 
 s' :: [Char]
 s' =
-  "fish add >(n)> >(m)> <(+ >(n)> >(m)> )<"
-    ++ " fish sub >(n)> >(m)> <(- >(n)> >(m)> )< <(add >(1)> >(1)>)<"
+  "fish not >(x)> <(fin \n>(x)> \n>(False)> \n>(True)>\n)< \n"
+    ++ "<(not >(True)>)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
 
 pt' :: SyntaxTree
 pt' = SyntaxTree.generateSyntaxTree t'
+
+pt'' = Tree.treeChildren pt'
+
+env = getMainEnv pt'
+
+met = getMainExecutionTree pt'
 
 calct' :: String -> Tree.Tree SyntaxUnit
 calct' =
