@@ -6,7 +6,7 @@ import Test.Tasty
   )
 import Test.Tasty.HUnit (assertEqual, testCase)
 import Token.Data
-  ( Data (Boolean, Comment, Float, Id, Int, Other, Punct, String),
+  ( Data (Boolean, Comment, Num, Id, Other, Punct, String),
     readData,
   )
 
@@ -155,7 +155,7 @@ rD_reads_onlyDigits_string_as_Int = testCase name assertion
     name = "readData of numeric string input"
     assertion = assertEqual desc assert func
     desc = "any string consisting of only digits should return an Int Data"
-    assert = Int 56009
+    assert = Num 56009.0
     func = readData "56009"
 
 rD_reads_alphanumeric_string_as_Other = testCase name assertion
@@ -195,7 +195,7 @@ rD_reads_simple_float = testCase name assertion
     name = "Read a simple float as a Float Data"
     assertion = assertEqual d a f
     d = "A floating point string is a string of all digits and exactly one point char"
-    a = Float 5.0
+    a = Num 5.0
     f = readData "5.0"
 
 rD_reads_a_float_with_some_whitespace_padding = testCase name assertion
@@ -203,7 +203,7 @@ rD_reads_a_float_with_some_whitespace_padding = testCase name assertion
     name = "a number with whitespace padding should still be typable"
     assertion = assertEqual d a f
     d = "Read a number with leading and/or trailing whitespace"
-    a = Float 5.0
+    a = Num 5.0
     f = readData " 5.0 "
 
 rD_reads_comma_as_Punct = testCase name assertion

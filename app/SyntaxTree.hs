@@ -246,8 +246,6 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
             freeTokenError# (NestedCollapsible.partFst sp)
           | otherwise = sp
           where
-            -- Never returns anything, therefore,
-            -- this function signature is useless at best or misleading at worst
             freeTokenError# sus
               | (Lexer.keywordTokenIsDeclarationRequiringId . token . head) sus =
                 raiseFreeTokenError#
