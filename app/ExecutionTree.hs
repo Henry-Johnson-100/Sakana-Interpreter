@@ -51,7 +51,7 @@ where
 -- Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?Â?â–ˆâ–ˆâ–ˆâ–ˆâ–?
 
 import qualified Data.Char as DChar (isSpace)
-import qualified Data.List as DList (find, foldl', intercalate, intersperse)
+import qualified Data.List as DList (find, foldl', intercalate, intersperse, singleton)
 import Data.Maybe (Maybe (..))
 import qualified Data.Maybe as DMaybe (fromJust, fromMaybe, isJust, isNothing, maybe)
 import qualified Data.Tuple as DTuple (uncurry)
@@ -79,7 +79,7 @@ class Truthy a where
 instance Truthy D.Data where
   truthy (D.Num x) = x == 1.0
   --This line kind of jumps out at me for some reason
-  truthy (D.String x) = not $ any id ([not . all DChar.isSpace, not . null] <*> [x])
+  truthy (D.String x) = (not . any id . ([not . all DChar.isSpace, not . null] <*>)) [x]
   truthy (D.Boolean x) = x
   truthy _ = False
   falsy = not . truthy
@@ -124,14 +124,15 @@ addSymbol env symPair =
   ExecEnv (execEnvInclosedIn env) (symPair : (execEnvSymbolTable env))
 
 isStoreable :: SyntaxTree -> Bool
-isStoreable tr =
+isStoreable =
   any
     id
-    ( [ nodeStrictlySatisfies nodeIsDeclarationRequiringId,
-        treeIsSymbolValueBinding
-      ]
-        <*> [tr]
-    )
+    . ( [ nodeStrictlySatisfies nodeIsDeclarationRequiringId,
+          treeIsSymbolValueBinding
+        ]
+          <*>
+      )
+    . DList.singleton
 
 -- | Lookup a symbol in the provided environment using a given SyntaxUnit as a reference.
 -- A symbol pair is returned if a symbol id containing an equal token is found.
@@ -139,17 +140,11 @@ lookupSymbol :: ExecEnv -> SyntaxUnit -> SymbolPair
 lookupSymbol (ExecEnv (Just env) table) lookupId =
   DMaybe.fromMaybe
     (lookupSymbol env lookupId)
-    ( DList.find
-        ((((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId))
-        (table)
-    )
+    (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId table)
 lookupSymbol (ExecEnv Nothing table) lookupId =
   DMaybe.fromMaybe
     symbolNotFoundError
-    ( DList.find
-        ((((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId))
-        (table)
-    )
+    (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId table)
   where
     symbolNotFoundError =
       Exception.raiseError $
@@ -161,6 +156,14 @@ lookupSymbol (ExecEnv Nothing table) lookupId =
               ++ "\' does not exist in the current scope."
           )
           Exception.Fatal
+
+maybeFindSyntaxUnitWithMatchingTokenInSymbolTable ::
+  Foldable t =>
+  SyntaxUnit ->
+  t SymbolPair ->
+  Maybe SymbolPair
+maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId =
+  DList.find $ ((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId
 
 -- #TODO
 
@@ -230,17 +233,30 @@ makeExecEnv = DList.foldl' treeToMaybeEnvFold noEnv
 
 --Evaluation functions used to take a tree and return some FISH value.
 
--- | The main entry point as of right now
 evaluateNode :: SyntaxTree -> D.Data
 evaluateNode Tree.Empty = D.Null
-evaluateNode tr
-  | nodeStrictlySatisfies nodeIsDataToken tr
-      && (D.isPrimitive . getNodeTokenBaseData) tr =
-    evaluatePrimitiveData tr
-  | nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator tr
-  | nodeStrictlySatisfies nodeIsFin tr = evaluateFin tr
-  where
-    nodeStrictlySatisfies = Tree.maybeOnTreeNode False
+evaluateNode tr = case applyIsPrimitiveEvaluable tr of
+  [True, False, False] -> evaluateOperator tr
+  [False, True, False] -> evaluateFin tr
+  [False, False, True] -> evaluatePrimitiveData tr
+  _ ->
+    Exception.raiseError $
+      Exception.newException
+        Exception.General
+        []
+        ( "The tree: "
+            ++ (Tree.fPrintTree 0 tr)
+            ++ "Matched too many criteria for evaluation in the function, "
+            ++ "\'evaluateNode\'"
+        )
+        Exception.Fatal
+
+-- evaluateNode Tree.Empty = D.Null
+-- evaluateNode tr
+--   | nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr =
+--     evaluatePrimitiveData tr
+--   | nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator tr
+--   | nodeStrictlySatisfies nodeIsFin tr = evaluateFin tr
 
 evaluatePrimitiveData :: SyntaxTree -> D.Data
 evaluatePrimitiveData = getNodeTokenBaseData
@@ -323,7 +339,7 @@ evaluateOperator tr
 evaluateFin :: SyntaxTree -> D.Data
 evaluateFin tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
   where
-    args = getNodeArgs tr
+    args = getNodeChildrenPrimitiveValues tr
 
 --Boolean comparison functions used primarily for function guards.
 
@@ -332,6 +348,16 @@ nodeStrictlySatisfies = Tree.maybeOnTreeNode False
 
 nodeIsDataToken :: SyntaxUnit -> Bool
 nodeIsDataToken = LikeClass.like Lexer.genericData . SyntaxUnit.token
+
+nodeIsDataTokenAndPrimitive :: SyntaxUnit -> Bool
+nodeIsDataTokenAndPrimitive =
+  all id
+    . ( [ nodeIsDataToken,
+          ((DMaybe.maybe False (D.isPrimitive)) . Lexer.baseData . SyntaxUnit.token)
+        ]
+          <*>
+      )
+    . DList.singleton
 
 nodeIsOperator :: SyntaxUnit -> Bool
 nodeIsOperator = LikeClass.like Lexer.genericOperator . SyntaxUnit.token
@@ -358,6 +384,22 @@ nodeIsPrimitiveValue tr =
   Tree.maybeOnTreeNode False nodeIsDataToken tr
     && (D.isPrimitive . getNodeTokenBaseData) tr
 
+applyIsPrimitiveEvaluable :: SyntaxTree -> [Bool]
+-- Apply new boolean functions that operate on a SyntaxUnit to the second list in this
+-- function.
+applyIsPrimitiveEvaluable =
+  ( [nodeStrictlySatisfies]
+      <*> [ nodeIsOperator,
+            nodeIsFin,
+            nodeIsDataTokenAndPrimitive
+          ]
+      <*>
+  )
+    . DList.singleton
+
+treeIsPrimitivelyEvaluable :: SyntaxTree -> Bool
+treeIsPrimitivelyEvaluable = any id . applyIsPrimitiveEvaluable
+
 getNodeTokenBaseData :: SyntaxTree -> D.Data
 getNodeTokenBaseData =
   Tree.maybeOnTreeNode
@@ -367,8 +409,8 @@ getNodeTokenBaseData =
 getNodeToken :: SyntaxTree -> Lexer.Token
 getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
 
-getNodeArgs :: SyntaxTree -> [D.Data]
-getNodeArgs = map evaluateNode . Tree.treeChildren
+getNodeChildrenPrimitiveValues :: SyntaxTree -> [D.Data]
+getNodeChildrenPrimitiveValues = map evaluateNode . Tree.treeChildren
 
 getOperatorArgs :: SyntaxTree -> (D.Data, D.Data)
 getOperatorArgs tr =
