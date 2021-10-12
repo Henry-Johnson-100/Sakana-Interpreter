@@ -355,6 +355,18 @@ treeIsSymbolValueBinding tr =
         Nothing -> False
         Just x -> ((B.Return ==) . SyntaxUnit.context) x
 
+treeIsPrimitiveValueBinding :: SyntaxTree -> Bool
+treeIsPrimitiveValueBinding =
+  all id
+    . ( ( [ treeIsSymbolValueBinding,
+            nodeStrictlySatisfies nodeIsId,
+            treeIsPrimitivelyEvaluable . head . Tree.treeChildren
+          ]
+            <*>
+        )
+          . DList.singleton
+      )
+
 treeIsPrimitivelyEvaluable :: SyntaxTree -> Bool
 treeIsPrimitivelyEvaluable = any id . applyIsPrimitiveEvaluable
 
@@ -421,6 +433,10 @@ getOperatorArgs tr =
         then evaluatePrimitiveData tr
         else evaluateNode tr
 
+getFunctionDeclPositionalArgs :: Tree.Tree a -> [Tree.Tree a]
+getFunctionDeclPositionalArgs =
+  filter (null . Tree.treeChildren) . tail' . init' . Tree.treeChildren
+
 ----misc----------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -450,6 +466,10 @@ head' xs = (Just . head) xs
 tail' :: [a] -> [a]
 tail' [] = []
 tail' xs = tail xs
+
+init' :: [a] -> [a]
+init' [] = []
+init' xs = init xs
 
 last' :: [a] -> Maybe a
 last' [] = Nothing
