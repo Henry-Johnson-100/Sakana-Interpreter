@@ -92,3 +92,16 @@ boolOperatorTests =
             ]
         )
     )
+
+-- #TODO
+-- bindingRecallTests = testGroup "value binding recall tests" testList
+--   where
+--     testList =
+--       []
+
+-- canRecallSimpleGlobalBinding = testCase name assertion where
+--   name = "Recall primitive global value binding"
+--   assertion = assertEqual d a f
+--   d = "Recal primitive global value binding"
+--   a = Num 1.0
+--   f = 
