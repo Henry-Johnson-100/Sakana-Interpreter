@@ -224,11 +224,17 @@ execute env tr
       ]
       tr =
     execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
-  | treeIsFunctionCall tr = execute (encloseEnvIn (calledFunctionEnv tr) env) (disambiguateFunction tr (calledFunction tr))
+  | treeIsFunctionCall tr = --This function is super ugly
+    execute
+      (encloseEnvIn (calledFunctionEnv env tr) env)
+      (getMainExecutionTree (disambiguateFunction tr (calledFunction env tr)))
   | otherwise = D.Null
-  where
-    calledFunctionEnv = makeExecEnv . Tree.treeChildren . calledFunction
-    calledFunction = symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode
+
+calledFunctionEnv :: ExecEnv -> SyntaxTree -> ExecEnv
+calledFunctionEnv env tr = makeExecEnv . Tree.treeChildren $ disambiguateFunction tr (calledFunction env tr)
+
+calledFunction :: ExecEnv -> SyntaxTree -> SyntaxTree
+calledFunction env = symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode
 
 evaluateNode :: ExecEnv -> SyntaxTree -> D.Data
 evaluateNode _ Tree.Empty = D.Null
@@ -556,9 +562,9 @@ pt' = SyntaxTree.generateSyntaxTree t'
 
 pt'' = Tree.treeChildren pt'
 
-env = getMainEnv pt'
+env' = getMainEnv pt'
 
-met = getMainExecutionTree pt'
+met' = getMainExecutionTree pt'
 
 calct' :: String -> Tree.Tree SyntaxUnit
 calct' =
