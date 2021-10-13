@@ -104,17 +104,18 @@ data ExecEnv = ExecEnv
 
 fPrintExecEnv :: ExecEnv -> IO ()
 fPrintExecEnv env = putStrLn $ fPrintExecEnv' env
-  where
-    fPrintExecEnv' :: ExecEnv -> String
-    fPrintExecEnv' (ExecEnv encl table) =
-      concat
-        [ DMaybe.maybe "No enclosing env." fPrintExecEnv' encl,
-          "\n",
-          (concat . DList.intersperse "\n" . map fPrintSymbolPair') table
-        ]
-    fPrintSymbolPair' :: SymbolPair -> String
-    fPrintSymbolPair' (SymbolPair sid tr) =
-      concat ["Symbol ID: ", show sid, "\n", Tree.fPrintTree 0 tr]
+
+fPrintExecEnv' :: ExecEnv -> String
+fPrintExecEnv' (ExecEnv encl table) =
+  concat
+    [ DMaybe.maybe "Main Environment" fPrintExecEnv' encl,
+      "\n",
+      (concat . DList.intersperse "\n" . map fPrintSymbolPair') table
+    ]
+
+fPrintSymbolPair' :: SymbolPair -> String
+fPrintSymbolPair' (SymbolPair sid tr) =
+  concat ["Symbol ID: ", show sid, "\n", Tree.fPrintTree 0 tr]
 
 noEnv :: ExecEnv
 noEnv = ExecEnv Nothing []
@@ -224,7 +225,8 @@ execute env tr
       ]
       tr =
     execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
-  | treeIsFunctionCall tr = --This function is super ugly
+  | treeIsFunctionCall tr --This function is super ugly
+    =
     execute
       (encloseEnvIn (calledFunctionEnv env tr) env)
       (getMainExecutionTree (disambiguateFunction tr (calledFunction env tr)))
@@ -252,6 +254,11 @@ evaluateNode env tr = case applyIsPrimitiveEvaluable tr of
             ++ "Matched too many criteria for evaluation in the function, "
             ++ "\'evaluateNode\' : "
             ++ (show . applyIsPrimitiveEvaluable) tr
+            ++ "\nFor tokens, \'"
+            ++ show tr
+            ++ "\'"
+            ++ "\nIn environment: \n"
+            ++ fPrintExecEnv' env
         )
         Exception.Fatal
 
