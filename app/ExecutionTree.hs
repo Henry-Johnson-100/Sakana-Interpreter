@@ -6,6 +6,8 @@ module ExecutionTree
     --Anything below this is a temporary export
     disambiguateFunction,
     noEnv,
+    getFuncDeclArgs,
+    getFunctionDeclPositionalArgs
   )
 where
 
@@ -449,7 +451,7 @@ getFuncDeclArgs = tail' . init' . Tree.treeChildren
 
 getFunctionDeclPositionalArgs :: SyntaxTree -> [SyntaxTree]
 getFunctionDeclPositionalArgs =
-  filter (null . Tree.treeChildren) . getFuncDeclArgs
+  filter (treeIsPositionalArg) . getFuncDeclArgs
 
 ----misc----------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------

@@ -3,12 +3,7 @@ import ExecutionTree
 import Lexer
 import SyntaxTree
 import Test.Tasty
-  ( Timeout (Timeout),
-    defaultMain,
-    localOption,
-    testGroup,
-  )
-import Test.Tasty.HUnit (assertEqual, testCase)
+import Test.Tasty.HUnit
 import Token.Data
 import Token.Util.Tree
 
@@ -28,7 +23,9 @@ main = do
 tests = testGroup "ExecutionTree tests" testList
   where
     testList =
-      [functionDisambiguationTests]
+      [ functionDisambiguationTests,
+        functionDeclArgFetchingTests
+      ]
         ++ concat
           [ numOperatorTests,
             boolOperatorTests
@@ -101,9 +98,92 @@ boolOperatorTests =
         )
     )
 
+functionDeclArgFetchingTests = testGroup "Fetching arguments from function declarations" testList
+  where
+    testList =
+      [ oneFuncArgIsFetched,
+        twoFuncArgIsFetched,
+        threeFuncArgIsFetched,
+        allPosArgsAreFetchedOne,
+        allPosArgsAreFetchedTwo,
+        allPosArgsAreFetchedThree,
+        allPosArgsAreFetchedMultipleMixesOne,
+        allPosArgsAreFetchedMultipleMixesOne
+      ]
+
+oneFuncArgIsFetched = testCase name assertion
+  where
+    name = "A function declaration with one positional arg(s) is fetched appropriately"
+    assertion = assertEqual d a f
+    d = name
+    a = [noLineCalct] <*> [">(n)>"]
+    f = getFuncDeclArgs . noLineCalct $ "fish return_n >(n)> <(n)<"
+
+twoFuncArgIsFetched = testCase name assertion
+  where
+    name = "A function declaration with two positional arg(s) is fetched appropriately"
+    assertion = assertEqual d a f
+    d = name
+    a = [noLineCalct] <*> [">(n)>", ">(m)>"]
+    f = getFuncDeclArgs . noLineCalct $ "fish return_n >(n)> >(m)> <(n)<"
+
+threeFuncArgIsFetched = testCase name assertion
+  where
+    name = "A function declaration with three positional arg(s) is fetched appropriately"
+    assertion = assertEqual d a f
+    d = name
+    a = [noLineCalct] <*> [">(n)>", ">(m)>", ">(o)>"]
+    f = getFuncDeclArgs . noLineCalct $ "fish return_n >(n)> >(m)> >(o)> <(n)<"
+
+allPosArgsAreFetchedOne = testCase name assertion
+  where
+    name = "A function declaration with three positional arg(s) is fetched appropriately"
+    assertion = assertEqual d a f
+    d = name
+    a = [noLineCalct] <*> [">(n)>", ">(m)>", ">(o)>"]
+    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m)> >(o)> <(n)<"
+
+allPosArgsAreFetchedTwo = testCase name assertion
+  where
+    name = "A function declaration with one positional arg(s) is fetched appropriately"
+    assertion = assertEqual d a f
+    d = name
+    a = [noLineCalct] <*> [">(n)>"]
+    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> <(n)<"
+
+allPosArgsAreFetchedThree = testCase name assertion
+  where
+    name = "A function declaration with mixed positional arg(s) is fetched appropriately"
+    assertion = assertEqual d a f
+    d = name
+    a = [noLineCalct] <*> [">(n)>", ">(o)>"]
+    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> <(n)<"
+
+allPosArgsAreFetchedMultipleMixesOne = testCase name assertion
+  where
+    name = "A function declaration with mixed positional arg(s) is fetched appropriately"
+    assertion = assertEqual d a f
+    d = name
+    a = [noLineCalct] <*> [">(n)>", ">(o)>", ">(q)>"]
+    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> >(p <(1)<)> >(q)> <(n)<"
+
+allPosArgsAreFetchedMultipleMixesTwo = testCase name assertion
+  where
+    name = "A function declaration with mixed positional arg(s) and a function declaration is fetched appropriately"
+    assertion = assertEqual d a f
+    d = name
+    a = [noLineCalct] <*> [">(n)>", ">(o)>", ">(q)>"]
+    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> >(fish thing >(x)> <(x)<)> >(q)> <(n)<"
+
 functionDisambiguationTests = testGroup "Function disambiguation tests" testList
   where
-    testList = [simpleFunctionIsDisambiguated]
+    testList =
+      [ simpleFunctionIsDisambiguated,
+        multiplePositionalArgsAreDisambiguated,
+        functionWithArgMixIsDisambiguatedOne,
+        functionWithArgMixIsDisambiguatedTwo,
+        functionWithArgMixIsDisambiguatedThree
+      ]
 
 simpleFunctionIsDisambiguated = testCase name assertion
   where
@@ -116,15 +196,45 @@ simpleFunctionIsDisambiguated = testCase name assertion
         (noLineCalct "return_n >(1)>")
         (noLineCalct "fish return_n >(n)> <(n)<")
 
--- #TODO
--- bindingRecallTests = testGroup "value binding recall tests" testList
---   where
---     testList =
---       []
+multiplePositionalArgsAreDisambiguated = testCase name assertion
+  where
+    name = "function declaration with multiple pos. args is disambiguated"
+    assertion = assertEqual d a f
+    d = name
+    a = noLineCalct "fish add >(x <(1)<)> >(y <(2)<)> <(something)<"
+    f =
+      disambiguateFunction
+        (noLineCalct "add >(1)> >(2)>")
+        (noLineCalct "fish add >(x)> >(y)> <(something)<")
 
--- canRecallSimpleGlobalBinding = testCase name assertion where
---   name = "Recall primitive global value binding"
---   assertion = assertEqual d a f
---   d = "Recal primitive global value binding"
---   a = Num 1.0
---   f =
+functionWithArgMixIsDisambiguatedOne = testCase name assertion
+  where
+    name = "A function with a mix of positional args and sending data is disambiguated"
+    assertion = assertEqual d a f
+    d = name
+    a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
+    f = disambiguateFunction (noLineCalct "xyz >(1)> >(2)>") (noLineCalct "fish xyz >(x)> >(y)> >(z <(3)<)> <(z)<")
+
+functionWithArgMixIsDisambiguatedTwo = testCase name assertion
+  where
+    name = "A function with a mix of positional args and sending data is disambiguated"
+    assertion = assertEqual d a f
+    d = name
+    a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
+    f = disambiguateFunction (noLineCalct "xyz >(1)> >(3)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> <(z)<")
+
+functionWithArgMixIsDisambiguatedThree = testCase name assertion
+  where
+    name = "A function with a mix of positional args and sending data is disambiguated"
+    assertion = assertEqual d a f
+    d = name
+    a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
+    f = disambiguateFunction (noLineCalct "xyz >(2)> >(3)>") (noLineCalct "fish xyz >(x <(1)<)> >(y)> >(z)> <(z)<")
+
+functionWithMultipleArgMixIsDisambiguatedOne = testCase name assertion
+  where
+    name = "A function with a mix of positional args and sending data is disambiguated"
+    assertion = assertEqual d a f
+    d = name
+    a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> >(a <(4)<)> >(b <(5)<)> <(z)<"
+    f = disambiguateFunction (noLineCalct "xyz >(1)> >(3)> >(5)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> >(a <(4)<)> >(b)> <(z)<")
