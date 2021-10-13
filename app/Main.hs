@@ -1,7 +1,15 @@
 module Main where
 
-import qualified Token.Util.EagerCollapsible as EagerCollapsible
-    ( dropInfix )
+import ExecutionTree (executeMain, calct')
+import SyntaxTree
+import Lexer
+import System.Environment (getArgs)
+import System.IO
 
 main :: IO ()
-main = putStrLn $ concat $ EagerCollapsible.dropInfix ["2", "3"] ["1", "2", "3", "4"]
+main = do
+    args <- getArgs
+    handle <- openFile (head args) ReadMode
+    contents <-hGetContents handle
+    (print . executeMain . generateSyntaxTree . tokenize) contents
+    hClose handle
