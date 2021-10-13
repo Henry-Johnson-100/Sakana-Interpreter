@@ -215,7 +215,8 @@ executeMain tr = execute (getMainEnv tr) (getMainExecutionTree tr)
 execute :: ExecEnv -> SyntaxTree -> D.Data
 execute env tr
   | treeIsPrimitivelyEvaluable tr = evaluateNode env tr
-  | treeIsSymbolValueBinding tr =
+  | treeIsSymbolValueBinding tr --I think this is the source of an annoying error #FIXME
+    =
     (evaluateNode env . DMaybe.fromJust . head' . Tree.treeChildren) tr
   --The following guard is a bit of a hack to get simple value bindings to execute
   | foldIdApplicativeOnSingleton
@@ -233,7 +234,8 @@ execute env tr
   | otherwise = D.Null
 
 calledFunctionEnv :: ExecEnv -> SyntaxTree -> ExecEnv
-calledFunctionEnv env tr = makeExecEnv . Tree.treeChildren $ disambiguateFunction tr (calledFunction env tr)
+calledFunctionEnv env tr =
+  makeExecEnv . Tree.treeChildren $ disambiguateFunction tr (calledFunction env tr)
 
 calledFunction :: ExecEnv -> SyntaxTree -> SyntaxTree
 calledFunction env = symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode

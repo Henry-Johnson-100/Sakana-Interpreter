@@ -26,7 +26,8 @@ main = do
 tests = testGroup "ExecutionTree tests" testList
   where
     testList =
-      [ functionDisambiguationTests,
+      [ finTests,
+        functionDisambiguationTests,
         functionDeclArgFetchingTests,
         functionExecutionTests
       ]
@@ -101,6 +102,38 @@ boolOperatorTests =
             ]
         )
     )
+
+finTests = testGroup "Fin control tests" testList
+  where
+    testList =
+      [
+        finWorksOnExplicitBool,
+        finWorksOnImplicitBool
+      ]
+
+finWorksOnExplicitBool = testCase name assertion
+  where
+    name = "Fin with explicit bool first arg works"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 1.0
+    f = executeMain . getMainTree $ "fin >(True)> >(1)> >(0)>"
+
+finWorksOnImplicitBool = testCase name assertion
+  where
+    name = "Fin with implicit bool first arg works"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 0.0
+    f = executeMain . getMainTree $ "fin >(500)> >(1)> >(0)>"
+
+nestedFinWorks = testCase name assertion
+  where
+    name = "nested fins work"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 0.0
+    f = executeMain . getMainTree $ "fin >(500)> >(fin >(True)> >(1)> >(0)>)> >(fin >(True)> >(0)> >(1)>)>"
 
 functionDeclArgFetchingTests = testGroup "Fetching arguments from function declarations" testList
   where
@@ -248,7 +281,11 @@ functionExecutionTests = testGroup "Function execution tests" testList
   where
     testList =
       [
-        executesVerySimpleFunction
+        executesVerySimpleFunction,
+        executesVerySimpleFunctionTwo,
+        executesMixedArgFunction,
+        executesFunctionWithFin,
+        executesFunctionWithSubFunc
       ]
 
 executesVerySimpleFunction = testCase name assertion
@@ -258,3 +295,35 @@ executesVerySimpleFunction = testCase name assertion
     d = name
     a = Num 1.0
     f = executeMain . getMainTree $ "fish return_n >(n)> <(n)< <(return_n >(1)>)<"
+
+executesVerySimpleFunctionTwo = testCase name assertion
+  where
+    name = "A very simple function can be defined and executed"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f = executeMain . getMainTree $ "fish add >(x)> >(y)> <(+ >(x)> >(y)>)< <(add >(1)> >(1)>)<"
+
+executesMixedArgFunction = testCase name assertion
+  where
+    name = "A very simple function can be defined and executed"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f = executeMain . getMainTree $ "fish add >(x)> >(y <(1)<)> <(+ >(x)> >(y)>)< <(add >(1)>)<"
+
+executesFunctionWithFin = testCase name assertion
+  where
+    name = "A function with a fin call can be executed"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f = executeMain . getMainTree $ "fish to_bool >(x)> <(fin >(x)> >(True)> >(False)>)< <(to_bool >(1)>)<"
+
+executesFunctionWithSubFunc = testCase name assertion
+  where
+    name = "A function with a sub-function definition can be executed"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 0.0
+    f = executeMain . getMainTree $ "fish subtract_one >(x)> >(fish sub >(y)> <(- >(y)> >(1)>)<)> <(sub >(x)>)< <(subtract_one >(1)>)<"
