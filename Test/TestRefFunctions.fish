@@ -48,8 +48,15 @@ fish to_bool /*Takes any truthy/falsy value and converts it to an explicit boole
 
 
 /*The below are all true statements*/
-<(and
-    >(1)>
-    >(not >(0)>)>
-)<
+>(x <(2)<)>
 
+>(y <(* 
+        >(2)> 
+        >(8)>
+    )<
+)>
+
+<(^
+    >(x)>
+    >(y)>
+)<

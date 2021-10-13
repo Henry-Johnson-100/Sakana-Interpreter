@@ -516,10 +516,7 @@ env = getMainEnv pt'
 met = getMainExecutionTree pt'
 
 calct' :: String -> Tree.Tree SyntaxUnit
-calct' =
-  head
-    . Tree.treeChildren
-    . SyntaxTree.generateSyntaxTree
+calct' = SyntaxTree.generateSyntaxTree
     . Lexer.tokenize
 
 -- calc' :: String -> D.Data
@@ -530,7 +527,7 @@ iotest = do
   args <- getArgs
   handle <- openFile (head args) ReadMode
   contents <- hGetContents handle
-  fPrintExecEnv . makeExecEnv . Tree.treeChildren
+  print . executeMain
     . SyntaxTree.generateSyntaxTree
     . Lexer.tokenize
     $ contents
