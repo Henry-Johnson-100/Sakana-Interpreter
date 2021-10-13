@@ -452,7 +452,7 @@ getNodeToken :: SyntaxTree -> Lexer.Token
 getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
 
 getTreeChildrenPrimitiveValues :: ExecEnv -> SyntaxTree -> [D.Data]
-getTreeChildrenPrimitiveValues env = map (evaluateNode env) . Tree.treeChildren
+getTreeChildrenPrimitiveValues env = map (execute env) . Tree.treeChildren
 
 getOperatorArgs :: ExecEnv -> SyntaxTree -> (D.Data, D.Data)
 getOperatorArgs env tr =
@@ -561,7 +561,7 @@ foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . DList.
 
 s' :: [Char]
 s' =
-  "fish return_n >(n)> <(n)< <(return_n >(1)>)<"
+  "fish b >(n)> <(fin >(n)> >(True)> >(false)>)< <(b >(1)>)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
@@ -580,6 +580,8 @@ calct' =
   head . Tree.treeChildren
     . SyntaxTree.generateSyntaxTree
     . Lexer.tokenize
+
+ex' = executeMain . SyntaxTree.generateSyntaxTree . Lexer.tokenize
 
 -- calc' :: String -> D.Data
 -- calc' = evaluateNode . calct'

@@ -317,7 +317,7 @@ executesFunctionWithFin = testCase name assertion
     name = "A function with a fin call can be executed"
     assertion = assertEqual d a f
     d = name
-    a = Num 2.0
+    a = Boolean True
     f = executeMain . getMainTree $ "fish to_bool >(x)> <(fin >(x)> >(True)> >(False)>)< <(to_bool >(1)>)<"
 
 executesFunctionWithSubFunc = testCase name assertion
