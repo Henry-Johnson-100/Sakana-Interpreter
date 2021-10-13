@@ -10,6 +10,9 @@ import Token.Util.Tree
 executeFirstChild :: String -> Data
 executeFirstChild = ExecutionTree.evaluateNode noEnv . ExecutionTree.calct'
 
+getMainTree :: String -> SyntaxTree
+getMainTree = generateSyntaxTree . tokenize
+
 agnosticizeLines tr = fmap (setLineToZero) tr
   where
     setLineToZero (SyntaxUnit t _ c) = SyntaxUnit t 0 c
@@ -24,7 +27,8 @@ tests = testGroup "ExecutionTree tests" testList
   where
     testList =
       [ functionDisambiguationTests,
-        functionDeclArgFetchingTests
+        functionDeclArgFetchingTests,
+        functionExecutionTests
       ]
         ++ concat
           [ numOperatorTests,
@@ -238,3 +242,19 @@ functionWithMultipleArgMixIsDisambiguatedOne = testCase name assertion
     d = name
     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> >(a <(4)<)> >(b <(5)<)> <(z)<"
     f = disambiguateFunction (noLineCalct "xyz >(1)> >(3)> >(5)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> >(a <(4)<)> >(b)> <(z)<")
+
+
+functionExecutionTests = testGroup "Function execution tests" testList 
+  where
+    testList =
+      [
+        executesVerySimpleFunction
+      ]
+
+executesVerySimpleFunction = testCase name assertion
+  where
+    name = "A very simple function can be defined and executed"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 1.0
+    f = executeMain . getMainTree $ "fish return_n >(n)> <(n)< <(return_n >(1)>)<"

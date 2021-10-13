@@ -224,7 +224,11 @@ execute env tr
       ]
       tr =
     execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
+  | treeIsFunctionCall tr = execute (encloseEnvIn (calledFunctionEnv tr) env) (disambiguateFunction tr (calledFunction tr))
   | otherwise = D.Null
+  where
+    calledFunctionEnv = makeExecEnv . Tree.treeChildren . calledFunction
+    calledFunction = symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode
 
 evaluateNode :: ExecEnv -> SyntaxTree -> D.Data
 evaluateNode _ Tree.Empty = D.Null
@@ -469,7 +473,6 @@ applyIsPrimitiveEvaluable =
   )
     . DList.singleton
 
--- Not a fan so far desu, seems like a pretty expensive function
 disambiguateFunction :: SyntaxTree -> SyntaxTree -> SyntaxTree
 disambiguateFunction funcCall funcDef =
   Tree.reTree funcDef
@@ -543,11 +546,7 @@ foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . DList.
 
 s' :: [Char]
 s' =
-  ">(x <(+ >(1)> >(2)>)< )>\n"
-    ++ ">(y <(2)< )>\n"
-    ++ "<(* \n "
-    ++ ">(x)> \n"
-    ++ ">(y)>)<"
+  "fish return_n >(n)> <(n)< <(return_n >(1)>)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
