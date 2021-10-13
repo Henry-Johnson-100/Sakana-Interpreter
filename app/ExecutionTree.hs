@@ -1,5 +1,5 @@
 module ExecutionTree
-  ( calc',
+  ( -- calc',
     calct',
     evaluateNode,
     executeMain,
@@ -207,13 +207,23 @@ executeMain :: Tree.Tree SyntaxUnit -> D.Data
 executeMain tr = execute (getMainEnv tr) (getMainExecutionTree tr)
 
 execute :: ExecEnv -> SyntaxTree -> D.Data
-execute env tr = D.Null
+execute env tr
+  | treeIsPrimitivelyEvaluable tr = evaluateNode env tr
+  | treeIsSymbolValueBinding tr =
+    (evaluateNode env . DMaybe.fromJust . head' . Tree.treeChildren) tr
+  --The following guard is a bit of a hack to get simple value bindings to execute
+  | tr
+      `meetsConditions` [ null . Tree.treeChildren,
+                          not . DMaybe.isNothing . Tree.treeNode
+                        ] =
+    execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
+  | otherwise = D.Null
 
-evaluateNode :: SyntaxTree -> D.Data
-evaluateNode Tree.Empty = D.Null
-evaluateNode tr = case applyIsPrimitiveEvaluable tr of
-  [True, False, False] -> evaluateOperator tr
-  [False, True, False] -> evaluateFin tr
+evaluateNode :: ExecEnv -> SyntaxTree -> D.Data
+evaluateNode _ Tree.Empty = D.Null
+evaluateNode env tr = case applyIsPrimitiveEvaluable tr of
+  [True, False, False] -> evaluateOperator env tr
+  [False, True, False] -> evaluateFin env tr
   [False, False, True] -> evaluatePrimitiveData tr
   _ ->
     Exception.raiseError $
@@ -223,15 +233,16 @@ evaluateNode tr = case applyIsPrimitiveEvaluable tr of
         ( "The tree: "
             ++ (Tree.fPrintTree 0 tr)
             ++ "Matched too many criteria for evaluation in the function, "
-            ++ "\'evaluateNode\'"
+            ++ "\'evaluateNode\' : "
+            ++ (show . applyIsPrimitiveEvaluable) tr
         )
         Exception.Fatal
 
 evaluatePrimitiveData :: SyntaxTree -> D.Data
 evaluatePrimitiveData = getNodeTokenBaseData
 
-evaluateOperator :: SyntaxTree -> D.Data
-evaluateOperator tr
+evaluateOperator :: ExecEnv -> SyntaxTree -> D.Data
+evaluateOperator env tr
   | both D.isNumeric args = case getNodeOperator tr of
     O.Add -> uncurryArgsToNumOperator (+)
     O.Sub -> uncurryArgsToNumOperator (-)
@@ -270,7 +281,7 @@ evaluateOperator tr
   | otherwise =
     operatorTypeError ((O.fromOp . getNodeOperator) tr) (map show ([fst, snd] <*> [args]))
   where
-    args = getOperatorArgs tr
+    args = getOperatorArgs env tr
     argValGeneric f =
       ( (DMaybe.fromJust . f . fst) args,
         (DMaybe.fromJust . f . snd) args
@@ -305,10 +316,10 @@ evaluateOperator tr
           )
           Exception.Fatal
 
-evaluateFin :: SyntaxTree -> D.Data
-evaluateFin tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
+evaluateFin :: ExecEnv -> SyntaxTree -> D.Data
+evaluateFin env tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
   where
-    args = getTreeChildrenPrimitiveValues tr
+    args = getTreeChildrenPrimitiveValues env tr
 
 --Boolean comparison functions used primarily for function guards.------------------------
 ------------------------------------------------------------------------------------------
@@ -419,11 +430,11 @@ getNodeTokenBaseData =
 getNodeToken :: SyntaxTree -> Lexer.Token
 getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
 
-getTreeChildrenPrimitiveValues :: SyntaxTree -> [D.Data]
-getTreeChildrenPrimitiveValues = map evaluateNode . Tree.treeChildren
+getTreeChildrenPrimitiveValues :: ExecEnv -> SyntaxTree -> [D.Data]
+getTreeChildrenPrimitiveValues env = map (evaluateNode env) . Tree.treeChildren
 
-getOperatorArgs :: SyntaxTree -> (D.Data, D.Data)
-getOperatorArgs tr =
+getOperatorArgs :: ExecEnv -> SyntaxTree -> (D.Data, D.Data)
+getOperatorArgs env tr =
   ( (getValue . DMaybe.fromJust . head' . Tree.treeChildren) tr,
     (getValue . DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr
   )
@@ -431,7 +442,7 @@ getOperatorArgs tr =
     getValue tr =
       if nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr
         then evaluatePrimitiveData tr
-        else evaluateNode tr
+        else execute env tr
 
 getFunctionDeclPositionalArgs :: Tree.Tree a -> [Tree.Tree a]
 getFunctionDeclPositionalArgs =
@@ -452,6 +463,9 @@ applyIsPrimitiveEvaluable =
       <*>
   )
     . DList.singleton
+
+-- rebind :: D.Data -> SyntaxTree -> SyntaxTree
+-- rebind val =
 
 -- Utility functions, including an improved head and tail---------------------------------
 ------------------------------------------------------------------------------------------
@@ -475,13 +489,19 @@ last' :: [a] -> Maybe a
 last' [] = Nothing
 last' xs = (Just . last) xs
 
+meetsConditions :: a -> [a -> Bool] -> Bool
+meetsConditions xs conditions = all id . (conditions <*>) . DList.singleton $ xs
+
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
 s' :: [Char]
 s' =
-  "fish not >(x)> <(fin \n>(x)> \n>(False)> \n>(True)>\n)< \n"
-    ++ "<(not >(True)>)<"
+  ">(x <(+ >(1)> >(2)>)< )>\n"
+    ++ ">(y <(2)< )>\n"
+    ++ "<(* \n "
+    ++ ">(x)> \n"
+    ++ ">(y)>)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
@@ -502,8 +522,8 @@ calct' =
     . SyntaxTree.generateSyntaxTree
     . Lexer.tokenize
 
-calc' :: String -> D.Data
-calc' = evaluateNode . calct'
+-- calc' :: String -> D.Data
+-- calc' = evaluateNode . calct'
 
 iotest :: IO ()
 iotest = do
