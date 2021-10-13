@@ -1,16 +1,10 @@
-fish variable <(500)< /*The value 500 is bound to the id 'variable' in this way
-     therefore: <(variable)< == <(variable >()>)< == <(500)< are all identical in value*/
-
-fish not 
-    >(x)> 
-    <(
-        fin >(
-            >(x)>
-            >(False)>
-            >(True)>
-        )>
-    )<
-
+/*
+fish id
+    >(x)>
+    <(x)<
+*/
+fish not >(x)> <(fin >(x)> >(1)> >(0)>)<
+/*
 fish and
     >(x)>
     >(y)>
@@ -40,23 +34,13 @@ fish or
 
     )<
 
-fish to_bool /*Takes any truthy/falsy value and converts it to an explicit boolean*/
+fish to_bool
     >(x)>
     <(
         not >(not >(x)>)>
     )<
 
+*/
 
-/*The below are all true statements*/
->(x <(2)<)>
-
->(y <(* 
-        >(2)> 
-        >(8)>
-    )<
-)>
-
-<(^
-    >(x)>
-    >(y)>
+<( False
 )<
