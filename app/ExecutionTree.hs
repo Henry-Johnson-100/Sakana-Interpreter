@@ -3,6 +3,9 @@ module ExecutionTree
     calct',
     evaluateNode,
     executeMain,
+    --Anything below this is a temporary export
+    disambiguateFunction,
+    noEnv,
   )
 where
 
@@ -412,6 +415,9 @@ treeIsExecutable tr =
   where
     contextIsReturn = nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context)
 
+treeIsPositionalArg :: SyntaxTree -> Bool
+treeIsPositionalArg = null . Tree.treeChildren
+
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -438,9 +444,12 @@ getOperatorArgs env tr =
         then evaluatePrimitiveData tr
         else execute env tr
 
-getFunctionDeclPositionalArgs :: Tree.Tree a -> [Tree.Tree a]
+getFuncDeclArgs :: SyntaxTree -> [SyntaxTree]
+getFuncDeclArgs = tail' . init' . Tree.treeChildren
+
+getFunctionDeclPositionalArgs :: SyntaxTree -> [SyntaxTree]
 getFunctionDeclPositionalArgs =
-  filter (null . Tree.treeChildren) . tail' . init' . Tree.treeChildren
+  filter (null . Tree.treeChildren) . getFuncDeclArgs
 
 ----misc----------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -458,8 +467,47 @@ applyIsPrimitiveEvaluable =
   )
     . DList.singleton
 
--- rebind :: D.Data -> SyntaxTree -> SyntaxTree
--- rebind val =
+-- Not a fan so far desu, seems like a pretty expensive function
+disambiguateFunction :: SyntaxTree -> SyntaxTree -> SyntaxTree
+disambiguateFunction funcCall funcDef =
+  Tree.reTree funcDef
+    Tree.-<= ( (funcId funcDef) :
+               (rebindFunctionArgs (Tree.treeChildren funcCall) (getFuncDeclArgs funcDef))
+                 ++ [funcBody funcDef]
+             )
+  where
+    funcId = DMaybe.fromJust . head' . Tree.treeChildren
+    funcBody = DMaybe.fromJust . last' . Tree.treeChildren
+
+-- | Will bind a function call's arguments to a function declaration's positional
+-- arguments, will only rebind while the function declaration has positional args
+-- Will ignore any extra positional arguments from the function call.
+-- Will raise an error if the function call does not have enough positional args.
+rebindFunctionArgs :: [SyntaxTree] -> [SyntaxTree] -> [SyntaxTree]
+rebindFunctionArgs _ [] = []
+rebindFunctionArgs (fca : fcas) (fda : fdas)
+  | treeIsPositionalArg fda = (bindValue fca fda) : rebindFunctionArgs fcas fdas
+  | otherwise = fda : rebindFunctionArgs (fca : fcas) fdas
+  where
+    bindValue trFrom trTo =
+      trTo
+        Tree.-<- ( Tree.tree
+                     . setContext
+                     . DMaybe.fromMaybe
+                       (SyntaxTree.genericSyntaxUnit (Lexer.Data (D.Null)))
+                     . Tree.treeNode
+                 )
+          trFrom
+    setContext (SyntaxTree.SyntaxUnit t _ _) = SyntaxTree.SyntaxUnit t 0 B.Return
+rebindFunctionArgs [] fdas =
+  Exception.raiseError $
+    Exception.newException
+      Exception.MissingPositionalArguments
+      (map (Tree.maybeOnTreeNode 0 SyntaxUnit.line) fdas)
+      ( "Missing positional arguments:\n"
+          ++ (unlines . map (Tree.maybeOnTreeNode "N/A" (show))) fdas
+      )
+      Exception.Fatal
 
 -- Utility functions, including an improved head and tail---------------------------------
 ------------------------------------------------------------------------------------------

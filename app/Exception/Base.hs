@@ -19,6 +19,7 @@ data ExceptionType
   | UndefinedOperatorBehavior
   | OperatorTypeError
   | SymbolNotFound
+  | MissingPositionalArguments
   deriving (Show, Eq)
 
 data ExceptionSeverity

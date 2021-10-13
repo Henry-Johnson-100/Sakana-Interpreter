@@ -1,3 +1,4 @@
+import Data.Maybe
 import ExecutionTree
 import Lexer
 import SyntaxTree
@@ -12,7 +13,13 @@ import Token.Data
 import Token.Util.Tree
 
 executeFirstChild :: String -> Data
-executeFirstChild = ExecutionTree.evaluateNode . ExecutionTree.calct'
+executeFirstChild = ExecutionTree.evaluateNode noEnv . ExecutionTree.calct'
+
+agnosticizeLines tr = fmap (setLineToZero) tr
+  where
+    setLineToZero (SyntaxUnit t _ c) = SyntaxUnit t 0 c
+
+noLineCalct = agnosticizeLines . calct'
 
 -- | main
 main = do
@@ -21,10 +28,11 @@ main = do
 tests = testGroup "ExecutionTree tests" testList
   where
     testList =
-      concat
-        [ numOperatorTests,
-          boolOperatorTests
-        ]
+      [functionDisambiguationTests]
+        ++ concat
+          [ numOperatorTests,
+            boolOperatorTests
+          ]
 
 bulkTest name d assertionsAndFunctions =
   map
@@ -93,6 +101,21 @@ boolOperatorTests =
         )
     )
 
+functionDisambiguationTests = testGroup "Function disambiguation tests" testList
+  where
+    testList = [simpleFunctionIsDisambiguated]
+
+simpleFunctionIsDisambiguated = testCase name assertion
+  where
+    name = "Simple function can be disambiguated"
+    assertion = assertEqual d a f
+    d = "Simple function can be disambiguated"
+    a = noLineCalct "fish return_n >(n <(1)<)> <(n)<"
+    f =
+      disambiguateFunction
+        (noLineCalct "return_n >(1)>")
+        (noLineCalct "fish return_n >(n)> <(n)<")
+
 -- #TODO
 -- bindingRecallTests = testGroup "value binding recall tests" testList
 --   where
@@ -104,4 +127,4 @@ boolOperatorTests =
 --   assertion = assertEqual d a f
 --   d = "Recal primitive global value binding"
 --   a = Num 1.0
---   f = 
+--   f =
