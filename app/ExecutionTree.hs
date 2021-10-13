@@ -7,7 +7,7 @@ module ExecutionTree
     disambiguateFunction,
     noEnv,
     getFuncDeclArgs,
-    getFunctionDeclPositionalArgs
+    getFunctionDeclPositionalArgs,
   )
 where
 
@@ -501,15 +501,17 @@ rebindFunctionArgs (fca : fcas) (fda : fdas)
                  )
           trFrom
     setContext (SyntaxTree.SyntaxUnit t _ _) = SyntaxTree.SyntaxUnit t 0 B.Return
-rebindFunctionArgs [] fdas =
-  Exception.raiseError $
-    Exception.newException
-      Exception.MissingPositionalArguments
-      (map (Tree.maybeOnTreeNode 0 SyntaxUnit.line) fdas)
-      ( "Missing positional arguments:\n"
-          ++ (unlines . map (Tree.maybeOnTreeNode "N/A" (show))) fdas
-      )
-      Exception.Fatal
+rebindFunctionArgs [] fdas
+  | (any id . map treeIsPositionalArg) fdas =
+    Exception.raiseError $
+      Exception.newException
+        Exception.MissingPositionalArguments
+        (map (Tree.maybeOnTreeNode 0 SyntaxUnit.line) fdas)
+        ( "Missing positional arguments:\n"
+            ++ (unlines . map (Tree.maybeOnTreeNode "N/A" (show))) fdas
+        )
+        Exception.Fatal
+  | otherwise = fdas
 
 -- Utility functions, including an improved head and tail---------------------------------
 ------------------------------------------------------------------------------------------
