@@ -79,8 +79,8 @@ class Truthy a where
 
 instance Truthy D.Data where
   truthy (D.Num x) = x == 1.0
-  --This line kind of jumps out at me for some reason
-  truthy (D.String x) = (not . any id . ([not . all DChar.isSpace, not . null] <*>)) [x]
+  truthy (D.String x) =
+    not $ foldIdApplicativeOnSingleton any [not . all DChar.isSpace, not . null] x
   truthy (D.Boolean x) = x
   truthy _ = False
   falsy = not . truthy
@@ -212,10 +212,12 @@ execute env tr
   | treeIsSymbolValueBinding tr =
     (evaluateNode env . DMaybe.fromJust . head' . Tree.treeChildren) tr
   --The following guard is a bit of a hack to get simple value bindings to execute
-  | tr
-      `meetsConditions` [ null . Tree.treeChildren,
-                          not . DMaybe.isNothing . Tree.treeNode
-                        ] =
+  | foldIdApplicativeOnSingleton
+      all
+      [ null . Tree.treeChildren,
+        not . DMaybe.isNothing . Tree.treeNode
+      ]
+      tr =
     execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
   | otherwise = D.Null
 
@@ -333,13 +335,11 @@ nodeIsDataToken = LikeClass.like Lexer.genericData . SyntaxUnit.token
 
 nodeIsDataTokenAndPrimitive :: SyntaxUnit -> Bool
 nodeIsDataTokenAndPrimitive =
-  all id
-    . ( [ nodeIsDataToken,
-          ((DMaybe.maybe False (D.isPrimitive)) . Lexer.baseData . SyntaxUnit.token)
-        ]
-          <*>
-      )
-    . DList.singleton
+  foldIdApplicativeOnSingleton
+    all
+    [ nodeIsDataToken,
+      (DMaybe.maybe False D.isPrimitive) . Lexer.baseData . SyntaxUnit.token
+    ]
 
 nodeIsId :: SyntaxUnit -> Bool
 nodeIsId = Lexer.dataTokenIsId . SyntaxUnit.token
@@ -368,15 +368,12 @@ treeIsSymbolValueBinding tr =
 
 treeIsPrimitiveValueBinding :: SyntaxTree -> Bool
 treeIsPrimitiveValueBinding =
-  all id
-    . ( ( [ treeIsSymbolValueBinding,
-            nodeStrictlySatisfies nodeIsId,
-            treeIsPrimitivelyEvaluable . head . Tree.treeChildren
-          ]
-            <*>
-        )
-          . DList.singleton
-      )
+  foldIdApplicativeOnSingleton
+    all
+    [ treeIsSymbolValueBinding,
+      nodeStrictlySatisfies nodeIsId,
+      treeIsPrimitivelyEvaluable . head . Tree.treeChildren
+    ]
 
 treeIsPrimitivelyEvaluable :: SyntaxTree -> Bool
 treeIsPrimitivelyEvaluable = any id . applyIsPrimitiveEvaluable
@@ -401,14 +398,11 @@ treeIsFunctionCall tr =
 --  are storeable and should be stored as normal value bindings.
 treeIsStoreable :: SyntaxTree -> Bool
 treeIsStoreable =
-  any
-    id
-    . ( [ nodeStrictlySatisfies nodeIsDeclarationRequiringId,
-          treeIsSymbolValueBinding
-        ]
-          <*>
-      )
-    . DList.singleton
+  foldIdApplicativeOnSingleton
+    any
+    [ nodeStrictlySatisfies nodeIsDeclarationRequiringId,
+      treeIsSymbolValueBinding
+    ]
 
 treeIsExecutable :: SyntaxTree -> Bool
 treeIsExecutable Tree.Empty = False
@@ -489,8 +483,8 @@ last' :: [a] -> Maybe a
 last' [] = Nothing
 last' xs = (Just . last) xs
 
-meetsConditions :: a -> [a -> Bool] -> Bool
-meetsConditions xs conditions = all id . (conditions <*>) . DList.singleton $ xs
+foldIdApplicativeOnSingleton :: ((a1 -> a1) -> [b] -> c) -> [a2 -> b] -> a2 -> c
+foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . DList.singleton
 
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -516,7 +510,9 @@ env = getMainEnv pt'
 met = getMainExecutionTree pt'
 
 calct' :: String -> Tree.Tree SyntaxUnit
-calct' = SyntaxTree.generateSyntaxTree
+calct' =
+  head . Tree.treeChildren
+    . SyntaxTree.generateSyntaxTree
     . Lexer.tokenize
 
 -- calc' :: String -> D.Data
