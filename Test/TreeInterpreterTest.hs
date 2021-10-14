@@ -285,7 +285,9 @@ functionExecutionTests = testGroup "Function execution tests" testList
         executesVerySimpleFunctionTwo,
         executesMixedArgFunction,
         executesFunctionWithFin,
-        executesFunctionWithSubFunc
+        executesFunctionWithSubFunc,
+        simpleRecursiveFunction,
+        functionsCallOtherFunctions
       ]
 
 executesVerySimpleFunction = testCase name assertion
@@ -327,3 +329,19 @@ executesFunctionWithSubFunc = testCase name assertion
     d = name
     a = Num 0.0
     f = executeMain . getMainTree $ "fish subtract_one >(x)> >(fish sub >(y)> <(- >(y)> >(1)>)<)> <(sub >(x)>)< <(subtract_one >(1)>)<"
+
+simpleRecursiveFunction = testCase name assertion
+  where
+    name = "A simple recursive function works"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 0.0
+    f = executeMain . getMainTree $ "fish to_zero >(n)> <(fin >(== >(n)> >(0)> )> >(0)> >(to_zero >( - >(n)> >(1)>)>)>)< <(to_zero >(10)>)<"
+
+functionsCallOtherFunctions = standardTimeout 5 $ testCase name assertion
+  where
+    name = "A function can call another function, also, variable scope works appropriately between functions"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 5.0
+    f = executeMain . getMainTree $ "fish id >(x)> <(x)< fish idd >(x)> <( id >(x)> )< <(idd >(5)>)<"

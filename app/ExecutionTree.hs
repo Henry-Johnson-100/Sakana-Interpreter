@@ -215,16 +215,11 @@ executeMain tr = execute (getMainEnv tr) (getMainExecutionTree tr)
 execute :: ExecEnv -> SyntaxTree -> D.Data
 execute env tr
   | treeIsPrimitivelyEvaluable tr = evaluateNode env tr
-  | treeIsSymbolValueBinding tr --I think this is the source of an annoying error #FIXME
+  | treeIsSymbolValueBinding tr --I think this is the source of an annoying error #FIXME --eventually, when we get y <(x)< and x <(1)< we get to this point and evaluate the node, because evaluateNode does not lookup values, I suspect this throws an error
     =
     (evaluateNode env . DMaybe.fromJust . head' . Tree.treeChildren) tr
   --The following guard is a bit of a hack to get simple value bindings to execute
-  | foldIdApplicativeOnSingleton
-      all
-      [ null . Tree.treeChildren,
-        not . DMaybe.isNothing . Tree.treeNode
-      ]
-      tr =
+  | treeIsSimpleValueBindingCall tr = 
     execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
   | treeIsFunctionCall tr --This function is super ugly
     =
@@ -232,6 +227,7 @@ execute env tr
       (encloseEnvIn (calledFunctionEnv env tr) env)
       (getMainExecutionTree (disambiguateFunction tr (calledFunction env tr)))
   | otherwise = D.Null
+
 
 calledFunctionEnv :: ExecEnv -> SyntaxTree -> ExecEnv
 calledFunctionEnv env tr =
@@ -242,7 +238,9 @@ calledFunction env = symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeN
 
 evaluateNode :: ExecEnv -> SyntaxTree -> D.Data
 evaluateNode _ Tree.Empty = D.Null
-evaluateNode env tr = case applyIsPrimitiveEvaluable tr of
+evaluateNode env tr
+  | treeIsSimpleValueBindingCall tr = execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
+  | otherwise = case applyIsPrimitiveEvaluable tr of
   [True, False, False] -> evaluateOperator env tr
   [False, True, False] -> evaluateFin env tr
   [False, False, True] -> evaluatePrimitiveData tr
@@ -382,7 +380,7 @@ nodeIsDeclarationRequiringId =
 
 treeIsSymbolValueBinding :: SyntaxTree -> Bool
 treeIsSymbolValueBinding tr =
-  nodeStrictlySatisfies nodeIsDataToken tr
+  nodeStrictlySatisfies nodeIsId tr
     && firstChildIsReturnContext tr
   where
     firstChildIsReturnContext tr =
@@ -413,6 +411,15 @@ treeIsFunctionCall tr =
       null
         . filter (Tree.maybeOnTreeNode True ((B.Return ==) . SyntaxUnit.context))
         . Tree.treeChildren
+
+treeIsSimpleValueBindingCall :: SyntaxTree -> Bool
+treeIsSimpleValueBindingCall tr = nodeStrictlySatisfies nodeIsId tr &&
+  foldIdApplicativeOnSingleton
+    all
+    [ null . Tree.treeChildren,
+      not . DMaybe.isNothing . Tree.treeNode
+    ] tr
+
 
 -- | Can be stored in a symbol table.
 --  As of right now, treeIsStoreable and treeIsExecutable are not opposites.
@@ -460,10 +467,7 @@ getOperatorArgs env tr =
     (getValue . DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr
   )
   where
-    getValue tr =
-      if nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr
-        then evaluatePrimitiveData tr
-        else execute env tr
+    getValue tr = execute env tr
 
 getFuncDeclArgs :: SyntaxTree -> [SyntaxTree]
 getFuncDeclArgs = tail' . init' . Tree.treeChildren
@@ -561,7 +565,7 @@ foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . DList.
 
 s' :: [Char]
 s' =
-  "fish b >(n)> <(fin >(n)> >(True)> >(false)>)< <(b >(1)>)<"
+  "fish subtract_one >(x)> >(fish sub >(y)> <(- >(y)> >(1)>)<)> <(sub >(x)>)< <(subtract_one >(1)>)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'

@@ -1,10 +1,10 @@
-/*
+
 fish id
     >(x)>
     <(x)<
-*/
+
 fish not >(x)> <(fin >(x)> >(False)> >(True)>)<
-/*
+
 fish and
     >(x)>
     >(y)>
@@ -40,7 +40,9 @@ fish to_bool
         not >(not >(x)>)>
     )<
 
-*/
+fish test >(x)> <(and >(x)> >(True)>)<
 
-<( not >(True)>
+<( 
+    or >(False)>
+    >(True)>
 )<
