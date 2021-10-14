@@ -106,8 +106,7 @@ boolOperatorTests =
 finTests = testGroup "Fin control tests" testList
   where
     testList =
-      [
-        finWorksOnExplicitBool,
+      [ finWorksOnExplicitBool,
         finWorksOnImplicitBool
       ]
 
@@ -276,20 +275,6 @@ functionWithMultipleArgMixIsDisambiguatedOne = testCase name assertion
     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> >(a <(4)<)> >(b <(5)<)> <(z)<"
     f = disambiguateFunction (noLineCalct "xyz >(1)> >(3)> >(5)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> >(a <(4)<)> >(b)> <(z)<")
 
-
-functionExecutionTests = testGroup "Function execution tests" testList 
-  where
-    testList =
-      [
-        executesVerySimpleFunction,
-        executesVerySimpleFunctionTwo,
-        executesMixedArgFunction,
-        executesFunctionWithFin,
-        executesFunctionWithSubFunc,
-        simpleRecursiveFunction,
-        functionsCallOtherFunctions
-      ]
-
 executesVerySimpleFunction = testCase name assertion
   where
     name = "A very simple function can be defined and executed"
@@ -322,6 +307,14 @@ executesFunctionWithFin = testCase name assertion
     a = Boolean True
     f = executeMain . getMainTree $ "fish to_bool >(x)> <(fin >(x)> >(True)> >(False)>)< <(to_bool >(1)>)<"
 
+executesFunctionWithNestedFin = testCase name assertion
+  where
+    name = "A function with a nested fin call can be executed"
+    assertion = assertEqual d a f
+    d = name
+    a = Boolean True
+    f = executeMain . getMainTree $ "fish and >(x)> >(y)> <(fin >(x)> >(fin >(y)> >(True)> >(False)>)> >(False)>)< <(and >(True)> >(True)>)<"
+
 executesFunctionWithSubFunc = testCase name assertion
   where
     name = "A function with a sub-function definition can be executed"
@@ -338,10 +331,113 @@ simpleRecursiveFunction = testCase name assertion
     a = Num 0.0
     f = executeMain . getMainTree $ "fish to_zero >(n)> <(fin >(== >(n)> >(0)> )> >(0)> >(to_zero >( - >(n)> >(1)>)>)>)< <(to_zero >(10)>)<"
 
-functionsCallOtherFunctions = standardTimeout 5 $ testCase name assertion
+functionsCallOtherFunctions = standardTimeout 3 $ testCase name assertion
   where
     name = "A function can call another function, also, variable scope works appropriately between functions"
     assertion = assertEqual d a f
     d = name
     a = Num 5.0
     f = executeMain . getMainTree $ "fish id >(x)> <(x)< fish idd >(x)> <( id >(x)> )< <(idd >(5)>)<"
+
+concurrentFunctionCallsWork = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Function calls that take and return different values work appropriately."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 3.0
+    f = executeMain . getMainTree $ "fish id >(x)> <(x)< <(+ >(id >(1)>)> >(id >(2)>)>)<"
+
+functionsCallOtherFunctionsConcurrently = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Concurrent function calls work for functions that call other functions."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 3.0
+    f = executeMain . getMainTree $ "fish id >(x)> <(x)< fish idd >(x)> <( id >(x)> )< <(+ >(id >(1)>)> >(idd >(2)>)> )<"
+
+simplePartialFunctionApplication = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A function taking one argument returns a function that takes one argument and returns a value."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f = executeMain . getMainTree $ "fish add >(x)> <(fish add_ >(y)> <(+ >(x)> >(y)>)< )< <(add >(1)> >(1)>)<"
+
+variableCanBeReboundLater = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A later value binding to a name will override an earlier binding."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f = executeMain . getMainTree $ ">(x <(1)<)> >(x <(2)<)> <(x)<"
+
+simpleShadowingOfId = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A binding name can be shadowed in other scopes."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f = executeMain . getMainTree $ ">(x <(1)<)> fish id >(x)> <(x)< <(id >(2)>)<"
+
+simpleShadowingOfIdTwo = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A binding name can be shadowed in other scopes (Test two)."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 1.0
+    f = executeMain . getMainTree $ ">(x <(1)<)> fish id >(x)> <(x)< <(id >(x)>)<"
+
+functionsWithNoExplicitSendFishAreAllowed = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Functions can be defined with no explicit send fish."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 1.0
+    f = executeMain . getMainTree $ "fish x <(1)< <(x)<"
+
+functionsWithNoExplicitSendFishAreAllowedTwo = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Functions without explicit send fish can be called with or without an empty send fish."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 1.0
+    f = executeMain . getMainTree $ "fish x <(1)< <(x >()>)<"
+
+functionsWithExplicitNoArgs = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A function can be explicitly declared to take no arguments."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 1.0
+    f = executeMain . getMainTree $ "fish x >()> <(1)< <(x >()>)<"
+
+functionsWithExplicitNoArgsTwo = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A function can be explicitly declared to take no arguments."
+    assertion = assertEqual d a f
+    d = name ++ "And can be called with an explicit or implicit send fish."
+    a = Num 1.0
+    f = executeMain . getMainTree $ "fish x >()> <(1)< <(x >()>)<"
+
+functionExecutionTests = testGroup "Function execution tests" testList
+  where
+    testList =
+      [ functionsWithExplicitNoArgsTwo,
+        functionsWithExplicitNoArgs,
+        functionsWithNoExplicitSendFishAreAllowedTwo,
+        functionsWithNoExplicitSendFishAreAllowed,
+        simpleShadowingOfIdTwo,
+        executesVerySimpleFunction,
+        executesVerySimpleFunctionTwo,
+        executesMixedArgFunction,
+        executesFunctionWithFin,
+        executesFunctionWithNestedFin,
+        executesFunctionWithSubFunc,
+        simpleRecursiveFunction,
+        functionsCallOtherFunctions,
+        concurrentFunctionCallsWork,
+        functionsCallOtherFunctionsConcurrently,
+        simplePartialFunctionApplication,
+        variableCanBeReboundLater,
+        simpleShadowingOfId
+      ]
