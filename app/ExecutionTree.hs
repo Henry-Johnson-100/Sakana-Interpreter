@@ -215,14 +215,12 @@ executeMain tr = execute (getMainEnv tr) (getMainExecutionTree tr)
 execute :: ExecEnv -> SyntaxTree -> D.Data
 execute env tr
   | treeIsPrimitivelyEvaluable tr = evaluateNode env tr
-  | treeIsSymbolValueBinding tr --I think this is the source of an annoying error #FIXME --eventually, when we get y <(x)< and x <(1)< we get to this point and evaluate the node, because evaluateNode does not lookup values, I suspect this throws an error
-    =
+  | treeIsSymbolValueBinding tr =
     (evaluateNode env . DMaybe.fromJust . head' . Tree.treeChildren) tr
-  --The following guard is a bit of a hack to get simple value bindings to execute
-  | treeIsSimpleValueBindingCall tr =
-    execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
-  | treeIsFunctionCall tr --This function is super ugly
-    =
+  | foldIdApplicativeOnSingleton
+      any
+      [treeIsFunctionCall, treeIsSimpleValueBindingCall]
+      tr =
     execute
       (encloseEnvIn (calledFunctionEnv env tr) env)
       (getMainExecutionTree (disambiguateFunction tr (calledFunction env tr)))
@@ -238,7 +236,8 @@ calledFunction env = symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeN
 evaluateNode :: ExecEnv -> SyntaxTree -> D.Data
 evaluateNode _ Tree.Empty = D.Null
 evaluateNode env tr
-  | treeIsSimpleValueBindingCall tr = execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
+  | treeIsSimpleValueBindingCall tr =
+    execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
   | otherwise = case applyIsPrimitiveEvaluable tr of
     [True, False, False] -> evaluateOperator env tr
     [False, True, False] -> evaluateFin env tr
@@ -411,9 +410,6 @@ treeIsFunctionCall tr =
         . filter (Tree.maybeOnTreeNode True ((B.Return ==) . SyntaxUnit.context))
         . Tree.treeChildren
 
--- where
---   nodeIsNullOrContextIsReturn = foldIdApplicativeOnSingleton any ([Tree.maybeOnTreeNode True] <*> [(B.Return ==) . SyntaxUnit.context, (Lexer.Data (D.Null) ==) . SyntaxUnit.token])
-
 treeIsSimpleValueBindingCall :: SyntaxTree -> Bool
 treeIsSimpleValueBindingCall tr =
   nodeStrictlySatisfies nodeIsId tr
@@ -499,10 +495,15 @@ disambiguateFunction :: SyntaxTree -> SyntaxTree -> SyntaxTree
 disambiguateFunction funcCall funcDef =
   Tree.reTree funcDef
     Tree.-<= ( (funcId funcDef) :
-               (rebindFunctionArgs (Tree.treeChildren funcCall) (getFuncDeclArgs funcDef))
+               ( rebindFunctionArgs
+                   (Tree.treeChildren funcCall)
+                   ((filterNullNodes . getFuncDeclArgs) funcDef)
+               )
                  ++ [funcBody funcDef]
              )
   where
+    filterNullNodes =
+      filter (Tree.maybeOnTreeNode False ((Lexer.Data (D.Null) /=) . SyntaxUnit.token))
     funcId = DMaybe.fromJust . head' . Tree.treeChildren
     funcBody = DMaybe.fromJust . last' . Tree.treeChildren
 

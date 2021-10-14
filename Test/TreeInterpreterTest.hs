@@ -347,6 +347,14 @@ concurrentFunctionCallsWork = standardTimeout 3 $ testCase name assertion
     a = Num 3.0
     f = executeMain . getMainTree $ "fish id >(x)> <(x)< <(+ >(id >(1)>)> >(id >(2)>)>)<"
 
+concurrentFunctionCallsWorkTwo = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Function calls that take and return different values work appropriately (null or 0 send fish)."
+    assertion = assertEqual d a f
+    d = name ++ " functions that take no arguments should be able to be called flexibly with a null or 0 send fish"
+    a = Num 3.0
+    f = executeMain . getMainTree $ "fish x <(1)< fish y <(2)< <(+ >(x >()>)> >(y)>)<"
+
 functionsCallOtherFunctionsConcurrently = standardTimeout 3 $ testCase name assertion
   where
     name = "Concurrent function calls work for functions that call other functions."
@@ -445,6 +453,7 @@ functionExecutionTests = testGroup "Function execution tests" testList
         simpleRecursiveFunction,
         functionsCallOtherFunctions,
         concurrentFunctionCallsWork,
+        concurrentFunctionCallsWorkTwo,
         functionsCallOtherFunctionsConcurrently,
         simplePartialFunctionApplication,
         variableCanBeReboundLater,
