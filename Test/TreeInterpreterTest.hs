@@ -377,7 +377,7 @@ simpleShadowingOfId = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 2.0
-    f = executeMain . getMainTree $ ">(x <(1)<)> fish id >(x)> <(x)< <(id >(2)>)<"
+    f = executeMain . getMainTree $ "fish x <(1)< fish id >(x)> <(x)< <(id >(2)>)<"
 
 simpleShadowingOfIdTwo = standardTimeout 3 $ testCase name assertion
   where
@@ -385,19 +385,19 @@ simpleShadowingOfIdTwo = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 1.0
-    f = executeMain . getMainTree $ ">(x <(1)<)> fish id >(x)> <(x)< <(id >(x)>)<"
+    f = executeMain . getMainTree $ "fish x <(1)< fish id >(x)> <(x)< <(id >(x >()> )>)<"
 
 functionsWithNoExplicitSendFishAreAllowed = standardTimeout 3 $ testCase name assertion
   where
     name = "Functions can be defined with no explicit send fish."
     assertion = assertEqual d a f
-    d = name
+    d = name ++ "Can be called without any send fish"
     a = Num 1.0
     f = executeMain . getMainTree $ "fish x <(1)< <(x)<"
 
 functionsWithNoExplicitSendFishAreAllowedTwo = standardTimeout 3 $ testCase name assertion
   where
-    name = "Functions without explicit send fish can be called with or without an empty send fish."
+    name = "Functions without explicit send fish can be called with an empty send fish."
     assertion = assertEqual d a f
     d = name
     a = Num 1.0
@@ -405,11 +405,11 @@ functionsWithNoExplicitSendFishAreAllowedTwo = standardTimeout 3 $ testCase name
 
 functionsWithExplicitNoArgs = standardTimeout 3 $ testCase name assertion
   where
-    name = "A function can be explicitly declared to take no arguments."
+    name = "A function can be explicitly declared to take no arguments and can be called with no send fish."
     assertion = assertEqual d a f
     d = name
     a = Num 1.0
-    f = executeMain . getMainTree $ "fish x >()> <(1)< <(x >()>)<"
+    f = executeMain . getMainTree $ "fish x >()> <(1)< <(x)<"
 
 functionsWithExplicitNoArgsTwo = standardTimeout 3 $ testCase name assertion
   where
@@ -419,10 +419,19 @@ functionsWithExplicitNoArgsTwo = standardTimeout 3 $ testCase name assertion
     a = Num 1.0
     f = executeMain . getMainTree $ "fish x >()> <(1)< <(x >()>)<"
 
+functionCanReturnNull = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A function can return a null value."
+    assertion = assertEqual d a f
+    d = name ++ "And can be called with an explicit or implicit send fish."
+    a = Null
+    f = executeMain . getMainTree $ "fish n <()< <(n >()>)<"
+
 functionExecutionTests = testGroup "Function execution tests" testList
   where
     testList =
-      [ functionsWithExplicitNoArgsTwo,
+      [ functionCanReturnNull,
+        functionsWithExplicitNoArgsTwo,
         functionsWithExplicitNoArgs,
         functionsWithNoExplicitSendFishAreAllowedTwo,
         functionsWithNoExplicitSendFishAreAllowed,
