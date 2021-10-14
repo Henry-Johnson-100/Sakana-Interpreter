@@ -1,4 +1,5 @@
 {-# LANGUAGE MagicHash #-}
+
 -- #TODO institute error checking for nodes containing primitive data types
 -- They should not have children trees, if so, they will probably be ignored
 
@@ -76,8 +77,8 @@ data SyntaxUnit = SyntaxUnit
 genericSyntaxUnit :: Lexer.Token -> SyntaxUnit
 genericSyntaxUnit t = SyntaxUnit t 0 B.Return
 
-setContext :: SyntaxUnit -> B.ScopeType -> SyntaxUnit
-setContext su st = su {context = st}
+setContext :: B.ScopeType -> SyntaxUnit -> SyntaxUnit
+setContext st su = su {context = st}
 
 type SyntaxTree = Tree.Tree SyntaxUnit
 
@@ -200,14 +201,15 @@ treeOnlyNonTerminals (NestedCollapsible.TriplePartition x [] []) =
   [Tree.serialTree x]
 
 treeOnlyValue :: SyntaxPartition -> [SyntaxTree]
-treeOnlyValue (NestedCollapsible.TriplePartition [] [] z) = treeSingleBracketGroup z
+treeOnlyValue (NestedCollapsible.TriplePartition [] [] z) =
+  treeSingleBracketGroup B.Return z
 
 treeNoArgs :: SyntaxPartition -> [SyntaxTree]
 treeNoArgs (NestedCollapsible.TriplePartition x [] z) =
   [declaration -<= funcReturn]
   where
     declaration = Tree.serialTree x
-    funcReturn = treeSingleBracketGroup z
+    funcReturn = treeSingleBracketGroup B.Return z
 
 treeFunctionCall :: SyntaxPartition -> [SyntaxTree]
 treeFunctionCall (NestedCollapsible.TriplePartition x y []) =
@@ -219,7 +221,7 @@ treeFunctionCall (NestedCollapsible.TriplePartition x y []) =
 treeAnonFunction :: SyntaxPartition -> [SyntaxTree]
 treeAnonFunction (NestedCollapsible.TriplePartition [] y z) = args ++ funcReturn
   where
-    funcReturn = treeSingleBracketGroup z
+    funcReturn = treeSingleBracketGroup B.Return z
     args = treeConcurrentBracketGroups y
 
 treeFullDeclaration :: SyntaxPartition -> [SyntaxTree]
@@ -227,11 +229,14 @@ treeFullDeclaration (NestedCollapsible.TriplePartition x y z) =
   [(declaration -<= args) -<= funcReturn]
   where
     declaration = Tree.serialTree x
-    funcReturn = treeSingleBracketGroup z
+    funcReturn = treeSingleBracketGroup B.Return z
     args = treeConcurrentBracketGroups y
 
+-- | Only ever called for arguments so it's null values will have a context of send,
+--  I, of course, anticipate bugs happening because of this decision.
 treeConcurrentBracketGroups :: [SyntaxUnit] -> [SyntaxTree]
-treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBrackets tus)
+treeConcurrentBracketGroups tus =
+  concatMap (treeSingleBracketGroup B.Send) (groupBrackets tus)
   where
     groupBrackets :: [SyntaxUnit] -> [[SyntaxUnit]]
     groupBrackets [] = [[]]
@@ -275,11 +280,12 @@ treeConcurrentBracketGroups tus = concatMap treeSingleBracketGroup (groupBracket
                       str
                       sev
 
-treeSingleBracketGroup :: [SyntaxUnit] -> [SyntaxTree]
-treeSingleBracketGroup [] = [(Tree.tree . genericSyntaxUnit) (Lexer.Data D.Null)]
-treeSingleBracketGroup xs
+treeSingleBracketGroup :: B.ScopeType -> [SyntaxUnit] -> [SyntaxTree]
+treeSingleBracketGroup st [] =
+  [(Tree.tree . setContext st . genericSyntaxUnit) (Lexer.Data D.Null)]
+treeSingleBracketGroup st xs
   | NestedCollapsible.isCompleteNestedCollapsible bracketNestCase xs =
-    treeSingleBracketGroup (NestedCollapsible.takeNestWhileComplete bracketNestCase xs)
+    treeSingleBracketGroup st (NestedCollapsible.takeNestWhileComplete bracketNestCase xs)
   | NestedCollapsible.hasNestedCollapsible bracketNestCase xs =
     concatMap syntaxPartitionTree $ getSyntaxPartitions xs
   | otherwise = [Tree.serialTree xs]
@@ -310,7 +316,7 @@ reContextualizeSchoolMethods st
     reContextualizedChildren =
       fst breakOnSendReturn
         ++ map
-          (\x -> Tree.mutateTreeNode x (`setContext` B.Return))
+          (\x -> Tree.mutateTreeNode x (setContext B.Return))
           (snd breakOnSendReturn)
     breakOnSendReturn =
       span

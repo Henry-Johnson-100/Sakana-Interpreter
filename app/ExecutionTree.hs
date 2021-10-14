@@ -219,7 +219,7 @@ execute env tr
     =
     (evaluateNode env . DMaybe.fromJust . head' . Tree.treeChildren) tr
   --The following guard is a bit of a hack to get simple value bindings to execute
-  | treeIsSimpleValueBindingCall tr = 
+  | treeIsSimpleValueBindingCall tr =
     execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
   | treeIsFunctionCall tr --This function is super ugly
     =
@@ -227,7 +227,6 @@ execute env tr
       (encloseEnvIn (calledFunctionEnv env tr) env)
       (getMainExecutionTree (disambiguateFunction tr (calledFunction env tr)))
   | otherwise = D.Null
-
 
 calledFunctionEnv :: ExecEnv -> SyntaxTree -> ExecEnv
 calledFunctionEnv env tr =
@@ -241,26 +240,26 @@ evaluateNode _ Tree.Empty = D.Null
 evaluateNode env tr
   | treeIsSimpleValueBindingCall tr = execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
   | otherwise = case applyIsPrimitiveEvaluable tr of
-  [True, False, False] -> evaluateOperator env tr
-  [False, True, False] -> evaluateFin env tr
-  [False, False, True] -> evaluatePrimitiveData tr
-  _ ->
-    Exception.raiseError $
-      Exception.newException
-        Exception.General
-        []
-        ( "The tree: "
-            ++ (Tree.fPrintTree 0 tr)
-            ++ "Matched too many criteria for evaluation in the function, "
-            ++ "\'evaluateNode\' : "
-            ++ (show . applyIsPrimitiveEvaluable) tr
-            ++ "\nFor tokens, \'"
-            ++ show tr
-            ++ "\'"
-            ++ "\nIn environment: \n"
-            ++ fPrintExecEnv' env
-        )
-        Exception.Fatal
+    [True, False, False] -> evaluateOperator env tr
+    [False, True, False] -> evaluateFin env tr
+    [False, False, True] -> evaluatePrimitiveData tr
+    _ ->
+      Exception.raiseError $
+        Exception.newException
+          Exception.General
+          []
+          ( "The tree: "
+              ++ (Tree.fPrintTree 0 tr)
+              ++ "Matched too many criteria for evaluation in the function, "
+              ++ "\'evaluateNode\' : "
+              ++ (show . applyIsPrimitiveEvaluable) tr
+              ++ "\nFor tokens, \'"
+              ++ show tr
+              ++ "\'"
+              ++ "\nIn environment: \n"
+              ++ fPrintExecEnv' env
+          )
+          Exception.Fatal
 
 evaluatePrimitiveData :: SyntaxTree -> D.Data
 evaluatePrimitiveData = getNodeTokenBaseData
@@ -412,14 +411,18 @@ treeIsFunctionCall tr =
         . filter (Tree.maybeOnTreeNode True ((B.Return ==) . SyntaxUnit.context))
         . Tree.treeChildren
 
-treeIsSimpleValueBindingCall :: SyntaxTree -> Bool
-treeIsSimpleValueBindingCall tr = nodeStrictlySatisfies nodeIsId tr &&
-  foldIdApplicativeOnSingleton
-    all
-    [ null . Tree.treeChildren,
-      not . DMaybe.isNothing . Tree.treeNode
-    ] tr
+-- where
+--   nodeIsNullOrContextIsReturn = foldIdApplicativeOnSingleton any ([Tree.maybeOnTreeNode True] <*> [(B.Return ==) . SyntaxUnit.context, (Lexer.Data (D.Null) ==) . SyntaxUnit.token])
 
+treeIsSimpleValueBindingCall :: SyntaxTree -> Bool
+treeIsSimpleValueBindingCall tr =
+  nodeStrictlySatisfies nodeIsId tr
+    && foldIdApplicativeOnSingleton
+      all
+      [ null . Tree.treeChildren,
+        not . DMaybe.isNothing . Tree.treeNode
+      ]
+      tr
 
 -- | Can be stored in a symbol table.
 --  As of right now, treeIsStoreable and treeIsExecutable are not opposites.
@@ -565,7 +568,7 @@ foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . DList.
 
 s' :: [Char]
 s' =
-  "fish subtract_one >(x)> >(fish sub >(y)> <(- >(y)> >(1)>)<)> <(sub >(x)>)< <(subtract_one >(1)>)<"
+  "fish x <(1)< <(x)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
