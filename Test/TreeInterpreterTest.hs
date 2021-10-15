@@ -19,6 +19,45 @@ agnosticizeLines tr = fmap (setLineToZero) tr
 
 noLineCalct = agnosticizeLines . calct'
 
+fishEnv =
+  "fish to_bool\
+  \ >(x)>\
+  \  <(\
+  \  fin\
+  \  >(x)>\
+  \  >(True)>\
+  \  >(False)>\
+  \ )<\
+  \fish and\
+  \ >(x)>\
+  \ >(y)>\
+  \  <(\
+  \   fin\
+  \  >(x)>\
+  \ >(to_bool >(y)>)>\
+  \ >(False)>\
+  \)<\
+  \fish not\
+  \ >(x)>\
+  \ <(\
+  \ fin\
+  \ >(to_bool >(x)>)>\
+  \  >(False)>\
+  \  >(True)>\
+  \ )<\
+  \fish or\
+  \ >(x)>\
+  \  >(y)>\
+  \<(\
+  \  fin\
+  \ >(x)>\
+  \ >(True)>\
+  \  >(to_bool >(y)>)>\
+  \ )<"
+
+fishCall :: [Char] -> [Char]
+fishCall str = (fishEnv ++ " ") ++ ("<(" ++ str ++ ")<")
+
 -- | main
 main = do
   defaultMain tests
@@ -333,6 +372,22 @@ simpleRecursiveFunction = testCase name assertion
 
 functionsCallOtherFunctions = standardTimeout 3 $ testCase name assertion
   where
+    name = "A function can call another function."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 5.0
+    f = executeMain . getMainTree $ "fish id >(x)> <(x)< fish idd >(y)> <( id >(y)> )< <(idd >(5)>)<"
+
+functionsCallOtherFunctionsTwo = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A function can call another function."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 5.0
+    f = executeMain . getMainTree $ "fish id >(x)> <(x)< fish idd >(y)> <( id >(y)> )< fish iddd >(z)> <(idd >(z)>)< <(iddd >(5)>)<"
+
+functionsCallOtherFunctionsThree = standardTimeout 3 $ testCase name assertion
+  where
     name = "A function can call another function, also, variable scope works appropriately between functions"
     assertion = assertEqual d a f
     d = name
@@ -435,10 +490,27 @@ functionCanReturnNull = standardTimeout 3 $ testCase name assertion
     a = Null
     f = executeMain . getMainTree $ "fish n <()< <(n >()>)<"
 
+oneNestedFunctionCall = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Nested function calls work as values when used in function arguments."
+    assertion = assertEqual d a f
+    d = name ++ "And can be called with an explicit or implicit send fish."
+    a = Boolean True
+    f = executeMain . getMainTree $ fishCall "not >(not >(True)>)>"
+
+metaFishCallWorks = standardTimeout 3 $ testCase name assertion
+  where
+    name = "The wrapper FishCall works in the test suite"
+    assertion = assertEqual d a f
+    d = name
+    a = Boolean False
+    f = executeMain . getMainTree $ fishCall "and >(True)> >(False)>"
+
 functionExecutionTests = testGroup "Function execution tests" testList
   where
     testList =
-      [ functionCanReturnNull,
+      [ oneNestedFunctionCall,
+        functionCanReturnNull,
         functionsWithExplicitNoArgsTwo,
         functionsWithExplicitNoArgs,
         functionsWithNoExplicitSendFishAreAllowedTwo,
@@ -452,10 +524,13 @@ functionExecutionTests = testGroup "Function execution tests" testList
         executesFunctionWithSubFunc,
         simpleRecursiveFunction,
         functionsCallOtherFunctions,
+        functionsCallOtherFunctionsTwo,
+        functionsCallOtherFunctionsThree,
         concurrentFunctionCallsWork,
         concurrentFunctionCallsWorkTwo,
         functionsCallOtherFunctionsConcurrently,
         simplePartialFunctionApplication,
         variableCanBeReboundLater,
-        simpleShadowingOfId
+        simpleShadowingOfId,
+        metaFishCallWorks
       ]

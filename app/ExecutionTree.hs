@@ -64,7 +64,7 @@ import qualified Data.Tuple as DTuple (uncurry)
 import qualified Exception.Base as Exception
 import qualified Lexer
 import SyntaxTree (SyntaxTree)
-import SyntaxTree as SyntaxUnit (SyntaxUnit)
+import SyntaxTree as SyntaxUnit (SyntaxUnit (..))
 import qualified SyntaxTree
 import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
 import System.Environment
@@ -136,25 +136,26 @@ addSymbol env symPair =
 -- | Lookup a symbol in the provided environment using a given SyntaxUnit as a reference.
 -- A symbol pair is returned if a symbol id containing an equal token is found.
 lookupSymbol :: ExecEnv -> SyntaxUnit -> SymbolPair
+lookupSymbol (ExecEnv (Just env) []) lookupId = if (not . DMaybe.isNothing . execEnvInclosedIn) env then lookupSymbol ((DMaybe.fromJust . execEnvInclosedIn) env) lookupId else symbolNotFoundError lookupId
 lookupSymbol (ExecEnv (Just env) table) lookupId =
   DMaybe.fromMaybe
     (lookupSymbol env lookupId)
     (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId table)
 lookupSymbol (ExecEnv Nothing table) lookupId =
   DMaybe.fromMaybe
-    symbolNotFoundError
+    (symbolNotFoundError lookupId)
     (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId table)
-  where
-    symbolNotFoundError =
-      Exception.raiseError $
-        Exception.newException
-          Exception.SymbolNotFound
-          [SyntaxUnit.line lookupId]
-          ( "A value binding with the Id, \'"
-              ++ ((Lexer.fromToken . SyntaxUnit.token) lookupId)
-              ++ "\' does not exist in the current scope."
-          )
-          Exception.Fatal
+
+symbolNotFoundError lookupId =
+  Exception.raiseError $
+    Exception.newException
+      Exception.SymbolNotFound
+      [SyntaxUnit.line lookupId]
+      ( "A value binding with the Id, \'"
+          ++ ((Lexer.fromToken . SyntaxUnit.token) lookupId)
+          ++ "\' does not exist in the current scope."
+      )
+      Exception.Fatal
 
 maybeFindSyntaxUnitWithMatchingTokenInSymbolTable ::
   Foldable t =>
@@ -569,7 +570,7 @@ foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . DList.
 
 s' :: [Char]
 s' =
-  "fish x <(1)< <(x)<"
+  "fish id >(x)> <(x)< fish idd >(x)> <( id >(x)> )< <(idd >(2)>)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
