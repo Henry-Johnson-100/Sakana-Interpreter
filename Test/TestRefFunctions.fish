@@ -104,5 +104,6 @@ fish main
 
 
 <(
-  not >(not >(True)>)>
+  or >(False)> >(to_bool >(1)>)>
+  /*Should return True*/
 )<

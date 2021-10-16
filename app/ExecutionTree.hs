@@ -102,6 +102,23 @@ data ExecEnv = ExecEnv
   }
   deriving (Show, Eq)
 
+type SymbolTable = [SymbolPair]
+
+type EnvironmentStack = [SymbolTable]
+
+currentStackSymbolTable :: EnvironmentStack -> SymbolTable
+currentStackSymbolTable [] = []
+currentStackSymbolTable env = head env
+
+enclosingEnvironmentStack :: EnvironmentStack -> EnvironmentStack
+enclosingEnvironmentStack [] = []
+enclosingEnvironmentStack (st : []) = []
+enclosingEnvironmentStack (st : sts) = sts
+
+fPrintEnvironmentStack :: EnvironmentStack -> [Char]
+fPrintEnvironmentStack env =
+  (DList.intercalate "\n" . map (DList.intercalate "\n" . map fPrintSymbolPair')) env
+
 fPrintExecEnv :: ExecEnv -> IO ()
 fPrintExecEnv env = putStrLn $ fPrintExecEnv' env
 
@@ -120,8 +137,54 @@ fPrintSymbolPair' (SymbolPair sid tr) =
 noEnv :: ExecEnv
 noEnv = ExecEnv Nothing []
 
+noEnvironmentStack :: EnvironmentStack
+noEnvironmentStack = []
+
 --Functions to manage scope and environments----------------------------------------------
 ------------------------------------------------------------------------------------------
+
+-- | Don't really even need a function for this one
+encloseEnvironmentIn :: EnvironmentStack -> EnvironmentStack -> EnvironmentStack
+encloseEnvironmentIn envInner envOuter = envInner ++ envOuter
+
+addSymbolToEnvironmentStack :: EnvironmentStack -> SymbolPair -> EnvironmentStack
+addSymbolToEnvironmentStack [] symPair = [[symPair]]
+addSymbolToEnvironmentStack env symPair =
+  (symPair : (currentStackSymbolTable env)) : (enclosingEnvironmentStack env)
+
+addTableToEnvironmentStack :: EnvironmentStack -> SymbolTable -> EnvironmentStack
+addTableToEnvironmentStack [] symTable = [symTable]
+addTableToEnvironmentStack env symTable = symTable : env
+
+lookupSymbolInEnvironmentStack :: EnvironmentStack -> SyntaxUnit -> SymbolPair
+lookupSymbolInEnvironmentStack (st : []) lookupId =
+  DMaybe.fromMaybe
+    (symbolNotFoundError lookupId)
+    (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId st)
+lookupSymbolInEnvironmentStack (st : sts) lookupId =
+  DMaybe.fromMaybe
+    (lookupSymbolInEnvironmentStack sts lookupId)
+    (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId st)
+
+makeEnvironmentStackFrame :: [SyntaxTree] -> EnvironmentStack
+makeEnvironmentStackFrame = flip (:) noEnvironmentStack . makeSymbolTable
+
+makeSymbolTable :: [SyntaxTree] -> SymbolTable
+makeSymbolTable =
+  map DMaybe.fromJust
+    . filter (not . DMaybe.isNothing)
+    . map maybeTreeToSymbolPair
+  where
+    maybeTreeToSymbolPair tr =
+      if treeIsStoreable tr then (Just . makeSymbolPair) tr else Nothing
+
+-- makeExecEnv :: [SyntaxTree] -> ExecEnv
+-- makeExecEnv = DList.foldl' treeToMaybeEnvFold noEnv
+--   where
+--     treeToMaybeEnvFold env' tr' =
+--       if treeIsStoreable tr'
+--         then ((addSymbol env') . makeSymbolPair) tr'
+--         else env'
 
 -- | Enclose the first ExecEnv in the second.
 encloseEnvIn :: ExecEnv -> ExecEnv -> ExecEnv
@@ -195,6 +258,8 @@ makeExecEnv = DList.foldl' treeToMaybeEnvFold noEnv
 
 --Evaluation functions used to take a tree and return some FISH value.--------------------
 ------------------------------------------------------------------------------------------
+getMainEnvironmentStack :: SyntaxTree -> EnvironmentStack
+getMainEnvironmentStack = makeEnvironmentStackFrame . Tree.treeChildren
 
 getMainEnv :: SyntaxTree -> ExecEnv
 getMainEnv = (makeExecEnv . Tree.treeChildren)
