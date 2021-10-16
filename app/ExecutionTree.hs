@@ -4,8 +4,8 @@ module ExecutionTree
     evaluateNode,
     executeMain,
     --Anything below this is a temporary export
+    noEnvironmentStack,
     disambiguateFunction,
-    noEnv,
     getFuncDeclArgs,
     getFunctionDeclPositionalArgs,
   )
@@ -96,12 +96,6 @@ data SymbolPair = SymbolPair
   }
   deriving (Show, Eq)
 
-data ExecEnv = ExecEnv
-  { execEnvInclosedIn :: Maybe ExecEnv,
-    execEnvSymbolTable :: [SymbolPair]
-  }
-  deriving (Show, Eq)
-
 type SymbolTable = [SymbolPair]
 
 type EnvironmentStack = [SymbolTable]
@@ -119,23 +113,9 @@ fPrintEnvironmentStack :: EnvironmentStack -> [Char]
 fPrintEnvironmentStack env =
   (DList.intercalate "\n" . map (DList.intercalate "\n" . map fPrintSymbolPair')) env
 
-fPrintExecEnv :: ExecEnv -> IO ()
-fPrintExecEnv env = putStrLn $ fPrintExecEnv' env
-
-fPrintExecEnv' :: ExecEnv -> String
-fPrintExecEnv' (ExecEnv encl table) =
-  concat
-    [ DMaybe.maybe "Main Environment" fPrintExecEnv' encl,
-      "\n",
-      (concat . DList.intersperse "\n" . map fPrintSymbolPair') table
-    ]
-
 fPrintSymbolPair' :: SymbolPair -> String
 fPrintSymbolPair' (SymbolPair sid tr) =
   concat ["Symbol ID: ", show sid, "\n", Tree.fPrintTree 0 tr]
-
-noEnv :: ExecEnv
-noEnv = ExecEnv Nothing []
 
 noEnvironmentStack :: EnvironmentStack
 noEnvironmentStack = []
@@ -178,37 +158,7 @@ makeSymbolTable =
     maybeTreeToSymbolPair tr =
       if treeIsStoreable tr then (Just . makeSymbolPair) tr else Nothing
 
--- makeExecEnv :: [SyntaxTree] -> ExecEnv
--- makeExecEnv = DList.foldl' treeToMaybeEnvFold noEnv
---   where
---     treeToMaybeEnvFold env' tr' =
---       if treeIsStoreable tr'
---         then ((addSymbol env') . makeSymbolPair) tr'
---         else env'
-
--- | Enclose the first ExecEnv in the second.
-encloseEnvIn :: ExecEnv -> ExecEnv -> ExecEnv
-encloseEnvIn (ExecEnv _ st) envOuter = ExecEnv (Just envOuter) st
-
--- | Given an environment and a new symbol pair.
--- Prepend the symbol pair onto the existing environment's symbol table
-addSymbol :: ExecEnv -> SymbolPair -> ExecEnv
-addSymbol env symPair =
-  ExecEnv (execEnvInclosedIn env) (symPair : (execEnvSymbolTable env))
-
--- | Lookup a symbol in the provided environment using a given SyntaxUnit as a reference.
--- A symbol pair is returned if a symbol id containing an equal token is found.
-lookupSymbol :: ExecEnv -> SyntaxUnit -> SymbolPair
-lookupSymbol (ExecEnv (Just env) []) lookupId = if (not . DMaybe.isNothing . execEnvInclosedIn) env then lookupSymbol ((DMaybe.fromJust . execEnvInclosedIn) env) lookupId else symbolNotFoundError lookupId
-lookupSymbol (ExecEnv (Just env) table) lookupId =
-  DMaybe.fromMaybe
-    (lookupSymbol env lookupId)
-    (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId table)
-lookupSymbol (ExecEnv Nothing table) lookupId =
-  DMaybe.fromMaybe
-    (symbolNotFoundError lookupId)
-    (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId table)
-
+symbolNotFoundError :: SyntaxUnit -> a2
 symbolNotFoundError lookupId =
   Exception.raiseError $
     Exception.newException
@@ -248,21 +198,10 @@ makeSymbolPair tr
         (SyntaxTree.genericSyntaxUnit (Lexer.Data D.Null))
         ((head' . Tree.treeChildren) tr >>= Tree.treeNode)
 
-makeExecEnv :: [SyntaxTree] -> ExecEnv
-makeExecEnv = DList.foldl' treeToMaybeEnvFold noEnv
-  where
-    treeToMaybeEnvFold env' tr' =
-      if treeIsStoreable tr'
-        then ((addSymbol env') . makeSymbolPair) tr'
-        else env'
-
 --Evaluation functions used to take a tree and return some FISH value.--------------------
 ------------------------------------------------------------------------------------------
 getMainEnvironmentStack :: SyntaxTree -> EnvironmentStack
 getMainEnvironmentStack = makeEnvironmentStackFrame . Tree.treeChildren
-
-getMainEnv :: SyntaxTree -> ExecEnv
-getMainEnv = (makeExecEnv . Tree.treeChildren)
 
 -- | Gets the last tree in 'main' that can be executed.
 getMainExecutionTree :: SyntaxTree -> SyntaxTree
@@ -276,9 +215,9 @@ getMainExecutionTree =
 -- If no execution tree can be found in 'main' then a single tree containing a null value
 -- will be returned.
 executeMain :: Tree.Tree SyntaxUnit -> D.Data
-executeMain tr = execute (getMainEnv tr) (getMainExecutionTree tr)
+executeMain tr = execute (getMainEnvironmentStack tr) (getMainExecutionTree tr)
 
-execute :: ExecEnv -> SyntaxTree -> D.Data
+execute :: EnvironmentStack -> SyntaxTree -> D.Data
 execute env tr
   | treeIsPrimitivelyEvaluable tr = evaluateNode env tr
   | treeIsSymbolValueBinding tr =
@@ -288,22 +227,22 @@ execute env tr
       [treeIsFunctionCall, treeIsSimpleValueBindingCall]
       tr =
     execute
-      (encloseEnvIn (calledFunctionEnv env tr) env)
+      (encloseEnvironmentIn (calledFunctionEnv env tr) env)
       (getMainExecutionTree (disambiguateFunction tr (calledFunction env tr)))
   | otherwise = D.Null
 
-calledFunctionEnv :: ExecEnv -> SyntaxTree -> ExecEnv
+calledFunctionEnv :: EnvironmentStack -> SyntaxTree -> EnvironmentStack
 calledFunctionEnv env tr =
-  makeExecEnv . Tree.treeChildren $ disambiguateFunction tr (calledFunction env tr)
+  makeEnvironmentStackFrame . Tree.treeChildren $ disambiguateFunction tr (calledFunction env tr)
 
-calledFunction :: ExecEnv -> SyntaxTree -> SyntaxTree
-calledFunction env = symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode
+calledFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree
+calledFunction env = symbolVal . lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
 
-evaluateNode :: ExecEnv -> SyntaxTree -> D.Data
+evaluateNode :: EnvironmentStack -> SyntaxTree -> D.Data
 evaluateNode _ Tree.Empty = D.Null
 evaluateNode env tr
   | treeIsSimpleValueBindingCall tr =
-    execute env ((symbolVal . lookupSymbol env . DMaybe.fromJust . Tree.treeNode) tr)
+    execute env ((symbolVal . lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode) tr)
   | otherwise = case applyIsPrimitiveEvaluable tr of
     [True, False, False] -> evaluateOperator env tr
     [False, True, False] -> evaluateFin env tr
@@ -322,14 +261,14 @@ evaluateNode env tr
               ++ show tr
               ++ "\'"
               ++ "\nIn environment: \n"
-              ++ fPrintExecEnv' env
+              ++ fPrintEnvironmentStack env
           )
           Exception.Fatal
 
 evaluatePrimitiveData :: SyntaxTree -> D.Data
 evaluatePrimitiveData = getNodeTokenBaseData
 
-evaluateOperator :: ExecEnv -> SyntaxTree -> D.Data
+evaluateOperator :: EnvironmentStack -> SyntaxTree -> D.Data
 evaluateOperator env tr
   | both D.isNumeric args = case getNodeOperator tr of
     O.Add -> uncurryArgsToNumOperator (+)
@@ -404,7 +343,7 @@ evaluateOperator env tr
           )
           Exception.Fatal
 
-evaluateFin :: ExecEnv -> SyntaxTree -> D.Data
+evaluateFin :: EnvironmentStack -> SyntaxTree -> D.Data
 evaluateFin env tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
   where
     args = getTreeChildrenPrimitiveValues env tr
@@ -523,10 +462,10 @@ getNodeTokenBaseData =
 getNodeToken :: SyntaxTree -> Lexer.Token
 getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
 
-getTreeChildrenPrimitiveValues :: ExecEnv -> SyntaxTree -> [D.Data]
+getTreeChildrenPrimitiveValues :: EnvironmentStack -> SyntaxTree -> [D.Data]
 getTreeChildrenPrimitiveValues env = map (execute env) . Tree.treeChildren
 
-getOperatorArgs :: ExecEnv -> SyntaxTree -> (D.Data, D.Data)
+getOperatorArgs :: EnvironmentStack -> SyntaxTree -> (D.Data, D.Data)
 getOperatorArgs env tr =
   ( (getValue . DMaybe.fromJust . head' . Tree.treeChildren) tr,
     (getValue . DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr
@@ -645,7 +584,7 @@ pt' = SyntaxTree.generateSyntaxTree t'
 
 pt'' = Tree.treeChildren pt'
 
-env' = getMainEnv pt'
+env' = getMainEnvironmentStack pt'
 
 met' = getMainExecutionTree pt'
 

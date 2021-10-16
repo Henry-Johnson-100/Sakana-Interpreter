@@ -8,7 +8,7 @@ import Token.Data
 import Token.Util.Tree
 
 executeFirstChild :: String -> Data
-executeFirstChild = ExecutionTree.evaluateNode noEnv . ExecutionTree.calct'
+executeFirstChild = ExecutionTree.evaluateNode noEnvironmentStack . ExecutionTree.calct'
 
 getMainTree :: String -> SyntaxTree
 getMainTree = generateSyntaxTree . tokenize
