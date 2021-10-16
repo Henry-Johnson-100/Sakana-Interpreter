@@ -426,14 +426,6 @@ simplePartialFunctionApplication = standardTimeout 3 $ testCase name assertion
     a = Num 2.0
     f = executeMain . getMainTree $ "fish add >(x)> <(fish add_ >(y)> <(+ >(x)> >(y)>)< )< <(add >(1)> >(1)>)<"
 
-variableCanBeReboundLater = standardTimeout 3 $ testCase name assertion
-  where
-    name = "A later value binding to a name will override an earlier binding."
-    assertion = assertEqual d a f
-    d = name
-    a = Num 2.0
-    f = executeMain . getMainTree $ ">(x <(1)<)> >(x <(2)<)> <(x)<"
-
 simpleShadowingOfId = standardTimeout 3 $ testCase name assertion
   where
     name = "A binding name can be shadowed in other scopes."
@@ -530,7 +522,6 @@ functionExecutionTests = testGroup "Function execution tests" testList
         concurrentFunctionCallsWorkTwo,
         functionsCallOtherFunctionsConcurrently,
         simplePartialFunctionApplication,
-        variableCanBeReboundLater,
         simpleShadowingOfId,
         metaFishCallWorks
       ]

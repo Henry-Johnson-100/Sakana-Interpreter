@@ -140,23 +140,54 @@ lookupSymbolInEnvironmentStack :: EnvironmentStack -> SyntaxUnit -> SymbolPair
 lookupSymbolInEnvironmentStack (st : []) lookupId =
   DMaybe.fromMaybe
     (symbolNotFoundError lookupId)
-    (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId st)
+    (maybeLookupSymbolInSymbolTable lookupId st)
 lookupSymbolInEnvironmentStack (st : sts) lookupId =
   DMaybe.fromMaybe
     (lookupSymbolInEnvironmentStack sts lookupId)
-    (maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId st)
+    (maybeLookupSymbolInSymbolTable lookupId st)
 
 makeEnvironmentStackFrame :: [SyntaxTree] -> EnvironmentStack
 makeEnvironmentStackFrame = flip (:) noEnvironmentStack . makeSymbolTable
 
 makeSymbolTable :: [SyntaxTree] -> SymbolTable
-makeSymbolTable =
-  map DMaybe.fromJust
-    . filter (not . DMaybe.isNothing)
-    . map maybeTreeToSymbolPair
+makeSymbolTable = makeSymbolTable' []
+
+makeSymbolTable' :: SymbolTable -> [SyntaxTree] -> SymbolTable
+makeSymbolTable' st [] = st
+makeSymbolTable' st (tr : trs) =
+  DMaybe.maybe
+    (makeSymbolTable' st trs)
+    (\sp -> makeSymbolTable' (sp : st) trs)
+    (maybeTreeToSymbolPair tr)
   where
-    maybeTreeToSymbolPair tr =
-      if treeIsStoreable tr then (Just . makeSymbolPair) tr else Nothing
+    maybeTreeToSymbolPair :: SyntaxTree -> Maybe SymbolPair
+    maybeTreeToSymbolPair tr' =
+      if treeIsStoreable tr'
+        then (Just . checkForSameScopeAssignment st . makeSymbolPair) tr'
+        else Nothing
+
+checkForSameScopeAssignment :: SymbolTable -> SymbolPair -> SymbolPair
+checkForSameScopeAssignment [] sp = sp
+checkForSameScopeAssignment st sp =
+  if (DMaybe.isNothing . flip maybeLookupSymbolInSymbolTable st . symbolId) sp
+    then sp
+    else
+      symbolAlreadyExistsException
+        (symbolId sp)
+        ((DMaybe.fromJust . flip maybeLookupSymbolInSymbolTable st . symbolId) sp)
+
+symbolAlreadyExistsException :: SyntaxUnit -> SymbolPair -> a2
+symbolAlreadyExistsException lookupId existingSymbol =
+  Exception.raiseError $
+    Exception.newException
+      Exception.SymbolIsAlreadyBound
+      [line lookupId, (line . symbolId) existingSymbol]
+      ( "The symbol: \'"
+          ++ (Lexer.fromToken . token) lookupId
+          ++ "\' Already exists in the current scope and is bound to the symbol entry:\n"
+          ++ fPrintSymbolPair' existingSymbol
+      )
+      Exception.Fatal
 
 symbolNotFoundError :: SyntaxUnit -> a2
 symbolNotFoundError lookupId =
@@ -170,13 +201,12 @@ symbolNotFoundError lookupId =
       )
       Exception.Fatal
 
-maybeFindSyntaxUnitWithMatchingTokenInSymbolTable ::
-  Foldable t =>
+maybeLookupSymbolInSymbolTable ::
   SyntaxUnit ->
-  t SymbolPair ->
+  SymbolTable ->
   Maybe SymbolPair
-maybeFindSyntaxUnitWithMatchingTokenInSymbolTable lookupId =
-  DList.find $ ((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId
+maybeLookupSymbolInSymbolTable lookupId =
+  DList.find (((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId)
 
 -- | Take a syntax tree and create a symbol pair.
 -- Is NOT agnostic, should only be called on trees where it would make sense to create a
@@ -233,16 +263,27 @@ execute env tr
 
 calledFunctionEnv :: EnvironmentStack -> SyntaxTree -> EnvironmentStack
 calledFunctionEnv env tr =
-  makeEnvironmentStackFrame . Tree.treeChildren $ disambiguateFunction tr (calledFunction env tr)
+  makeEnvironmentStackFrame
+    . Tree.treeChildren
+    $ disambiguateFunction tr (calledFunction env tr)
 
 calledFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree
-calledFunction env = symbolVal . lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
+calledFunction env =
+  symbolVal . lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
 
 evaluateNode :: EnvironmentStack -> SyntaxTree -> D.Data
 evaluateNode _ Tree.Empty = D.Null
 evaluateNode env tr
   | treeIsSimpleValueBindingCall tr =
-    execute env ((symbolVal . lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode) tr)
+    execute
+      env
+      ( ( symbolVal
+            . lookupSymbolInEnvironmentStack env
+            . DMaybe.fromJust
+            . Tree.treeNode
+        )
+          tr
+      )
   | otherwise = case applyIsPrimitiveEvaluable tr of
     [True, False, False] -> evaluateOperator env tr
     [False, True, False] -> evaluateFin env tr
@@ -574,7 +615,7 @@ foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . DList.
 
 s' :: [Char]
 s' =
-  "fish id >(x)> <(x)< fish idd >(x)> <( id >(x)> )< <(idd >(2)>)<"
+  "fish x <(1)< <(x >()> )<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'

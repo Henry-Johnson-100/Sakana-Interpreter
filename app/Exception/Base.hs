@@ -20,6 +20,7 @@ data ExceptionType
   | OperatorTypeError
   | SymbolNotFound
   | MissingPositionalArguments
+  | SymbolIsAlreadyBound
   deriving (Show, Eq)
 
 data ExceptionSeverity
