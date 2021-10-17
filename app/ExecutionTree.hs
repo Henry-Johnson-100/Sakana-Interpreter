@@ -136,15 +136,30 @@ addTableToEnvironmentStack :: EnvironmentStack -> SymbolTable -> EnvironmentStac
 addTableToEnvironmentStack [] symTable = [symTable]
 addTableToEnvironmentStack env symTable = symTable : env
 
+-- lookupSymbolInEnvironmentStack :: EnvironmentStack -> SyntaxUnit -> SymbolPair
+-- lookupSymbolInEnvironmentStack (st : []) lookupId =
+--   DMaybe.fromMaybe
+--     (symbolNotFoundError lookupId)
+--     (maybeLookupSymbolInSymbolTable lookupId st)
+-- lookupSymbolInEnvironmentStack (st : sts) lookupId =
+--   DMaybe.fromMaybe
+--     (lookupSymbolInEnvironmentStack sts lookupId)
+--     (maybeLookupSymbolInSymbolTable lookupId st)
+
 lookupSymbolInEnvironmentStack :: EnvironmentStack -> SyntaxUnit -> SymbolPair
-lookupSymbolInEnvironmentStack (st : []) lookupId =
+lookupSymbolInEnvironmentStack env lookupId =
   DMaybe.fromMaybe
     (symbolNotFoundError lookupId)
-    (maybeLookupSymbolInSymbolTable lookupId st)
-lookupSymbolInEnvironmentStack (st : sts) lookupId =
-  DMaybe.fromMaybe
-    (lookupSymbolInEnvironmentStack sts lookupId)
-    (maybeLookupSymbolInSymbolTable lookupId st)
+    (maybeLookupSymbolInEnvironmentStack env lookupId)
+
+maybeLookupSymbolInEnvironmentStack :: EnvironmentStack -> SyntaxUnit -> Maybe SymbolPair
+maybeLookupSymbolInEnvironmentStack [] _ = Nothing
+maybeLookupSymbolInEnvironmentStack (st : sts) lookupId =
+  if DMaybe.isNothing maybeSymbolInCurrentTable
+    then maybeLookupSymbolInEnvironmentStack sts lookupId
+    else maybeSymbolInCurrentTable
+  where
+    maybeSymbolInCurrentTable = maybeLookupSymbolInSymbolTable lookupId st
 
 makeEnvironmentStackFrame :: [SyntaxTree] -> EnvironmentStack
 makeEnvironmentStackFrame = flip (:) noEnvironmentStack . makeSymbolTable
@@ -258,14 +273,14 @@ execute env tr
       tr =
     execute
       (encloseEnvironmentIn (calledFunctionEnv env tr) env)
-      (getMainExecutionTree (disambiguateFunction tr (calledFunction env tr)))
+      (getMainExecutionTree (disambiguateFunction env tr (calledFunction env tr)))
   | otherwise = D.Null
 
 calledFunctionEnv :: EnvironmentStack -> SyntaxTree -> EnvironmentStack
 calledFunctionEnv env tr =
   makeEnvironmentStackFrame
     . Tree.treeChildren
-    $ disambiguateFunction tr (calledFunction env tr)
+    $ disambiguateFunction env tr (calledFunction env tr)
 
 calledFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree
 calledFunction env =
@@ -422,6 +437,10 @@ nodeIsDeclarationRequiringId =
 
 ----On Tree-------------------------------------------------------------------------------
 
+-- | For fish code that looks like:
+-- 'some_id <(***)<'
+-- where '***' is some wildcard value
+-- I would like to not have this as a feature in the language to be honest.
 treeIsSymbolValueBinding :: SyntaxTree -> Bool
 treeIsSymbolValueBinding tr =
   nodeStrictlySatisfies nodeIsId tr
@@ -432,6 +451,7 @@ treeIsSymbolValueBinding tr =
         Nothing -> False
         Just x -> ((B.Return ==) . SyntaxUnit.context) x
 
+-- | ditto for this, I don't like it that much
 treeIsPrimitiveValueBinding :: SyntaxTree -> Bool
 treeIsPrimitiveValueBinding =
   foldIdApplicativeOnSingleton
@@ -537,11 +557,15 @@ applyIsPrimitiveEvaluable =
   )
     . DList.singleton
 
-disambiguateFunction :: SyntaxTree -> SyntaxTree -> SyntaxTree
-disambiguateFunction funcCall funcDef =
+-- #TODO Change this to also take an EnvironmentStack,
+-- if disambiguating with an id and not a value, then look up the id to get the value
+-- before returning the disambiguated function.
+disambiguateFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> SyntaxTree
+disambiguateFunction env funcCall funcDef =
   Tree.reTree funcDef
     Tree.-<= ( (funcId funcDef) :
                ( rebindFunctionArgs
+                   env
                    (Tree.treeChildren funcCall)
                    ((filterNullNodes . getFuncDeclArgs) funcDef)
                )
@@ -557,23 +581,28 @@ disambiguateFunction funcCall funcDef =
 -- arguments, will only rebind while the function declaration has positional args
 -- Will ignore any extra positional arguments from the function call.
 -- Will raise an error if the function call does not have enough positional args.
-rebindFunctionArgs :: [SyntaxTree] -> [SyntaxTree] -> [SyntaxTree]
-rebindFunctionArgs _ [] = []
-rebindFunctionArgs (fca : fcas) (fda : fdas)
-  | treeIsPositionalArg fda = (bindValue fca fda) : rebindFunctionArgs fcas fdas
-  | otherwise = fda : rebindFunctionArgs (fca : fcas) fdas
+rebindFunctionArgs :: EnvironmentStack -> [SyntaxTree] -> [SyntaxTree] -> [SyntaxTree]
+rebindFunctionArgs _ _ [] = []
+rebindFunctionArgs env (fca : fcas) (fda : fdas)
+  | treeIsPositionalArg fda = (bindValue fca fda) : rebindFunctionArgs env fcas fdas
+  | otherwise = fda : rebindFunctionArgs env (fca : fcas) fdas
   where
     bindValue trFrom trTo =
       trTo
         Tree.-<- ( Tree.tree
                      . setContext
-                     . DMaybe.fromMaybe
-                       (SyntaxTree.genericSyntaxUnit (Lexer.Data (D.Null)))
-                     . Tree.treeNode
+                     . SyntaxTree.genericSyntaxUnit
+                     . Lexer.Data
+                     . execute env
                  )
           trFrom
     setContext (SyntaxTree.SyntaxUnit t _ _) = SyntaxTree.SyntaxUnit t 0 B.Return
-rebindFunctionArgs [] fdas
+    ifSyntaxUnitExistsInEnvironmentReplaceItsValue su =
+      DMaybe.maybe
+        su
+        (SyntaxTree.genericSyntaxUnit . Lexer.Data . execute env . symbolVal)
+        (maybeLookupSymbolInEnvironmentStack env su)
+rebindFunctionArgs env [] fdas
   | (any id . map treeIsPositionalArg) fdas =
     Exception.raiseError $
       Exception.newException
@@ -615,7 +644,7 @@ foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . DList.
 
 s' :: [Char]
 s' =
-  "fish x <(1)< <(x >()> )<"
+  fishCall "and >(True)> >(not >(or >(False)> >(False)>)>)>"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'

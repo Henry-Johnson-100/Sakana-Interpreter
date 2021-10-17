@@ -53,7 +53,10 @@ fishEnv =
   \ >(x)>\
   \ >(True)>\
   \  >(to_bool >(y)>)>\
-  \ )<"
+  \ )<\
+  \fish incr\
+  \>(n)>\
+  \<(+ >(n)> >(1)>)<"
 
 fishCall :: [Char] -> [Char]
 fishCall str = (fishEnv ++ " ") ++ ("<(" ++ str ++ ")<")
@@ -268,6 +271,7 @@ simpleFunctionIsDisambiguated = testCase name assertion
     a = noLineCalct "fish return_n >(n <(1)<)> <(n)<"
     f =
       disambiguateFunction
+        noEnvironmentStack
         (noLineCalct "return_n >(1)>")
         (noLineCalct "fish return_n >(n)> <(n)<")
 
@@ -279,6 +283,7 @@ multiplePositionalArgsAreDisambiguated = testCase name assertion
     a = noLineCalct "fish add >(x <(1)<)> >(y <(2)<)> <(something)<"
     f =
       disambiguateFunction
+        noEnvironmentStack
         (noLineCalct "add >(1)> >(2)>")
         (noLineCalct "fish add >(x)> >(y)> <(something)<")
 
@@ -288,7 +293,7 @@ functionWithArgMixIsDisambiguatedOne = testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
-    f = disambiguateFunction (noLineCalct "xyz >(1)> >(2)>") (noLineCalct "fish xyz >(x)> >(y)> >(z <(3)<)> <(z)<")
+    f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(2)>") (noLineCalct "fish xyz >(x)> >(y)> >(z <(3)<)> <(z)<")
 
 functionWithArgMixIsDisambiguatedTwo = testCase name assertion
   where
@@ -296,7 +301,7 @@ functionWithArgMixIsDisambiguatedTwo = testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
-    f = disambiguateFunction (noLineCalct "xyz >(1)> >(3)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> <(z)<")
+    f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(3)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> <(z)<")
 
 functionWithArgMixIsDisambiguatedThree = testCase name assertion
   where
@@ -304,7 +309,7 @@ functionWithArgMixIsDisambiguatedThree = testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
-    f = disambiguateFunction (noLineCalct "xyz >(2)> >(3)>") (noLineCalct "fish xyz >(x <(1)<)> >(y)> >(z)> <(z)<")
+    f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(2)> >(3)>") (noLineCalct "fish xyz >(x <(1)<)> >(y)> >(z)> <(z)<")
 
 functionWithMultipleArgMixIsDisambiguatedOne = testCase name assertion
   where
@@ -312,7 +317,7 @@ functionWithMultipleArgMixIsDisambiguatedOne = testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> >(a <(4)<)> >(b <(5)<)> <(z)<"
-    f = disambiguateFunction (noLineCalct "xyz >(1)> >(3)> >(5)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> >(a <(4)<)> >(b)> <(z)<")
+    f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(3)> >(5)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> >(a <(4)<)> >(b)> <(z)<")
 
 executesVerySimpleFunction = testCase name assertion
   where
@@ -487,8 +492,16 @@ oneNestedFunctionCall = standardTimeout 3 $ testCase name assertion
     name = "Nested function calls work as values when used in function arguments."
     assertion = assertEqual d a f
     d = name ++ "And can be called with an explicit or implicit send fish."
-    a = Boolean True
-    f = executeMain . getMainTree $ fishCall "not >(not >(True)>)>"
+    a = Num 3.0
+    f = executeMain . getMainTree $ fishCall "incr >(incr >(1)>)>"
+
+tenNestedFunctionCall = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Nested function calls work as values when used in function arguments."
+    assertion = assertEqual d a f
+    d = name ++ "And can be called with an explicit or implicit send fish."
+    a = Num 10.0
+    f = executeMain . getMainTree $ fishCall "incr >(incr >(incr >(incr >(incr >(incr >(incr >(incr >(incr >(incr >(0)>)>)>)>)>)>)>)>)>)>"
 
 metaFishCallWorks = standardTimeout 3 $ testCase name assertion
   where
@@ -501,7 +514,8 @@ metaFishCallWorks = standardTimeout 3 $ testCase name assertion
 functionExecutionTests = testGroup "Function execution tests" testList
   where
     testList =
-      [ oneNestedFunctionCall,
+      [ tenNestedFunctionCall,
+        oneNestedFunctionCall,
         functionCanReturnNull,
         functionsWithExplicitNoArgsTwo,
         functionsWithExplicitNoArgs,

@@ -54,29 +54,6 @@ fish not
 
 
 
-fish factorial
-
-  >(n)>
-  >(
-      fish fact_st
-
-        >(n)>
-        >(prod)>
-        >(new_n <(- >(n)> >(1)>)<)>
-        >(new_prod <(* >(prod)> >(new_n)>)<)>
-
-        <(
-          fin
-          >(<=
-            >(n)>
-            >(0)>
-          )>
-          >(prod)>
-          >(fact_st >(new_n)> >(new_prod)>)>
-        )<
-  )>
-
-  <(fact_st >(n)> >(1)>)<
 
 
 
@@ -101,9 +78,32 @@ fish main
     >("That's wrong")>
   )<
 
+fish increment
+  >(n)>
+  <(+ >(n)> >(1)>)<
 
 
+fish factorial
+
+  >(n)>
+  >(
+      fish fact_st
+
+        >(n)>
+        >(prod)>
+        <(
+          fin
+            >(<= >(n)> >(0)>)>
+            >(prod)>
+            >(
+              fact_st >(- >(n)> >(1)>)> >(* >(prod)> >(n)>)>
+            )>
+        )<
+  )>
+
+  <(fact_st >(n)> >(1)>)<
+
+/*Here is the main execution*/
 <(
-  or >(False)> >(to_bool >(1)>)>
-  /*Should return True*/
+  True
 )<
