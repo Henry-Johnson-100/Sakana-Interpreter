@@ -649,3 +649,45 @@ iotest = do
     . SyntaxTree.generateSyntaxTree
     . Lexer.tokenize
     $ contents
+
+fishEnv =
+  "fish to_bool\
+  \ >(x)>\
+  \  <(\
+  \  fin\
+  \  >(x)>\
+  \  >(True)>\
+  \  >(False)>\
+  \ )<\
+  \fish and\
+  \ >(x)>\
+  \ >(y)>\
+  \  <(\
+  \   fin\
+  \  >(x)>\
+  \ >(to_bool >(y)>)>\
+  \ >(False)>\
+  \)<\
+  \fish not\
+  \ >(x)>\
+  \ <(\
+  \ fin\
+  \ >(to_bool >(x)>)>\
+  \  >(False)>\
+  \  >(True)>\
+  \ )<\
+  \fish or\
+  \ >(x)>\
+  \  >(y)>\
+  \<(\
+  \  fin\
+  \ >(x)>\
+  \ >(True)>\
+  \  >(to_bool >(y)>)>\
+  \ )<"
+
+fishCall str = (fishEnv ++ " ") ++ ("<(" ++ str ++ ")<")
+
+fenv' = putStrLn . fPrintEnvironmentStack
+
+io' tr = (Tree.ioPrintTree tr)
