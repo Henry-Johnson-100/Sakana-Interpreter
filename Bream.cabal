@@ -1,18 +1,18 @@
 cabal-version:      2.4
-name:               FISH
+name:               Bream
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
--- synopsis:All things required for using the 'fish' functional language.
+synopsis: A syntax-tree based interpreter for the Bream functional language.
 
 -- A longer description of the package.
--- description:
+description: See README.md
 
 -- A URL where users can report bugs.
 -- bug-reports:
 
 -- The license under which the package is released.
--- license:
+license: GPL-3.0-or-later
 author:             Henry-Johnson-100
 maintainer:         hencutJohnson@gmail.com
 
@@ -21,7 +21,7 @@ maintainer:         hencutJohnson@gmail.com
 -- category:
 extra-source-files: CHANGELOG.md
 
-executable FISH
+executable Bream
     main-is:          Main.hs
 
     --Modules included in this executable, other than Main.
@@ -43,37 +43,9 @@ executable FISH
                       Test
     default-language: Haskell2010
 
-executable FISHSyntaxTreeIO
+executable BreamST
     main-is: PTIO.hs
     other-modules:
-        Lexer,
-        SyntaxTree,
-        Exception.Base,
-        Token.Control,
-        Token.Bracket,
-        Token.Data,
-        Token.Keyword,
-        Token.Operator,
-        Token.Util.EagerCollapsible,
-        Token.Util.Like,
-        Token.Util.NestedCollapsible,
-        Token.Util.String,
-        Token.Util.Tree
-    build-depends:
-        base ^>=4.15.0.0
-        , ghc-prim >= 0.7.0
-        , tasty >= 0.7 && < 1.4.1
-        , tasty-hunit ^>=0.10.0.3
-    hs-source-dirs: app
-                    app/Token
-                    app/Token/Util
-                    Test
-    default-language: Haskell2010
-
-executable FISHCalculator
-    main-is: Calculator.hs
-    other-modules:
-        ExecutionTree,
         Lexer,
         SyntaxTree,
         Exception.Base,
