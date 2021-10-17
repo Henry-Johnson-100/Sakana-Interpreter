@@ -26,6 +26,20 @@ executable Bream
 
     --Modules included in this executable, other than Main.
     other-modules:
+        Lexer
+        ExecutionTree
+        SyntaxTree
+        Exception.Base
+        SyntaxTree
+        Token.Bracket
+        Token.Control
+        Token.Data
+        Token.Keyword
+        Token.Operator
+        Token.Util.Like
+        Token.Util.NestedCollapsible
+        Token.Util.String
+        Token.Util.Tree
         Token.Util.EagerCollapsible
 
 
