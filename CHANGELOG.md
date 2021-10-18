@@ -13,7 +13,7 @@
 * Some compatibility patches for GHC base 4.8.0 instead of 4.15.0
 * minor fixes for some clarity in ExecutionTree.hs
 
-### 0.1.1.0 -- YYYY-MM-DD
+### 0.1.1.0 -- 2021-10-18
 
 * Changed the ```Num``` data type from a Float to a Double.
 * Fixed ```String``` data types from printing with ```\" \"``` wrapped around them. 
