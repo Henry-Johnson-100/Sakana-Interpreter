@@ -10,5 +10,5 @@
 
 ### 0.1.0.2 -- YYYY-MM-DD
 
-* Some compatibility patches for GHC base 4.10 instead of 4.15
+* Some compatibility patches for GHC base 4.8.0 instead of 4.15.0
 * minor fixes for some clarity in ExecutionTree.hs
