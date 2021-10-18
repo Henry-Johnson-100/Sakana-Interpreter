@@ -17,7 +17,7 @@ import qualified Token.Util.Like as LikeClass (Like (..))
 import qualified Token.Util.String (strip)
 
 data Data
-  = Num Float
+  = Num Double
   | String String
   | Boolean Bool
   | Id String
@@ -83,7 +83,7 @@ isPrimitive d = any (d `LikeClass.like`) [Num 0.0, String "", Boolean True, Null
 isNumeric :: Data -> Bool
 isNumeric d = any (d `LikeClass.like`) [Num 0.0, Null]
 
-unNum :: Data -> Maybe Float
+unNum :: Data -> Maybe Double
 unNum (Num x) = Just x
 unNum Null = Just 0.0
 unNum _ = Nothing
@@ -103,8 +103,8 @@ readData paddedStr
   | null str = Other ""
   | Data.List.isPrefixOf "/*" str || Data.List.isSuffixOf "*/" str = Comment str
   | allAlphaNum $ Token.Util.String.strip str = Other str
-  | allDigits $ Token.Util.String.strip str = Num (read str :: Float)
-  | isFloatStr $ Token.Util.String.strip str = Num (read str :: Float)
+  | allDigits $ Token.Util.String.strip str = Num (read str)
+  | isFloatStr $ Token.Util.String.strip str = Num (read str)
   | allPunct $ Token.Util.String.strip str = Punct str
   | '\"' `elem` str = String str --Don't like this one
   | str == "True" || str == "False" = Boolean (read str :: Bool)
