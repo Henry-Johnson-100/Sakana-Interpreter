@@ -211,7 +211,7 @@ addSpaces str
 
 tokenIsStringCollapsibleTerminalCase :: CTC.CollapsibleTerminalCases Token
 tokenIsStringCollapsibleTerminalCase =
-  CTC.CollapsibleTerminalCases tokenIsStringPrefix tokenIsStringSuffix
+  CTC.CollapsibleTerminalCases dataTokenIsString dataTokenIsString
 
 tokenIsStringPrefix :: Token -> Bool
 tokenIsStringPrefix (Data (D.String a)) =
@@ -250,16 +250,14 @@ consolidateEagerCollapsibleTokens (t : ts)
       && EagerCollapsible.isEagerCollapsible
         tokenIsStringCollapsibleTerminalCase
         (t : ts) =
-    (stringLiteralToStringToken . consolidateTokensToString) (t : ts) :
+    (Data . D.String . consolidateTokensToString) (t : ts) :
     consolidateEagerCollapsibleTokens
       (EagerCollapsible.dropBetween tokenIsStringCollapsibleTerminalCase (t : ts))
-  | '\"' `elem` (baseDataString t) =
-    (stringLiteralToStringToken . baseDataString) t :
+  | dataTokenIsString t =
+    (Data . D.String . baseDataString) t :
     consolidateEagerCollapsibleTokens ts
   | otherwise = t : consolidateEagerCollapsibleTokens ts
   where
-    stringLiteralToStringToken :: String -> Token
-    stringLiteralToStringToken = Data . D.String . onlyLiteral
     consolidateTokensToString :: [Token] -> String
     consolidateTokensToString xs =
       concatMap

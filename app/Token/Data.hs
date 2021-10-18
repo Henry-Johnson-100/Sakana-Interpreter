@@ -14,7 +14,7 @@ where
 import qualified Data.Char (isAlpha, isAlphaNum, isDigit, isPunctuation)
 import qualified Data.List (isPrefixOf, isSuffixOf)
 import qualified Token.Util.Like as LikeClass (Like (..))
-import qualified Token.Util.String (strip)
+import qualified Token.Util.String (strip, onlyLiteral)
 
 data Data
   = Num Double
@@ -106,7 +106,7 @@ readData paddedStr
   | allDigits $ Token.Util.String.strip str = Num (read str)
   | isFloatStr $ Token.Util.String.strip str = Num (read str)
   | allPunct $ Token.Util.String.strip str = Punct str
-  | '\"' `elem` str = String str --Don't like this one
+  | '\"' `elem` str = (String . Token.Util.String.onlyLiteral) str --Don't like this one
   | str == "True" || str == "False" = Boolean (read str :: Bool)
   | couldBeId $ Token.Util.String.strip str = Id str
   | otherwise = Other str
