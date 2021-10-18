@@ -8,7 +8,7 @@
 
 * Changed name from Fish to Bream to Sakana.
 
-### 0.1.0.2 -- YYYY-MM-DD
+### 0.1.0.2 -- 2021-10-18
 
 * Some compatibility patches for GHC base 4.8.0 instead of 4.15.0
 * minor fixes for some clarity in ExecutionTree.hs
