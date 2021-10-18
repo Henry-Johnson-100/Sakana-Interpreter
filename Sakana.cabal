@@ -47,8 +47,8 @@ executable Sakana
     other-extensions: MagicHash
     -- other-extensions:
     build-depends:    
-        base >= 4.10.0.0
-      , ghc-prim >= 0.7.0
+        base >= 4.08.0.0
+      , ghc-prim >= 0.5.0
       --, tasty >= 0.7 && < 1.4.1
       --, tasty-hunit ^>=0.10.0.3
     hs-source-dirs:   app
@@ -74,8 +74,8 @@ executable SakanaST
         Token.Util.String,
         Token.Util.Tree
     build-depends:
-        base >= 4.10.0.0
-        , ghc-prim >= 0.7.0
+        base >= 4.08.0.0
+        , ghc-prim >= 0.5.0
         , tasty >= 0.7 && < 1.4.1
         , tasty-hunit ^>=0.10.0.3
     hs-source-dirs: app
@@ -96,8 +96,8 @@ test-suite TreeInterpreter
         TreeInterpreterTest.hs
     other-modules:
     build-depends:
-        base >= 4.10.0.0
-      , ghc-prim >= 0.7.0 
+        base >= 4.08.0.0
+      , ghc-prim >= 0.5.0 
       , tasty >= 0.7 && < 1.4.1
       , tasty-hunit ^>=0.10.0.3
 
@@ -114,7 +114,7 @@ test-suite TreeInterpreter
 --     other-modules:
 --         Token.Util.EagerCollapsible
 --     build-depends:
---         base >= 4.10.0.0
+--         base >= 4.08.0.0
 --       , tasty >= 0.7 && < 1.4.1
 --       , tasty-hunit ^>=0.10.0.3
 
@@ -134,7 +134,7 @@ test-suite TreeInterpreter
 --         Token.Util.Like,
 --         Token.Util.String
 --     build-depends:
---         base >= 4.10.0.0
+--         base >= 4.08.0.0
 --       , tasty >= 0.7 && < 1.4.1
 --       , tasty-hunit ^>=0.10.0.3
 
@@ -152,6 +152,6 @@ test-suite TreeInterpreter
 --         Token.Util.NestedCollapsible,
 --         Token.Util.EagerCollapsible
 --     build-depends:
---         base >= 4.10.0.0
+--         base >= 4.08.0.0
 --       , tasty >= 0.7 && < 1.4.1
 --       , tasty-hunit ^>=0.10.0.3
