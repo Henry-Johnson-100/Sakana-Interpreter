@@ -56,7 +56,7 @@ where
 --                                      █████
 
 import qualified Data.Char as DChar (isSpace)
-import qualified Data.List as DList (find, foldl', intercalate, intersperse, singleton)
+import qualified Data.List as DList (find, foldl', intercalate, intersperse)
 import Data.Maybe (Maybe (..))
 import qualified Data.Maybe as DMaybe (fromJust, fromMaybe, isJust, isNothing, maybe)
 import qualified Data.Tuple as DTuple (uncurry)
@@ -130,8 +130,7 @@ class Truthy a where
 
 instance Truthy D.Data where
   truthy (D.Num x) = x == 1.0
-  truthy (D.String x) =
-    not $ foldIdApplicativeOnSingleton any [not . all DChar.isSpace, not . null] x
+  truthy (D.String x) = (not . null . filter (not . DChar.isSpace)) x
   truthy (D.Boolean x) = x
   truthy _ = False
   falsy = not . truthy
@@ -601,7 +600,7 @@ applyIsPrimitiveEvaluable =
           ]
       <*>
   )
-    . DList.singleton
+    . listSingleton
 
 -- #TODO Change this to also take an EnvironmentStack,
 -- if disambiguating with an id and not a value, then look up the id to get the value
@@ -683,7 +682,10 @@ last' [] = Nothing
 last' xs = (Just . last) xs
 
 foldIdApplicativeOnSingleton :: ((a1 -> a1) -> [b] -> c) -> [a2 -> b] -> a2 -> c
-foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . DList.singleton
+foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . listSingleton
+
+listSingleton :: a -> [a]
+listSingleton x = [x]
 
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
