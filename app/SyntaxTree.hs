@@ -40,8 +40,9 @@ import qualified Token.Bracket as B
 import qualified Token.Data as D (Data (Id, Null))
 import qualified Token.Keyword as K (Keyword (School))
 import qualified Token.Util.EagerCollapsible as EagerCollapsible (dropInfix)
+import qualified Token.Util.CollapsibleTerminalCases as CTC (CollapsibleTerminalCases(..))
 import qualified Token.Util.NestedCollapsible as NestedCollapsible
-  ( NCCase (NCCase),
+  (
     TriplePartition (..),
     breakByNest,
     groupByPartition,
@@ -102,9 +103,9 @@ generateSyntaxTree tus =
         syntaxPartitionTree
         ((getSyntaxPartitions . scanTokensToSyntaxes) tus)
 
-bracketNestCase :: NestedCollapsible.NCCase SyntaxUnit
+bracketNestCase :: CTC.CollapsibleTerminalCases SyntaxUnit
 bracketNestCase =
-  NestedCollapsible.NCCase
+  CTC.CollapsibleTerminalCases
     (\x -> token x `elem` [Lexer.Bracket B.Send B.Open, Lexer.Bracket B.Return B.Open])
     (\x -> token x `elem` [Lexer.Bracket B.Send B.Close, Lexer.Bracket B.Return B.Close])
 

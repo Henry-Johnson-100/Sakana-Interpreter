@@ -24,6 +24,7 @@ module Token.Util.NestedCollapsible
 where
 
 import qualified Token.Util.EagerCollapsible as EagerCollapsible
+import qualified Token.Util.CollapsibleTerminalCases as CTC (CollapsibleTerminalCases(..))
 
 data TriplePartition a = TriplePartition
   { partFst :: [a],
@@ -35,23 +36,20 @@ data TriplePartition a = TriplePartition
 unwrapPartition :: TriplePartition a -> [[a]]
 unwrapPartition (TriplePartition f s t) = [f, s, t]
 
-data NCCase a = NCCase
-  { beginCase :: a -> Bool,
-    endCase :: a -> Bool
-  }
+type NCCase a = CTC.CollapsibleTerminalCases a
 
 isCompleteNestedCollapsible :: NCCase a -> [a] -> Bool
 isCompleteNestedCollapsible nCCase xs =
   isCompleteNestedCollapsible' nCCase 0 0 xs
-    && beginCase nCCase (head xs)
-    && endCase nCCase (last xs)
+    && CTC.beginCase nCCase (head xs)
+    && CTC.endCase nCCase (last xs)
   where
     isCompleteNestedCollapsible' _ begins ends [] =
       begins == ends && all (0 <) [begins, ends]
     isCompleteNestedCollapsible' nCCase' begins ends (x' : xs')
       | ends == begins && begins > 0 = False
-      | beginCase nCCase' x' = isCompleteNestedCollapsible' nCCase' (begins + 1) ends xs'
-      | endCase nCCase' x' = isCompleteNestedCollapsible' nCCase' begins (ends + 1) xs'
+      | CTC.beginCase nCCase' x' = isCompleteNestedCollapsible' nCCase' (begins + 1) ends xs'
+      | CTC.endCase nCCase' x' = isCompleteNestedCollapsible' nCCase' begins (ends + 1) xs'
       | otherwise = isCompleteNestedCollapsible' nCCase' begins ends xs'
 
 hasNestedCollapsible :: NCCase a -> [a] -> Bool
@@ -66,15 +64,15 @@ hasDeeperNest nCCase xs = hasNestedCollapsible nCCase (tail xs)
 nestedCollapsibleIsPrefixOf :: NCCase a -> [a] -> Bool
 nestedCollapsibleIsPrefixOf _ [] = False
 nestedCollapsibleIsPrefixOf nCCase xs
-  | not (beginCase nCCase (head xs)) = False
+  | not (CTC.beginCase nCCase (head xs)) = False
   | otherwise = nestedCollapsibleIsPrefixOf' nCCase 0 xs
   where
     nestedCollapsibleIsPrefixOf' :: NCCase a -> Int -> [a] -> Bool
     nestedCollapsibleIsPrefixOf' _ ignoreTerminations [] = ignoreTerminations == 0
     nestedCollapsibleIsPrefixOf' nCCase' ignoreTerminations (x : xs)
-      | beginCase nCCase' x =
+      | CTC.beginCase nCCase' x =
         nestedCollapsibleIsPrefixOf' nCCase' (ignoreTerminations + 1) xs
-      | endCase nCCase' x =
+      | CTC.endCase nCCase' x =
         ((ignoreTerminations - 1) == 0)
           || nestedCollapsibleIsPrefixOf' nCCase' (ignoreTerminations - 1) xs
       | otherwise = nestedCollapsibleIsPrefixOf' nCCase' ignoreTerminations xs
@@ -162,8 +160,8 @@ takeNestFirstComplete nCCase xs
     takeNestFirstComplete' :: NCCase a -> Int -> [a] -> [a]
     takeNestFirstComplete' _ _ [] = []
     takeNestFirstComplete' nCCase' terminations (x : xs)
-      | beginCase nCCase' x = x : takeNestFirstComplete' nCCase' (terminations + 1) xs
-      | endCase nCCase' x =
+      | CTC.beginCase nCCase' x = x : takeNestFirstComplete' nCCase' (terminations + 1) xs
+      | CTC.endCase nCCase' x =
         if (terminations - 1) <= 0
           then [x]
           else x : takeNestFirstComplete' nCCase' (terminations - 1) xs
@@ -227,6 +225,6 @@ numberOfTerminations ncCase xs = numberOfTerminations' ncCase 0 0 xs
     numberOfTerminations' :: NCCase a -> Int -> Int -> [a] -> (Int, Int)
     numberOfTerminations' _ begins ends [] = (begins, ends)
     numberOfTerminations' nCCase' begins ends (x : xs)
-      | beginCase nCCase' x = numberOfTerminations' nCCase' (begins + 1) ends xs
-      | endCase nCCase' x = numberOfTerminations' nCCase' begins (ends + 1) xs
+      | CTC.beginCase nCCase' x = numberOfTerminations' nCCase' (begins + 1) ends xs
+      | CTC.endCase nCCase' x = numberOfTerminations' nCCase' begins (ends + 1) xs
       | otherwise = numberOfTerminations' nCCase' begins ends xs

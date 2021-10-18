@@ -5,11 +5,12 @@ module Token.Util.String
     padRear,
     padEqual,
     strip,
+    onlyLiteral,
   )
 where
 
 import qualified Data.Char (isSpace)
-import qualified Data.List (isPrefixOf)
+import qualified Data.List (isPrefixOf, isSuffixOf)
 import qualified Token.Util.EagerCollapsible as EagerCollapsible (dropInfix)
 
 replaceAll :: String -> String -> String -> String
@@ -37,3 +38,9 @@ strip str =
     dropWhile Data.Char.isSpace $
       reverse $
         dropWhile Data.Char.isSpace str
+
+onlyLiteral :: String -> String
+onlyLiteral strs
+  | "\"" `Data.List.isPrefixOf` strs = (onlyLiteral . tail) strs
+  | "\"" `Data.List.isSuffixOf` strs = (onlyLiteral . init) strs
+  | otherwise = strs

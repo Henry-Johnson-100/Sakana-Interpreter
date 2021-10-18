@@ -19,10 +19,10 @@ module Lexer
   )
 where
 
-import qualified Data.Maybe (Maybe(..), maybe, fromJust, isNothing)
 import qualified Control.Arrow as Bifunctor
 import qualified Data.Char (isSpace)
 import qualified Data.List (isPrefixOf, isSuffixOf)
+import qualified Data.Maybe (Maybe (..), fromJust, isNothing, maybe)
 import qualified Exception.Base
   ( ExceptionSeverity (Fatal),
     ExceptionType
@@ -58,6 +58,10 @@ import qualified Token.Keyword as K
     repr,
   )
 import qualified Token.Operator as O (Operator (Add), fromOp, readOp, repr, spacingRepr)
+import qualified Token.Util.CollapsibleTerminalCases as CTC
+  ( CollapsibleTerminalCases (..),
+    sameCase,
+  )
 import qualified Token.Util.EagerCollapsible as EagerCollapsible
   ( dropBetween,
     dropInfix,
@@ -65,7 +69,7 @@ import qualified Token.Util.EagerCollapsible as EagerCollapsible
     takeBetween,
   )
 import Token.Util.Like (Like (..))
-import Token.Util.String (padEqual)
+import Token.Util.String (onlyLiteral, padEqual)
 
 data Token
   = Bracket B.ScopeType B.BracketTerminal
@@ -131,6 +135,10 @@ dataTokenIsId _ = False
 dataTokenIsOther :: Token -> Bool
 dataTokenIsOther (Data (D.Other _)) = True
 dataTokenIsOther _ = False
+
+dataTokenIsString :: Token -> Bool
+dataTokenIsString (Data (D.String _)) = True
+dataTokenIsString _ = False
 
 tokenPacketToUnit :: Packet Token -> [TokenUnit]
 tokenPacketToUnit tp = map (\t -> PacketUnit t (packetLine tp)) (members tp)
@@ -201,6 +209,10 @@ addSpaces str
     getLongestStringFromList strs =
       head $ filter (\x -> length x == maximum (map length strs)) strs
 
+tokenIsStringCollapsibleTerminalCase :: CTC.CollapsibleTerminalCases Token
+tokenIsStringCollapsibleTerminalCase =
+  CTC.CollapsibleTerminalCases tokenIsStringPrefix tokenIsStringSuffix
+
 tokenIsStringPrefix :: Token -> Bool
 tokenIsStringPrefix (Data (D.String a)) =
   ( ("\"" `Data.List.isPrefixOf` a)
@@ -236,33 +248,26 @@ consolidateEagerCollapsibleTokens [] = []
 consolidateEagerCollapsibleTokens (t : ts)
   | tokenIsStringPrefix t
       && EagerCollapsible.isEagerCollapsible
-        tokenIsStringPrefix
-        tokenIsStringSuffix
+        tokenIsStringCollapsibleTerminalCase
         (t : ts) =
-    mapToConsolidatedData (Data (D.String "")) (t : ts)
-      ++ consolidateEagerCollapsibleTokens
-        (EagerCollapsible.dropBetween tokenIsStringPrefix tokenIsStringSuffix (t : ts))
+    (stringLiteralToStringToken . consolidateTokensToString) (t : ts) :
+    consolidateEagerCollapsibleTokens
+      (EagerCollapsible.dropBetween tokenIsStringCollapsibleTerminalCase (t : ts))
+  | '\"' `elem` (baseDataString t) =
+    (stringLiteralToStringToken . baseDataString) t :
+    consolidateEagerCollapsibleTokens ts
   | otherwise = t : consolidateEagerCollapsibleTokens ts
   where
-    mapTakeBetween :: Token -> [Token] -> [Token]
-    mapTakeBetween emptyTokenDataType xs =
-      map (constructDataToken emptyTokenDataType . baseDataString) $
-        EagerCollapsible.takeBetween
-          (isDataTypePrefix emptyTokenDataType)
-          (isDataTypeSuffix emptyTokenDataType)
-          xs
-    mapToConsolidatedData :: Token -> [Token] -> [Token]
-    mapToConsolidatedData emptyTokenDataType xs =
-      [ constructDataToken
-          emptyTokenDataType
-          (concatMap baseDataString (mapTakeBetween emptyTokenDataType xs))
-      ]
-    isDataTypePrefix :: Token -> Token -> Bool
-    isDataTypePrefix (Data (D.String _)) = tokenIsStringPrefix
-    isDataTypeSuffix :: Token -> Token -> Bool
-    isDataTypeSuffix (Data (D.String _)) = tokenIsStringSuffix
-    constructDataToken :: Token -> String -> Token
-    constructDataToken (Data (D.String _)) str = Data (D.String str)
+    stringLiteralToStringToken :: String -> Token
+    stringLiteralToStringToken = Data . D.String . onlyLiteral
+    consolidateTokensToString :: [Token] -> String
+    consolidateTokensToString xs =
+      concatMap
+        baseDataString
+        ( EagerCollapsible.takeBetween
+            tokenIsStringCollapsibleTerminalCase
+            xs
+        )
 
 wordsPreserveStringSpacing :: String -> [String]
 wordsPreserveStringSpacing str = wordsPreserveStringSpacingScan [] str

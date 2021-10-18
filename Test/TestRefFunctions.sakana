@@ -105,5 +105,5 @@ fish factorial
 
 /*Here is the main execution*/
 <(
-  factorial >(50)>
+  == >("Hello")> >("Hello ")>
 )<

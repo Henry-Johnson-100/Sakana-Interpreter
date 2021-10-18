@@ -7,36 +7,38 @@ module Token.Util.EagerCollapsible
 where
 
 import qualified Data.List (isPrefixOf)
+import qualified Token.Util.CollapsibleTerminalCases as CTC
+  ( CollapsibleTerminalCases (..),
+    sameCase,
+  )
 
-isEagerCollapsible :: (a -> Bool) -> (a -> Bool) -> [a] -> Bool
-isEagerCollapsible _ _ [] = False
-isEagerCollapsible beginCase endCase xs = foldEC beginCase endCase False xs
+isEagerCollapsible :: CTC.CollapsibleTerminalCases a -> [a] -> Bool
+isEagerCollapsible _ [] = False
+isEagerCollapsible ctc xs = foldEC ctc False xs
 
-foldEC :: (a -> Bool) -> (a -> Bool) -> Bool -> [a] -> Bool
-foldEC _ _ _ [] = False
-foldEC beginCase endCase bool (x : xs)
-  | not bool && endCase x && not (sameCase x) = False
-  | not bool && (beginCase x || sameCase x) = foldEC beginCase endCase True xs
-  | bool && beginCase x && not (sameCase x) = False
-  | bool && (endCase x || sameCase x) = True
-  | otherwise = foldEC beginCase endCase bool xs
-  where
-    sameCase t = beginCase t && endCase t
+foldEC :: CTC.CollapsibleTerminalCases a -> Bool -> [a] -> Bool
+foldEC _ _ [] = False
+foldEC ctc bool (x : xs)
+  | not bool && (CTC.endCase ctc) x && not ((CTC.sameCase ctc) x) = False
+  | not bool && ((CTC.beginCase ctc) x || (CTC.sameCase ctc) x) = foldEC ctc True xs
+  | bool && (CTC.beginCase ctc) x && not ((CTC.sameCase ctc) x) = False
+  | bool && ((CTC.endCase ctc) x || (CTC.sameCase ctc) x) = True
+  | otherwise = foldEC ctc bool xs
 
 -- | For elements in a list where f(x) is True,
 -- take that element and all elements after it until the next such element.
 -- Works inclusively, the list returned has the property f(head xs) == True
 -- and f(end xs) == true and every element in between evaluates to False.
-takeBetween :: (Eq a) => (a -> Bool) -> (a -> Bool) -> [a] -> [a]
-takeBetween _ _ [] = []
-takeBetween beginCase endCase xs
-  | not (isEagerCollapsible beginCase endCase xs) = xs
-  | notBeginCase (head xs) = takeBetween beginCase endCase (dropWhile notBeginCase xs)
+takeBetween :: (Eq a) => CTC.CollapsibleTerminalCases a -> [a] -> [a]
+takeBetween _ [] = []
+takeBetween ctc xs
+  | not (isEagerCollapsible ctc xs) = xs
+  | notBeginCase (head xs) = takeBetween ctc (dropWhile notBeginCase xs)
   | otherwise =
     head xs : takeWhile notEndCase (tail xs) ++ [head (dropWhile notEndCase (tail xs))]
   where
-    notBeginCase x = not $ beginCase x
-    notEndCase x = not $ endCase x
+    notBeginCase = (not . CTC.beginCase ctc)
+    notEndCase = (not . CTC.endCase ctc)
 
 -- | take two lists, the first being a list infixed in the second,
 -- return a list with that infix removed
@@ -52,5 +54,5 @@ dropInfix infixList (x : xs)
 -- and all elements after it until the next such element.
 -- Works inclusively, the list returned has the property f(head xs) == True
 -- and f(end xs) == true and every element in between evaluates to False.
-dropBetween :: (Eq a) => (a -> Bool) -> (a -> Bool) -> [a] -> [a]
-dropBetween beginCase endCase xs = dropInfix (takeBetween beginCase endCase xs) xs
+dropBetween :: (Eq a) => CTC.CollapsibleTerminalCases a -> [a] -> [a]
+dropBetween ctc xs = dropInfix (takeBetween ctc xs) xs
