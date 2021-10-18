@@ -1,6 +1,5 @@
 module ExecutionTree
-  ( -- calc',
-    calct',
+  ( calct',
     evaluateNode,
     executeMain,
     --Anything below this is a temporary export
@@ -62,20 +61,67 @@ import Data.Maybe (Maybe (..))
 import qualified Data.Maybe as DMaybe (fromJust, fromMaybe, isJust, isNothing, maybe)
 import qualified Data.Tuple as DTuple (uncurry)
 import qualified Exception.Base as Exception
+  ( ExceptionSeverity (Fatal),
+    ExceptionType
+      ( General,
+        MissingPositionalArguments,
+        OperatorTypeError,
+        SymbolIsAlreadyBound,
+        SymbolNotFound,
+        UndefinedOperatorBehavior
+      ),
+    newException,
+    raiseError,
+  )
 import qualified Lexer
+  ( Token (Control, Data, Operator),
+    TokenUnit,
+    baseData,
+    dataTokenIsId,
+    fromToken,
+    genericData,
+    genericOperator,
+    keywordTokenIsDeclarationRequiringId,
+    tokenize,
+  )
 import SyntaxTree (SyntaxTree)
 import SyntaxTree as SyntaxUnit (SyntaxUnit (..))
 import qualified SyntaxTree
+  ( SyntaxTree,
+    SyntaxUnit (SyntaxUnit, line, token),
+    generateSyntaxTree,
+    genericSyntaxUnit,
+    getSyntaxAttributeFromTree,
+  )
 import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
-import System.Environment
-import System.IO
-import qualified Token.Bracket as B
-import qualified Token.Control as C
+import System.Environment (getArgs)
+import System.IO (IOMode (ReadMode), hGetContents, openFile)
+import qualified Token.Bracket as B (ScopeType (Return))
+import qualified Token.Control as C (Control (Fin))
 import qualified Token.Data as D
-import qualified Token.Keyword as K
+  ( Data (Boolean, Null, Num, String),
+    isNumeric,
+    isPrimitive,
+    unBoolean,
+    unNum,
+    unString,
+  )
 import qualified Token.Operator as O
-import qualified Token.Util.Like as LikeClass
+  ( Operator (Add, Div, Eq, Gt, GtEq, Lt, LtEq, Mult, NEq, Pow, Sub),
+    fromOp,
+  )
+import qualified Token.Util.Like as LikeClass (Like (like))
 import qualified Token.Util.Tree as Tree
+  ( Tree (Empty),
+    TreeIO (fPrintTree, ioPrintTree),
+    maybeOnTreeNode,
+    reTree,
+    tree,
+    treeChildren,
+    treeNode,
+    (-<-),
+    (-<=),
+  )
 
 -- | Unsure if this should be an instance but I will keep it for now
 class Truthy a where

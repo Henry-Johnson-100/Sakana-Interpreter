@@ -1,31 +1,31 @@
-# fish-lang
+# Sakana
+
+A syntax-tree based interpreter implementation for the Sakana programming language.
 
 A functional programming language, heavily inspired by Haskell and subliminally inspired by Scheme.
 Based on fish, using fishy words and fish braces >()> <()<
 
 # Try it
 
-As of the current iteration of the fish interpreter, it is a non-functional language,
-but it has a working lexer and syntax tree generator.
-
-It also has a calculator where you can do math using fish's syntax!
-
-To see the syntax tree representation of a fish file, make sure you have Haskell's cabal installed
+To interpret a Sakana file, make sure you have Haskell's cabal installed
 and you can run an executable using:
 
-```cabal run FISHSyntaxTreeIO path/to/your/fish/file.fish```
+```cabal run Sakana path/to/your/Sakana/file.skn```
 
-The calculator can be used similarly,
-    
-```cabal run FISHCalculator path/to/file.fish```
+Any file that contains Sakana code can be executed but for posterity,
+the file extensions, .skn, or .sakana are preferred.
+
+You can also peak at the file's tree structure using:
+
+```cabal run SakanaST path/```
 
 I apologize in advance for cabal not building properly. You can always use ghc to compile
 the executable files yourself.
-The executables are app/PTIO.hs and app/Calculator.hs
+The executables are app/Main.hs and app/PTIO.hs
 
-# What is fish?
+# What is Sakana?
 
-fish is a functional programming language that is very (perhaps too) similar to Haskell and Scheme.
+Sakana is a functional programming language that is very (perhaps too) similar to Haskell and Scheme.
 All of the syntax is fishy and code blocks are executed and their value returned depending on what kind of fish they reside in.
 There are two types of fish, send fish ">()>", and return fish "<()<"
 
@@ -36,17 +36,14 @@ return fish always execute and return.
 ## Keywords
 
 - fish
-- route
-- school
-- shoal
 - fin
-- migrate
 
 ## Primitive Data Types
 
 - Num
 - String
 - Boolean
+- Null
 
 ## Operators
 
@@ -116,16 +113,11 @@ fin
     >(0.0)>
 ```
 
-In Haskell, the fin function would be written as:
-```
-fin boolf x y = if boolf then x else y
-```
-
 ## Function Declaration
 
 Functions are declared with the ```fish``` keyword.
 
-Following the keyword, a function name must be given. After the name come a list of send fish which contain the function's positional arguments as well as any necessary sub-function or variable declarations.
+Following the keyword, a function name must be given. After the name comes a list of send fish which contain the function's positional arguments as well as any necessary sub-function or variable declarations.
 
 Here is an example for some simple boolean logic:
 
@@ -194,6 +186,6 @@ fish factorial
 
 so here we can see that calling factorial is essentially just a wrapper for the hidden sub-function ```sub_fact```
 
-It should also be noted that fish does not have a loop, so any looping must be defined recursively.
+It should also be noted that Sakana does not have a loop, so any looping must be defined recursively.
 
-Hope you enjoyed your quick primer on fish!
+Hope you enjoyed your quick primer on Sakana!

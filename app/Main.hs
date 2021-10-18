@@ -1,10 +1,11 @@
 module Main where
 
-import ExecutionTree (executeMain, calct')
-import SyntaxTree
-import Lexer
+import ExecutionTree (executeMain)
+import SyntaxTree ( generateSyntaxTree )
+import Lexer ( tokenize )
 import System.Environment (getArgs)
 import System.IO
+    ( hClose, hGetContents, openFile, IOMode(ReadMode) )
 
 main :: IO ()
 main = do
