@@ -1,7 +1,9 @@
 module ExecutionTree
-  ( calct',
+  ( EnvironmentStack (..),
+    calct',
     evaluateNode,
     executeMain,
+    execute,
     --Anything below this is a temporary export
     noEnvironmentStack,
     disambiguateFunction,
@@ -61,7 +63,7 @@ import Data.Maybe (Maybe (..))
 import qualified Data.Maybe as DMaybe (fromJust, fromMaybe, isJust, isNothing, maybe)
 import qualified Data.Tuple as DTuple (uncurry)
 import qualified Exception.Base as Exception
-  ( ExceptionSeverity (Fatal),
+  ( ExceptionSeverity (Debug, Fatal),
     ExceptionType
       ( General,
         MissingPositionalArguments,
@@ -95,11 +97,13 @@ import qualified SyntaxTree
   )
 import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
 import System.Environment (getArgs)
-import System.IO (IOMode (ReadMode), hGetContents, openFile)
+import System.IO
+import System.IO.Unsafe
 import qualified Token.Bracket as B (ScopeType (Return))
 import qualified Token.Control as C (Control (Fin))
 import qualified Token.Data as D
   ( Data (Boolean, Null, Num, String),
+    fromData,
     isNumeric,
     isPrimitive,
     unBoolean,
@@ -309,6 +313,28 @@ executeMain tr = execute (getMainEnvironmentStack tr) (getMainExecutionTree tr)
 
 execute :: EnvironmentStack -> SyntaxTree -> D.Data
 execute env tr
+  | treeIsStandardLibCall tr =
+    case ( D.fromData
+             . DMaybe.fromJust
+             . Lexer.baseData
+             . SyntaxUnit.token
+             . DMaybe.fromJust
+             . Tree.treeNode
+         )
+      tr of
+      "trout" ->
+        trout
+          env
+          ((DMaybe.fromJust . head' . Tree.treeChildren) tr)
+          ((DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr)
+      "dolphin" -> dolphin ""
+      nonExistentStdLibFunction ->
+        Exception.raiseError $
+          Exception.newException
+            Exception.General
+            ([SyntaxTree.getSyntaxAttributeFromTree (SyntaxUnit.line) tr])
+            ("The std lib function: " ++ (nonExistentStdLibFunction) ++ " Does not exist")
+            Exception.Debug
   | treeIsPrimitivelyEvaluable tr = evaluateNode env tr
   | treeIsSymbolValueBinding tr =
     (evaluateNode env . DMaybe.fromJust . head' . Tree.treeChildren) tr
@@ -316,10 +342,19 @@ execute env tr
       any
       [treeIsFunctionCall, treeIsSimpleValueBindingCall]
       tr =
-    execute
-      (encloseEnvironmentIn (calledFunctionEnv env tr) env)
-      (getMainExecutionTree (disambiguateFunction env tr (calledFunction env tr)))
+    executeFunctionCall env tr
   | otherwise = D.Null
+
+executeFunctionCall :: EnvironmentStack -> SyntaxTree -> D.Data
+executeFunctionCall env tr =
+  execute
+    (encloseEnvironmentIn thisCalledFunctionEnv env)
+    (getMainExecutionTree thisDisambiguatedFunction)
+  where
+    thisCalledFunctionSymbol = calledFunctionSymbol env tr
+    thisCalledFunction = symbolVal thisCalledFunctionSymbol
+    thisCalledFunctionEnv = calledFunctionEnv env tr
+    thisDisambiguatedFunction = disambiguateFunction env tr thisCalledFunction
 
 calledFunctionEnv :: EnvironmentStack -> SyntaxTree -> EnvironmentStack
 calledFunctionEnv env tr =
@@ -329,7 +364,11 @@ calledFunctionEnv env tr =
 
 calledFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree
 calledFunction env =
-  symbolVal . lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
+  symbolVal . calledFunctionSymbol env
+
+calledFunctionSymbol :: EnvironmentStack -> Tree.Tree SyntaxUnit -> SymbolPair
+calledFunctionSymbol env =
+  lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
 
 evaluateNode :: EnvironmentStack -> SyntaxTree -> D.Data
 evaluateNode _ Tree.Empty = D.Null
@@ -556,6 +595,18 @@ treeIsExecutable tr =
 treeIsPositionalArg :: SyntaxTree -> Bool
 treeIsPositionalArg = null . Tree.treeChildren
 
+treeIsStandardLibCall :: SyntaxTree -> Bool
+treeIsStandardLibCall tr =
+  nodeStrictlySatisfies nodeIsDataToken tr
+    && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
+  where
+    funcIdInStdLibList =
+      flip elem sakanaStdLib
+        . D.fromData
+        . DMaybe.fromJust
+        . Lexer.baseData
+        . SyntaxUnit.token
+
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -686,6 +737,29 @@ foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . listSi
 
 listSingleton :: a -> [a]
 listSingleton x = [x]
+
+----StdLibFunctions-----------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+sakanaStdLib = ["trout", "dolphin"]
+
+trout :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> D.Data
+{-# NOINLINE trout #-}
+trout env toPrint toEval = unsafePerformIO $ trout' env toPrint toEval
+  where
+    trout' :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> IO D.Data
+    trout' env' toPrint' toEval' = do
+      dataToPrint <- (return . D.fromData . execute env') toPrint'
+      hPutStrLn stdout dataToPrint
+      (return . execute env') toEval'
+
+-- | Dolphin seems to need this string as an arg for some reason or else it will continue
+--  to return the same thing
+dolphin :: String -> D.Data
+{-# NOINLINE dolphin #-}
+dolphin str = unsafePerformIO $ dolphin' str
+  where
+    dolphin' :: String -> IO D.Data
+    dolphin' str = hGetLine stdin >>= (return . D.String)
 
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
