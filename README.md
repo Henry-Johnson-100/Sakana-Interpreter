@@ -61,7 +61,7 @@ return fish always execute and return.
 
 ## Standard Library
 
-- trout
+- Trout
     - Sakana's print function.
     - Usage: ```trout >(a)> >(b)>```
         - Where ```a``` is the value that is printed and ```b``` is the operation carried out after printing ```a```
@@ -257,7 +257,7 @@ Below is a function to concatenate two entered strings with a space in the middl
 )<
 ```
 
-Lastly, here is a function demonstrating the use of ```encrust``` for binding IO values, 
+Here is a function demonstrating the use of ```encrust``` for binding IO values, 
 and perhaps, also demonstrating a hint of the depths of ugliness and depravity you can dive to with Sakana code.
 ```
 <(
@@ -271,7 +271,7 @@ and perhaps, also demonstrating a hint of the depths of ugliness and depravity y
         )>
         >(trout 
             >( + 
-              >("You see how I can now reference the encrusted id where want inside this scope? ")> 
+              >("You see how I can now reference the encrusted id where I want inside this scope? ")> 
               >(x)>
             )>
           >(trout 
