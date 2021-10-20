@@ -13,6 +13,7 @@ module SyntaxTree
     genericSyntaxUnit,
     getSyntaxAttributeFromTree,
     nthChildMeetsCondition,
+    setContext,
   )
 where
 

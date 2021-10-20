@@ -2,16 +2,23 @@ import Data.Maybe
 import ExecutionTree
 import Lexer
 import SyntaxTree
+import System.IO.Unsafe
 import Test.Tasty
 import Test.Tasty.HUnit
 import Token.Data
 import Token.Util.Tree
 
 executeFirstChild :: String -> Data
-executeFirstChild = ExecutionTree.evaluateNode noEnvironmentStack . ExecutionTree.calct'
+executeFirstChild = unsafePerformIO . ExecutionTree.execute noEnvironmentStack . ExecutionTree.calct'
 
-getMainTree :: String -> SyntaxTree
-getMainTree = generateSyntaxTree . tokenize
+getMainTree :: String -> IO SyntaxTree
+getMainTree = return . generateSyntaxTree . tokenize
+
+prepareFunctionForTest str = unsafePerformIO $ executeMain (exEnv str) (exTr str)
+  where
+    docTree = SyntaxTree.generateSyntaxTree . Lexer.tokenize
+    exEnv = return . getMainEnvironmentStack . docTree
+    exTr = return . getMainExecutionTree . docTree
 
 agnosticizeLines tr = fmap (setLineToZero) tr
   where
@@ -69,7 +76,7 @@ tests = testGroup "ExecutionTree tests" testList
   where
     testList =
       [ finTests,
-        functionDisambiguationTests,
+        -- functionDisambiguationTests,
         functionDeclArgFetchingTests,
         functionExecutionTests
       ]
@@ -91,7 +98,7 @@ numOperatorTests =
     "Using fish operators"
     ( zip
         ( map
-            Num
+            (Num)
             [ 0.0,
               1.0,
               2.0,
@@ -120,7 +127,7 @@ boolOperatorTests =
     "Using fish operators"
     ( zip
         ( map
-            Boolean
+            (Boolean)
             [ True,
               True,
               True,
@@ -152,29 +159,29 @@ finTests = testGroup "Fin control tests" testList
         finWorksOnImplicitBool
       ]
 
-finWorksOnExplicitBool = testCase name assertion
+finWorksOnExplicitBool = standardTimeout 3 $ testCase name assertion
   where
     name = "Fin with explicit bool first arg works"
     assertion = assertEqual d a f
     d = name
     a = Num 1.0
-    f = executeMain . getMainTree $ "fin >(True)> >(1)> >(0)>"
+    f = prepareFunctionForTest $ "fin >(True)> >(1)> >(0)>"
 
-finWorksOnImplicitBool = testCase name assertion
+finWorksOnImplicitBool = standardTimeout 3 $ testCase name assertion
   where
     name = "Fin with implicit bool first arg works"
     assertion = assertEqual d a f
     d = name
     a = Num 0.0
-    f = executeMain . getMainTree $ "fin >(500)> >(1)> >(0)>"
+    f = prepareFunctionForTest $ "fin >(500)> >(1)> >(0)>"
 
-nestedFinWorks = testCase name assertion
+nestedFinWorks = standardTimeout 3 $ testCase name assertion
   where
     name = "nested fins work"
     assertion = assertEqual d a f
     d = name
     a = Num 0.0
-    f = executeMain . getMainTree $ "fin >(500)> >(fin >(True)> >(1)> >(0)>)> >(fin >(True)> >(0)> >(1)>)>"
+    f = prepareFunctionForTest $ "fin >(500)> >(fin >(True)> >(1)> >(0)>)> >(fin >(True)> >(0)> >(1)>)>"
 
 functionDeclArgFetchingTests = testGroup "Fetching arguments from function declarations" testList
   where
@@ -189,7 +196,7 @@ functionDeclArgFetchingTests = testGroup "Fetching arguments from function decla
         allPosArgsAreFetchedMultipleMixesOne
       ]
 
-oneFuncArgIsFetched = testCase name assertion
+oneFuncArgIsFetched = standardTimeout 3 $ testCase name assertion
   where
     name = "A function declaration with one positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
@@ -197,7 +204,7 @@ oneFuncArgIsFetched = testCase name assertion
     a = [noLineCalct] <*> [">(n)>"]
     f = getFuncDeclArgs . noLineCalct $ "fish return_n >(n)> <(n)<"
 
-twoFuncArgIsFetched = testCase name assertion
+twoFuncArgIsFetched = standardTimeout 3 $ testCase name assertion
   where
     name = "A function declaration with two positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
@@ -205,7 +212,7 @@ twoFuncArgIsFetched = testCase name assertion
     a = [noLineCalct] <*> [">(n)>", ">(m)>"]
     f = getFuncDeclArgs . noLineCalct $ "fish return_n >(n)> >(m)> <(n)<"
 
-threeFuncArgIsFetched = testCase name assertion
+threeFuncArgIsFetched = standardTimeout 3 $ testCase name assertion
   where
     name = "A function declaration with three positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
@@ -213,7 +220,7 @@ threeFuncArgIsFetched = testCase name assertion
     a = [noLineCalct] <*> [">(n)>", ">(m)>", ">(o)>"]
     f = getFuncDeclArgs . noLineCalct $ "fish return_n >(n)> >(m)> >(o)> <(n)<"
 
-allPosArgsAreFetchedOne = testCase name assertion
+allPosArgsAreFetchedOne = standardTimeout 3 $ testCase name assertion
   where
     name = "A function declaration with three positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
@@ -221,7 +228,7 @@ allPosArgsAreFetchedOne = testCase name assertion
     a = [noLineCalct] <*> [">(n)>", ">(m)>", ">(o)>"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m)> >(o)> <(n)<"
 
-allPosArgsAreFetchedTwo = testCase name assertion
+allPosArgsAreFetchedTwo = standardTimeout 3 $ testCase name assertion
   where
     name = "A function declaration with one positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
@@ -229,7 +236,7 @@ allPosArgsAreFetchedTwo = testCase name assertion
     a = [noLineCalct] <*> [">(n)>"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> <(n)<"
 
-allPosArgsAreFetchedThree = testCase name assertion
+allPosArgsAreFetchedThree = standardTimeout 3 $ testCase name assertion
   where
     name = "A function declaration with mixed positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
@@ -237,7 +244,7 @@ allPosArgsAreFetchedThree = testCase name assertion
     a = [noLineCalct] <*> [">(n)>", ">(o)>"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> <(n)<"
 
-allPosArgsAreFetchedMultipleMixesOne = testCase name assertion
+allPosArgsAreFetchedMultipleMixesOne = standardTimeout 3 $ testCase name assertion
   where
     name = "A function declaration with mixed positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
@@ -245,7 +252,7 @@ allPosArgsAreFetchedMultipleMixesOne = testCase name assertion
     a = [noLineCalct] <*> [">(n)>", ">(o)>", ">(q)>"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> >(p <(1)<)> >(q)> <(n)<"
 
-allPosArgsAreFetchedMultipleMixesTwo = testCase name assertion
+allPosArgsAreFetchedMultipleMixesTwo = standardTimeout 3 $ testCase name assertion
   where
     name = "A function declaration with mixed positional arg(s) and a function declaration is fetched appropriately"
     assertion = assertEqual d a f
@@ -253,127 +260,127 @@ allPosArgsAreFetchedMultipleMixesTwo = testCase name assertion
     a = [noLineCalct] <*> [">(n)>", ">(o)>", ">(q)>"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> >(fish thing >(x)> <(x)<)> >(q)> <(n)<"
 
-functionDisambiguationTests = testGroup "Function disambiguation tests" testList
-  where
-    testList =
-      [ simpleFunctionIsDisambiguated,
-        multiplePositionalArgsAreDisambiguated,
-        functionWithArgMixIsDisambiguatedOne,
-        functionWithArgMixIsDisambiguatedTwo,
-        functionWithArgMixIsDisambiguatedThree
-      ]
+-- functionDisambiguationTests = testGroup "Function disambiguation tests" testList
+--   where
+--     testList =
+--       [ simpleFunctionIsDisambiguated,
+--         multiplePositionalArgsAreDisambiguated,
+--         functionWithArgMixIsDisambiguatedOne,
+--         functionWithArgMixIsDisambiguatedTwo,
+--         functionWithArgMixIsDisambiguatedThree
+--       ]
 
-simpleFunctionIsDisambiguated = testCase name assertion
-  where
-    name = "Simple function can be disambiguated"
-    assertion = assertEqual d a f
-    d = "Simple function can be disambiguated"
-    a = noLineCalct "fish return_n >(n <(1)<)> <(n)<"
-    f =
-      disambiguateFunction
-        noEnvironmentStack
-        (noLineCalct "return_n >(1)>")
-        (noLineCalct "fish return_n >(n)> <(n)<")
+-- simpleFunctionIsDisambiguated = standardTimeout 3 $ testCase name assertion
+--   where
+--     name = "Simple function can be disambiguated"
+--     assertion = assertEqual d a f
+--     d = "Simple function can be disambiguated"
+--     a = noLineCalct "fish return_n >(n <(1)<)> <(n)<"
+--     f =
+--       disambiguateFunction
+--         noEnvironmentStack
+--         (noLineCalct "return_n >(1)>")
+--         (noLineCalct "fish return_n >(n)> <(n)<")
 
-multiplePositionalArgsAreDisambiguated = testCase name assertion
-  where
-    name = "function declaration with multiple pos. args is disambiguated"
-    assertion = assertEqual d a f
-    d = name
-    a = noLineCalct "fish add >(x <(1)<)> >(y <(2)<)> <(something)<"
-    f =
-      disambiguateFunction
-        noEnvironmentStack
-        (noLineCalct "add >(1)> >(2)>")
-        (noLineCalct "fish add >(x)> >(y)> <(something)<")
+-- multiplePositionalArgsAreDisambiguated = standardTimeout 3 $ testCase name assertion
+--   where
+--     name = "function declaration with multiple pos. args is disambiguated"
+--     assertion = assertEqual d a f
+--     d = name
+--     a = noLineCalct "fish add >(x <(1)<)> >(y <(2)<)> <(something)<"
+--     f =
+--       disambiguateFunction
+--         noEnvironmentStack
+--         (noLineCalct "add >(1)> >(2)>")
+--         (noLineCalct "fish add >(x)> >(y)> <(something)<")
 
-functionWithArgMixIsDisambiguatedOne = testCase name assertion
-  where
-    name = "A function with a mix of positional args and sending data is disambiguated"
-    assertion = assertEqual d a f
-    d = name
-    a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
-    f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(2)>") (noLineCalct "fish xyz >(x)> >(y)> >(z <(3)<)> <(z)<")
+-- functionWithArgMixIsDisambiguatedOne = standardTimeout 3 $ testCase name assertion
+--   where
+--     name = "A function with a mix of positional args and sending data is disambiguated"
+--     assertion = assertEqual d a f
+--     d = name
+--     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
+--     f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(2)>") (noLineCalct "fish xyz >(x)> >(y)> >(z <(3)<)> <(z)<")
 
-functionWithArgMixIsDisambiguatedTwo = testCase name assertion
-  where
-    name = "A function with a mix of positional args and sending data is disambiguated"
-    assertion = assertEqual d a f
-    d = name
-    a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
-    f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(3)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> <(z)<")
+-- functionWithArgMixIsDisambiguatedTwo = standardTimeout 3 $ testCase name assertion
+--   where
+--     name = "A function with a mix of positional args and sending data is disambiguated"
+--     assertion = assertEqual d a f
+--     d = name
+--     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
+--     f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(3)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> <(z)<")
 
-functionWithArgMixIsDisambiguatedThree = testCase name assertion
-  where
-    name = "A function with a mix of positional args and sending data is disambiguated"
-    assertion = assertEqual d a f
-    d = name
-    a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
-    f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(2)> >(3)>") (noLineCalct "fish xyz >(x <(1)<)> >(y)> >(z)> <(z)<")
+-- functionWithArgMixIsDisambiguatedThree = standardTimeout 3 $ testCase name assertion
+--   where
+--     name = "A function with a mix of positional args and sending data is disambiguated"
+--     assertion = assertEqual d a f
+--     d = name
+--     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
+--     f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(2)> >(3)>") (noLineCalct "fish xyz >(x <(1)<)> >(y)> >(z)> <(z)<")
 
-functionWithMultipleArgMixIsDisambiguatedOne = testCase name assertion
-  where
-    name = "A function with a mix of positional args and sending data is disambiguated"
-    assertion = assertEqual d a f
-    d = name
-    a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> >(a <(4)<)> >(b <(5)<)> <(z)<"
-    f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(3)> >(5)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> >(a <(4)<)> >(b)> <(z)<")
+-- functionWithMultipleArgMixIsDisambiguatedOne = standardTimeout 3 $ testCase name assertion
+--   where
+--     name = "A function with a mix of positional args and sending data is disambiguated"
+--     assertion = assertEqual d a f
+--     d = name
+--     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> >(a <(4)<)> >(b <(5)<)> <(z)<"
+--     f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(3)> >(5)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> >(a <(4)<)> >(b)> <(z)<")
 
-executesVerySimpleFunction = testCase name assertion
+executesVerySimpleFunction = standardTimeout 3 $ testCase name assertion
   where
     name = "A very simple function can be defined and executed"
     assertion = assertEqual d a f
     d = name
     a = Num 1.0
-    f = executeMain . getMainTree $ "fish return_n >(n)> <(n)< <(return_n >(1)>)<"
+    f = prepareFunctionForTest $ "fish return_n >(n)> <(n)< <(return_n >(1)>)<"
 
-executesVerySimpleFunctionTwo = testCase name assertion
+executesVerySimpleFunctionTwo = standardTimeout 3 $ testCase name assertion
   where
     name = "A very simple function can be defined and executed"
     assertion = assertEqual d a f
     d = name
     a = Num 2.0
-    f = executeMain . getMainTree $ "fish add >(x)> >(y)> <(+ >(x)> >(y)>)< <(add >(1)> >(1)>)<"
+    f = prepareFunctionForTest $ "fish add >(x)> >(y)> <(+ >(x)> >(y)>)< <(add >(1)> >(1)>)<"
 
-executesMixedArgFunction = testCase name assertion
+executesMixedArgFunction = standardTimeout 3 $ testCase name assertion
   where
     name = "A very simple function can be defined and executed"
     assertion = assertEqual d a f
     d = name
     a = Num 2.0
-    f = executeMain . getMainTree $ "fish add >(x)> >(y <(1)<)> <(+ >(x)> >(y)>)< <(add >(1)>)<"
+    f = prepareFunctionForTest $ "fish add >(x)> >(fish y >()> <(1)<)> <(+ >(x)> >(y)>)< <(add >(1)>)<"
 
-executesFunctionWithFin = testCase name assertion
+executesFunctionWithFin = standardTimeout 3 $ testCase name assertion
   where
     name = "A function with a fin call can be executed"
     assertion = assertEqual d a f
     d = name
     a = Boolean True
-    f = executeMain . getMainTree $ "fish to_bool >(x)> <(fin >(x)> >(True)> >(False)>)< <(to_bool >(1)>)<"
+    f = prepareFunctionForTest $ "fish to_bool >(x)> <(fin >(x)> >(True)> >(False)>)< <(to_bool >(1)>)<"
 
-executesFunctionWithNestedFin = testCase name assertion
+executesFunctionWithNestedFin = standardTimeout 3 $ testCase name assertion
   where
     name = "A function with a nested fin call can be executed"
     assertion = assertEqual d a f
     d = name
     a = Boolean True
-    f = executeMain . getMainTree $ "fish and >(x)> >(y)> <(fin >(x)> >(fin >(y)> >(True)> >(False)>)> >(False)>)< <(and >(True)> >(True)>)<"
+    f = prepareFunctionForTest $ "fish and >(x)> >(y)> <(fin >(x)> >(fin >(y)> >(True)> >(False)>)> >(False)>)< <(and >(True)> >(True)>)<"
 
-executesFunctionWithSubFunc = testCase name assertion
+executesFunctionWithSubFunc = standardTimeout 3 $ testCase name assertion
   where
     name = "A function with a sub-function definition can be executed"
     assertion = assertEqual d a f
     d = name
     a = Num 0.0
-    f = executeMain . getMainTree $ "fish subtract_one >(x)> >(fish sub >(y)> <(- >(y)> >(1)>)<)> <(sub >(x)>)< <(subtract_one >(1)>)<"
+    f = prepareFunctionForTest $ "fish subtract_one >(x)> >(fish sub >(y)> <(- >(y)> >(1)>)<)> <(sub >(x)>)< <(subtract_one >(1)>)<"
 
-simpleRecursiveFunction = testCase name assertion
+simpleRecursiveFunction = standardTimeout 3 $ testCase name assertion
   where
     name = "A simple recursive function works"
     assertion = assertEqual d a f
     d = name
     a = Num 0.0
-    f = executeMain . getMainTree $ "fish to_zero >(n)> <(fin >(== >(n)> >(0)> )> >(0)> >(to_zero >( - >(n)> >(1)>)>)>)< <(to_zero >(10)>)<"
+    f = prepareFunctionForTest $ "fish to_zero >(n)> <(fin >(== >(n)> >(0)> )> >(0)> >(to_zero >( - >(n)> >(1)>)>)>)< <(to_zero >(10)>)<"
 
 functionsCallOtherFunctions = standardTimeout 3 $ testCase name assertion
   where
@@ -381,7 +388,7 @@ functionsCallOtherFunctions = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 5.0
-    f = executeMain . getMainTree $ "fish id >(x)> <(x)< fish idd >(y)> <( id >(y)> )< <(idd >(5)>)<"
+    f = prepareFunctionForTest $ "fish id >(x)> <(x)< fish idd >(y)> <( id >(y)> )< <(idd >(5)>)<"
 
 functionsCallOtherFunctionsTwo = standardTimeout 3 $ testCase name assertion
   where
@@ -389,7 +396,7 @@ functionsCallOtherFunctionsTwo = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 5.0
-    f = executeMain . getMainTree $ "fish id >(x)> <(x)< fish idd >(y)> <( id >(y)> )< fish iddd >(z)> <(idd >(z)>)< <(iddd >(5)>)<"
+    f = prepareFunctionForTest $ "fish id >(x)> <(x)< fish idd >(y)> <( id >(y)> )< fish iddd >(z)> <(idd >(z)>)< <(iddd >(5)>)<"
 
 functionsCallOtherFunctionsThree = standardTimeout 3 $ testCase name assertion
   where
@@ -397,7 +404,7 @@ functionsCallOtherFunctionsThree = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 5.0
-    f = executeMain . getMainTree $ "fish id >(x)> <(x)< fish idd >(x)> <( id >(x)> )< <(idd >(5)>)<"
+    f = prepareFunctionForTest $ "fish id >(x)> <(x)< fish idd >(x)> <( id >(x)> )< <(idd >(5)>)<"
 
 concurrentFunctionCallsWork = standardTimeout 3 $ testCase name assertion
   where
@@ -405,7 +412,7 @@ concurrentFunctionCallsWork = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 3.0
-    f = executeMain . getMainTree $ "fish id >(x)> <(x)< <(+ >(id >(1)>)> >(id >(2)>)>)<"
+    f = prepareFunctionForTest $ "fish id >(x)> <(x)< <(+ >(id >(1)>)> >(id >(2)>)>)<"
 
 concurrentFunctionCallsWorkTwo = standardTimeout 3 $ testCase name assertion
   where
@@ -413,7 +420,7 @@ concurrentFunctionCallsWorkTwo = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name ++ " functions that take no arguments should be able to be called flexibly with a null or 0 send fish"
     a = Num 3.0
-    f = executeMain . getMainTree $ "fish x <(1)< fish y <(2)< <(+ >(x >()>)> >(y)>)<"
+    f = prepareFunctionForTest $ "fish x <(1)< fish y <(2)< <(+ >(x >()>)> >(y)>)<"
 
 functionsCallOtherFunctionsConcurrently = standardTimeout 3 $ testCase name assertion
   where
@@ -421,7 +428,7 @@ functionsCallOtherFunctionsConcurrently = standardTimeout 3 $ testCase name asse
     assertion = assertEqual d a f
     d = name
     a = Num 3.0
-    f = executeMain . getMainTree $ "fish id >(x)> <(x)< fish idd >(x)> <( id >(x)> )< <(+ >(id >(1)>)> >(idd >(2)>)> )<"
+    f = prepareFunctionForTest $ "fish id >(x)> <(x)< fish idd >(x)> <( id >(x)> )< <(+ >(id >(1)>)> >(idd >(2)>)> )<"
 
 simplePartialFunctionApplication = standardTimeout 3 $ testCase name assertion
   where
@@ -429,7 +436,7 @@ simplePartialFunctionApplication = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 2.0
-    f = executeMain . getMainTree $ "fish add >(x)> <(fish add_ >(y)> <(+ >(x)> >(y)>)< )< <(add >(1)> >(1)>)<"
+    f = prepareFunctionForTest $ "fish add >(x)> <(fish add_ >(y)> <(+ >(x)> >(y)>)< )< <(add >(1)> >(1)>)<"
 
 simpleShadowingOfId = standardTimeout 3 $ testCase name assertion
   where
@@ -437,7 +444,7 @@ simpleShadowingOfId = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 2.0
-    f = executeMain . getMainTree $ "fish x <(1)< fish id >(x)> <(x)< <(id >(2)>)<"
+    f = prepareFunctionForTest $ "fish x <(1)< fish id >(x)> <(x)< <(id >(2)>)<"
 
 simpleShadowingOfIdTwo = standardTimeout 3 $ testCase name assertion
   where
@@ -445,7 +452,7 @@ simpleShadowingOfIdTwo = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 1.0
-    f = executeMain . getMainTree $ "fish x <(1)< fish id >(x)> <(x)< <(id >(x >()> )>)<"
+    f = prepareFunctionForTest $ "fish x <(1)< fish id >(x)> <(x)< <(id >(x >()> )>)<"
 
 functionsWithNoExplicitSendFishAreAllowed = standardTimeout 3 $ testCase name assertion
   where
@@ -453,7 +460,7 @@ functionsWithNoExplicitSendFishAreAllowed = standardTimeout 3 $ testCase name as
     assertion = assertEqual d a f
     d = name ++ "Can be called without any send fish"
     a = Num 1.0
-    f = executeMain . getMainTree $ "fish x <(1)< <(x)<"
+    f = prepareFunctionForTest $ "fish x <(1)< <(x)<"
 
 functionsWithNoExplicitSendFishAreAllowedTwo = standardTimeout 3 $ testCase name assertion
   where
@@ -461,7 +468,7 @@ functionsWithNoExplicitSendFishAreAllowedTwo = standardTimeout 3 $ testCase name
     assertion = assertEqual d a f
     d = name
     a = Num 1.0
-    f = executeMain . getMainTree $ "fish x <(1)< <(x >()>)<"
+    f = prepareFunctionForTest $ "fish x <(1)< <(x >()>)<"
 
 functionsWithExplicitNoArgs = standardTimeout 3 $ testCase name assertion
   where
@@ -469,7 +476,7 @@ functionsWithExplicitNoArgs = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 1.0
-    f = executeMain . getMainTree $ "fish x >()> <(1)< <(x)<"
+    f = prepareFunctionForTest $ "fish x >()> <(1)< <(x)<"
 
 functionsWithExplicitNoArgsTwo = standardTimeout 3 $ testCase name assertion
   where
@@ -477,7 +484,7 @@ functionsWithExplicitNoArgsTwo = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name ++ "And can be called with an explicit or implicit send fish."
     a = Num 1.0
-    f = executeMain . getMainTree $ "fish x >()> <(1)< <(x >()>)<"
+    f = prepareFunctionForTest $ "fish x >()> <(1)< <(x >()>)<"
 
 functionCanReturnNull = standardTimeout 3 $ testCase name assertion
   where
@@ -485,7 +492,7 @@ functionCanReturnNull = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name ++ "And can be called with an explicit or implicit send fish."
     a = Null
-    f = executeMain . getMainTree $ "fish n <()< <(n >()>)<"
+    f = prepareFunctionForTest $ "fish n <()< <(n >()>)<"
 
 oneNestedFunctionCall = standardTimeout 3 $ testCase name assertion
   where
@@ -493,7 +500,7 @@ oneNestedFunctionCall = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name ++ "And can be called with an explicit or implicit send fish."
     a = Num 3.0
-    f = executeMain . getMainTree $ fishCall "incr >(incr >(1)>)>"
+    f = prepareFunctionForTest $ fishCall "incr >(incr >(1)>)>"
 
 tenNestedFunctionCall = standardTimeout 3 $ testCase name assertion
   where
@@ -501,7 +508,7 @@ tenNestedFunctionCall = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name ++ "And can be called with an explicit or implicit send fish."
     a = Num 10.0
-    f = executeMain . getMainTree $ fishCall "incr >(incr >(incr >(incr >(incr >(incr >(incr >(incr >(incr >(incr >(0)>)>)>)>)>)>)>)>)>)>"
+    f = prepareFunctionForTest $ fishCall "incr >(incr >(incr >(incr >(incr >(incr >(incr >(incr >(incr >(incr >(0)>)>)>)>)>)>)>)>)>)>"
 
 metaFishCallWorks = standardTimeout 3 $ testCase name assertion
   where
@@ -509,7 +516,7 @@ metaFishCallWorks = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Boolean False
-    f = executeMain . getMainTree $ fishCall "and >(True)> >(False)>"
+    f = prepareFunctionForTest $ fishCall "and >(True)> >(False)>"
 
 functionExecutionTests = testGroup "Function execution tests" testList
   where

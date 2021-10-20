@@ -8,7 +8,7 @@ module ExecutionTree
     getMainEnvironmentStack,
     --Anything below this is a temporary export
     noEnvironmentStack,
-    disambiguateFunction,
+    -- disambiguateFunction,
     getFuncDeclArgs,
     getFunctionDeclPositionalArgs,
   )
@@ -88,7 +88,7 @@ import qualified Lexer
     keywordTokenIsDeclarationRequiringId,
     tokenize,
   )
-import SyntaxTree (SyntaxTree)
+import SyntaxTree (SyntaxTree, setContext)
 import SyntaxTree as SyntaxUnit (SyntaxUnit (..))
 import qualified SyntaxTree
   ( SyntaxTree,
@@ -174,7 +174,8 @@ noEnvironmentStack = []
 --Functions to manage scope and environments----------------------------------------------
 ------------------------------------------------------------------------------------------
 
--- | Don't really even need a function for this one
+-- | The first environment is prepended to the second,
+-- meaning it is enclosed in the second.
 encloseEnvironmentIn :: EnvironmentStack -> EnvironmentStack -> EnvironmentStack
 encloseEnvironmentIn envInner envOuter = envInner ++ envOuter
 
@@ -224,13 +225,13 @@ makeSymbolTable' st (tr : trs) =
   DMaybe.maybe
     (makeSymbolTable' st trs)
     (\sp -> makeSymbolTable' (sp : st) trs)
-    (maybeTreeToSymbolPair tr)
-  where
-    maybeTreeToSymbolPair :: SyntaxTree -> Maybe SymbolPair
-    maybeTreeToSymbolPair tr' =
-      if treeIsStoreable tr'
-        then (Just . checkForSameScopeAssignment st . makeSymbolPair) tr'
-        else Nothing
+    (maybeTreeToSymbolPair st tr)
+
+maybeTreeToSymbolPair :: SymbolTable -> SyntaxTree -> Maybe SymbolPair
+maybeTreeToSymbolPair st tr' =
+  if treeIsStoreable tr'
+    then (Just . checkForSameScopeAssignment st . makeSymbolPair) tr'
+    else Nothing
 
 checkForSameScopeAssignment :: SymbolTable -> SymbolPair -> SymbolPair
 checkForSameScopeAssignment [] sp = sp
@@ -332,9 +333,13 @@ evaluatePrimitiveData :: SyntaxTree -> IO D.Data
 evaluatePrimitiveData = return . getNodeTokenBaseData
 
 evaluateFin :: EnvironmentStack -> SyntaxTree -> IO D.Data
-evaluateFin env tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
+evaluateFin env tr = do
+  cond <- (DMaybe.fromJust . head') args'
+  forTrue <- (DMaybe.fromJust . head' . tail') args'
+  forFalse <- (DMaybe.fromJust . head' . tail' . tail') args'
+  if truthy cond then return forTrue else return forFalse
   where
-    args = getTreeChildrenPrimitiveValues env tr
+    args' = getTreeChildrenPrimitiveValues env tr
 
 evaluateOperator :: EnvironmentStack -> SyntaxTree -> IO D.Data
 evaluateOperator env tr = do
@@ -349,7 +354,8 @@ evaluateOperator env tr = do
         O.Mult -> D.Num (justUnNum argx * justUnNum argy)
         O.Div -> D.Num (justUnNum argx / justUnNum argy)
         O.Pow -> D.Num (justUnNum argx ** justUnNum argy)
-        O.Eq -> D.Boolean (justUnNum argx == justUnNum argy) --This one doesn't really need to be under 'both isNumeric'
+        --This one doesn't really need to be under 'both isNumeric'
+        O.Eq -> D.Boolean (justUnNum argx == justUnNum argy)
         O.NEq -> D.Boolean (justUnNum argx /= justUnNum argy)
         O.Gt -> D.Boolean (justUnNum argx > justUnNum argy)
         O.Lt -> D.Boolean (justUnNum argx < justUnNum argy)
@@ -366,7 +372,10 @@ evaluateOperator env tr = do
             O.Lt -> D.Boolean (justUnString argx < justUnString argy)
             O.GtEq -> D.Boolean (justUnString argx >= justUnString argy)
             O.LtEq -> D.Boolean (justUnString argx <= justUnString argy)
-            otherOp -> undefinedOperatorBehaviorException (O.fromOp otherOp) (map show [argx, argy])
+            otherOp ->
+              undefinedOperatorBehaviorException
+                (O.fromOp otherOp)
+                (map show [argx, argy])
         else
           if both (D.Boolean True `LikeClass.like`) (argx, argy)
             then return $
@@ -377,8 +386,15 @@ evaluateOperator env tr = do
                 O.Lt -> D.Boolean (justUnBoolean argx < justUnBoolean argy)
                 O.GtEq -> D.Boolean (justUnBoolean argx >= justUnBoolean argy)
                 O.LtEq -> D.Boolean (justUnBoolean argx <= justUnBoolean argy)
-                otherOp -> undefinedOperatorBehaviorException (O.fromOp otherOp) (map show [argx, argy])
-            else return $ operatorTypeError ((O.fromOp . getNodeOperator) tr) (map show [argx, argy])
+                otherOp ->
+                  undefinedOperatorBehaviorException
+                    (O.fromOp otherOp)
+                    (map show [argx, argy])
+            else
+              return $
+                operatorTypeError
+                  ((O.fromOp . getNodeOperator) tr)
+                  (map show [argx, argy])
   where
     getNodeOperator tr' = case getNodeToken tr' of (Lexer.Operator o) -> o; _ -> O.Eq
     justUnNum = DMaybe.fromJust . D.unNum
@@ -408,21 +424,29 @@ evaluateOperator env tr = do
           Exception.Fatal
 
 executeFunctionCall :: EnvironmentStack -> SyntaxTree -> IO D.Data
-executeFunctionCall env tr =
-  execute
-    (encloseEnvironmentIn thisCalledFunctionEnv env)
-    (getMainExecutionTree thisDisambiguatedFunction)
+executeFunctionCall mainExEnv functionCall =
+  DTuple.uncurry
+    (executeMain)
+    (prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration)
   where
-    thisCalledFunctionSymbol = calledFunctionSymbol env tr
-    thisCalledFunction = symbolVal thisCalledFunctionSymbol
-    thisCalledFunctionEnv = calledFunctionEnv env tr
-    thisDisambiguatedFunction = disambiguateFunction env tr thisCalledFunction
+    functionDeclaration = calledFunction mainExEnv functionCall
 
-calledFunctionEnv :: EnvironmentStack -> SyntaxTree -> EnvironmentStack
-calledFunctionEnv env tr =
-  makeEnvironmentStackFrame
-    . Tree.treeChildren
-    $ disambiguateFunction env tr (calledFunction env tr)
+-- executeFunctionCall :: EnvironmentStack -> SyntaxTree -> IO D.Data
+-- executeFunctionCall env tr =
+--   execute
+--     (encloseEnvironmentIn thisCalledFunctionEnv env)
+--     (getMainExecutionTree thisDisambiguatedFunction)
+--   where
+--     thisCalledFunctionSymbol = calledFunctionSymbol env tr
+--     thisCalledFunction = symbolVal thisCalledFunctionSymbol
+--     thisCalledFunctionEnv = calledFunctionEnv env tr
+--     thisDisambiguatedFunction = disambiguateFunction env tr thisCalledFunction
+
+-- calledFunctionEnv :: EnvironmentStack -> SyntaxTree -> EnvironmentStack
+-- calledFunctionEnv env tr =
+--   makeEnvironmentStackFrame
+--     . Tree.treeChildren
+--     $ disambiguateFunction env tr (calledFunction env tr)
 
 calledFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree
 calledFunction env =
@@ -618,62 +642,70 @@ applyIsPrimitiveEvaluable =
   )
     . listSingleton
 
--- #TODO Change this to also take an EnvironmentStack,
--- if disambiguating with an id and not a value, then look up the id to get the value
--- before returning the disambiguated function.
-disambiguateFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> SyntaxTree
-disambiguateFunction env funcCall funcDef =
-  Tree.reTree funcDef
-    Tree.-<= ( (funcId funcDef) :
-               ( rebindFunctionArgs
-                   env
-                   (Tree.treeChildren funcCall)
-                   ((filterNullNodes . getFuncDeclArgs) funcDef)
-               )
-                 ++ [funcBody funcDef]
-             )
-  where
-    filterNullNodes =
-      filter (Tree.maybeOnTreeNode False ((Lexer.Data (D.Null) /=) . SyntaxUnit.token))
-    funcId = DMaybe.fromJust . head' . Tree.treeChildren
-    funcBody = DMaybe.fromJust . last' . Tree.treeChildren
+prepareFunctionCallForExecution ::
+  EnvironmentStack -> SyntaxTree -> SyntaxTree -> (IO EnvironmentStack, IO SyntaxTree)
+prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration =
+  ( makeIOEnvFromFuncCall
+      mainExEnv
+      (Tree.treeChildren functionCall)
+      (getFuncDeclArgs functionDeclaration),
+    (return . getMainExecutionTree) functionDeclaration
+  )
 
--- | Will bind a function call's arguments to a function declaration's positional
--- arguments, will only rebind while the function declaration has positional args
--- Will ignore any extra positional arguments from the function call.
--- Will raise an error if the function call does not have enough positional args.
-rebindFunctionArgs :: EnvironmentStack -> [SyntaxTree] -> [SyntaxTree] -> [SyntaxTree]
-rebindFunctionArgs _ _ [] = []
-rebindFunctionArgs env (fca : fcas) (fda : fdas)
-  | treeIsPositionalArg fda = (bindValue fca fda) : rebindFunctionArgs env fcas fdas
-  | otherwise = fda : rebindFunctionArgs env (fca : fcas) fdas
+makeSymbolTableFromFuncCall ::
+  EnvironmentStack -> SymbolTable -> [SyntaxTree] -> [SyntaxTree] -> IO SymbolTable
+makeSymbolTableFromFuncCall _ table _ [] = return table
+makeSymbolTableFromFuncCall _ table [] dfargs =
+  if any treeIsPositionalArg dfargs
+    then missingPositionalArgumentException dfargs
+    else
+      ( return
+          . flip (++) table
+          . map DMaybe.fromJust
+          . filter (not . DMaybe.isNothing)
+          . map (maybeTreeToSymbolPair table)
+      )
+        dfargs
   where
-    bindValue trFrom trTo =
-      trTo
-        Tree.-<- ( Tree.tree
-                     . setContext
-                     . SyntaxTree.genericSyntaxUnit
-                     . Lexer.Data
-                     . execute env
-                 )
-          trFrom
-    setContext (SyntaxTree.SyntaxUnit t _ _) = SyntaxTree.SyntaxUnit t 0 B.Return
-    ifSyntaxUnitExistsInEnvironmentReplaceItsValue su =
-      DMaybe.maybe
-        su
-        (SyntaxTree.genericSyntaxUnit . Lexer.Data . execute env . symbolVal)
-        (maybeLookupSymbolInEnvironmentStack env su)
-rebindFunctionArgs env [] fdas
-  | (any id . map treeIsPositionalArg) fdas =
-    Exception.raiseError $
-      Exception.newException
-        Exception.MissingPositionalArguments
-        (map (Tree.maybeOnTreeNode 0 SyntaxUnit.line) fdas)
-        ( "Missing positional arguments:\n"
-            ++ (unlines . map (Tree.maybeOnTreeNode "N/A" (show))) fdas
-        )
-        Exception.Fatal
-  | otherwise = fdas
+    missingPositionalArgumentException :: [Tree.Tree SyntaxUnit] -> a2
+    missingPositionalArgumentException fdas =
+      Exception.raiseError $
+        Exception.newException
+          Exception.MissingPositionalArguments
+          (map (Tree.maybeOnTreeNode 0 SyntaxUnit.line) fdas)
+          ( "Missing positional arguments:\n"
+              ++ (unlines . map (Tree.maybeOnTreeNode "N/A" (show))) fdas
+          )
+          Exception.Fatal
+makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
+  | treeIsPositionalArg dfarg = do
+    cfargVal <- execute mainExEnv cfarg
+    argValBinding <- return $ createSymbolPairFromArgTreePair dfarg cfargVal
+    makeSymbolTableFromFuncCall mainExEnv (argValBinding : table) cfargs dfargs
+  | otherwise = do
+    let fromJustSymbolTable =
+          DMaybe.maybe table (\x -> x : table) (maybeTreeToSymbolPair table dfarg)
+    makeSymbolTableFromFuncCall mainExEnv (fromJustSymbolTable) cfargs dfargs
+  where
+    createSymbolPairFromArgTreePair :: SyntaxTree -> D.Data -> SymbolPair
+    createSymbolPairFromArgTreePair dfarg' cfargVal' =
+      makeSymbolPair $
+        (Tree.tree . DMaybe.fromJust . Tree.treeNode) dfarg'
+          Tree.-<- ( Tree.tree
+                       . SyntaxTree.setContext B.Return
+                       . SyntaxTree.genericSyntaxUnit
+                       . Lexer.Data
+                   )
+            cfargVal'
+
+makeIOEnvFromFuncCall ::
+  EnvironmentStack ->
+  [SyntaxTree] ->
+  [SyntaxTree] ->
+  IO EnvironmentStack
+makeIOEnvFromFuncCall mainExEnv cfargs dfargs = do
+  newSubScope <- makeSymbolTableFromFuncCall mainExEnv [] cfargs dfargs
+  return (newSubScope : mainExEnv)
 
 -- Utility functions, including an improved head and tail---------------------------------
 ------------------------------------------------------------------------------------------
@@ -705,44 +737,13 @@ listSingleton x = [x]
 
 ----StdLibFunctions-----------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
--- sakanaStdLib = ["trout", "dolphin"]
-
--- trout :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> D.Data
--- {-# NOINLINE trout #-}
--- trout env toPrint toEval = unsafePerformIO $ trout' env toPrint toEval
---   where
---     trout' :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> IO D.Data
---     trout' env' toPrint' toEval' = do
---       dataToPrint <- (return . D.fromData . execute env') toPrint'
---       hPutStrLn stdout dataToPrint
---       (return . execute env') toEval'
-
--- -- | Dolphin seems to need this string as an arg for some reason or else it will continue
--- --  to return the same thing
--- dolphin :: String -> D.Data
--- {-# NOINLINE dolphin #-}
--- dolphin str = unsafePerformIO $ dolphin' str
---   where
---     dolphin' :: String -> IO D.Data
---     dolphin' str = do
---       tempSakanaTempFile <- openTempFile "./" "SakanaStdIn.ext"
---       let tempSakanaHandle = snd tempSakanaTempFile
---       let tempSakanaPath = fst tempSakanaTempFile
---       hClose tempSakanaHandle
---       -- hSetBuffering tempSakanaHandle LineBuffering
---       inputToWrite <- writeFile tempSakanaPath =<< hGetLine stdin
-
---       input <- readFile' tempSakanaPath
---       (return . D.String) input
-
--- -- hGetContents' stdin >>= (return . D.String)
 
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
 s' :: [Char]
 s' =
-  fishCall "and >(True)> >(not >(or >(False)> >(False)>)>)>"
+  "fish add >(x)> >(fish y >()> <(1)<)> <(+ >(x)> >(y >()>)>)< <(add >(1)>)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
@@ -762,7 +763,11 @@ calct' =
     . SyntaxTree.generateSyntaxTree
     . Lexer.tokenize
 
-ex' = executeMain (return noEnvironmentStack) . return . SyntaxTree.generateSyntaxTree . Lexer.tokenize
+ex' s = do
+  let docTree = SyntaxTree.generateSyntaxTree . Lexer.tokenize $ s
+  let mainExEnv = return . getMainEnvironmentStack $ docTree
+  let mainExTr = return . getMainExecutionTree $ docTree
+  executeMain mainExEnv mainExTr
 
 -- calc' :: String -> D.Data
 -- calc' = evaluateNode . calct'
