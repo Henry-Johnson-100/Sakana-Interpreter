@@ -325,6 +325,9 @@ execute env tr
           ((DMaybe.fromJust . head' . Tree.treeChildren) tr)
           ((DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr)
       "dolphin" -> dolphin
+      "encrust" -> do
+        encrustedEnv <- encrust env ((DMaybe.fromJust . head' . Tree.treeChildren) tr)
+        execute encrustedEnv ((DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr)
       _ -> return D.Null
   | foldIdApplicativeOnSingleton
       any
@@ -655,17 +658,17 @@ makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
     let fromJustSymbolTable =
           DMaybe.maybe table (: table) (maybeTreeToSymbolPair table dfarg)
     makeSymbolTableFromFuncCall mainExEnv (fromJustSymbolTable) cfargs dfargs
-  where
-    createSymbolPairFromArgTreePair :: SyntaxTree -> D.Data -> SymbolPair
-    createSymbolPairFromArgTreePair dfarg' cfargVal' =
-      makeSymbolPair $
-        (Tree.tree . DMaybe.fromJust . Tree.treeNode) dfarg'
-          Tree.-<- ( Tree.tree
-                       . SyntaxTree.setContext B.Return
-                       . SyntaxTree.genericSyntaxUnit
-                       . Lexer.Data
-                   )
-            cfargVal'
+
+createSymbolPairFromArgTreePair :: SyntaxTree -> D.Data -> SymbolPair
+createSymbolPairFromArgTreePair dfarg' cfargVal' =
+  makeSymbolPair $
+    (Tree.tree . DMaybe.fromJust . Tree.treeNode) dfarg'
+      Tree.-<- ( Tree.tree
+                   . SyntaxTree.setContext B.Return
+                   . SyntaxTree.genericSyntaxUnit
+                   . Lexer.Data
+               )
+        cfargVal'
 
 makeIOEnvFromFuncCall ::
   EnvironmentStack ->
@@ -678,7 +681,8 @@ makeIOEnvFromFuncCall mainExEnv cfargs dfargs = do
 
 ----Standard Library Functions------------------------------------------------------------
 ------------------------------------------------------------------------------------------
-sakanaStandardLibrary = ["trout", "dolphin"]
+sakanaStandardLibrary :: [String]
+sakanaStandardLibrary = ["trout", "dolphin", "encrust"]
 
 sakanaPrint :: D.Data -> IO ()
 sakanaPrint = hPutStrLn stdout . D.fromData
@@ -691,6 +695,13 @@ trout envInToEval toPrint toEval =
 
 dolphin :: IO D.Data
 dolphin = hGetLine stdin >>= return . D.String
+
+encrust :: EnvironmentStack -> SyntaxTree -> IO EnvironmentStack
+encrust env encTree = do
+  let encrustedSymbolDataIO = (execute env . DMaybe.fromJust . head' . Tree.treeChildren) encTree
+  encrustedSymbolData <- encrustedSymbolDataIO
+  encrustedSymbolPair <- return $ createSymbolPairFromArgTreePair (encTree) encrustedSymbolData
+  return ([encrustedSymbolPair] : env)
 
 -- Utility functions, including an improved head and tail---------------------------------
 ------------------------------------------------------------------------------------------

@@ -40,7 +40,7 @@ instance LikeClass.Like Data where
   a `notLike` b = not $ LikeClass.like a b
 
 miscRepr :: [String]
-miscRepr = [",", "/*", "*/"]
+miscRepr = [ "/*", "*/"]
 
 fromData :: Data -> String
 fromData (String a) = a
