@@ -1,14 +1,12 @@
 module ExecutionTree
   ( EnvironmentStack (..),
     calct',
-    -- evaluateNode,
     executeMain,
     execute,
     getMainExecutionTree,
     getMainEnvironmentStack,
     --Anything below this is a temporary export
     noEnvironmentStack,
-    -- disambiguateFunction,
     getFuncDeclArgs,
     getFunctionDeclPositionalArgs,
   )
@@ -188,16 +186,6 @@ addTableToEnvironmentStack :: EnvironmentStack -> SymbolTable -> EnvironmentStac
 addTableToEnvironmentStack [] symTable = [symTable]
 addTableToEnvironmentStack env symTable = symTable : env
 
--- lookupSymbolInEnvironmentStack :: EnvironmentStack -> SyntaxUnit -> SymbolPair
--- lookupSymbolInEnvironmentStack (st : []) lookupId =
---   DMaybe.fromMaybe
---     (symbolNotFoundError lookupId)
---     (maybeLookupSymbolInSymbolTable lookupId st)
--- lookupSymbolInEnvironmentStack (st : sts) lookupId =
---   DMaybe.fromMaybe
---     (lookupSymbolInEnvironmentStack sts lookupId)
---     (maybeLookupSymbolInSymbolTable lookupId st)
-
 lookupSymbolInEnvironmentStack :: EnvironmentStack -> SyntaxUnit -> SymbolPair
 lookupSymbolInEnvironmentStack env lookupId =
   DMaybe.fromMaybe
@@ -334,12 +322,12 @@ evaluatePrimitiveData = return . getNodeTokenBaseData
 
 evaluateFin :: EnvironmentStack -> SyntaxTree -> IO D.Data
 evaluateFin env tr = do
-  cond <- (DMaybe.fromJust . head') args'
-  forTrue <- (DMaybe.fromJust . head' . tail') args'
-  forFalse <- (DMaybe.fromJust . head' . tail' . tail') args'
-  if truthy cond then return forTrue else return forFalse
+  cond <- (execute env . DMaybe.fromJust . head') args'
+  let forTrue = (DMaybe.fromJust . head' . tail') args'
+  let forFalse = (DMaybe.fromJust . head' . tail' . tail') args'
+  if truthy cond then execute env forTrue else execute env forFalse
   where
-    args' = getTreeChildrenPrimitiveValues env tr
+    args' = Tree.treeChildren tr
 
 evaluateOperator :: EnvironmentStack -> SyntaxTree -> IO D.Data
 evaluateOperator env tr = do
@@ -431,23 +419,6 @@ executeFunctionCall mainExEnv functionCall =
   where
     functionDeclaration = calledFunction mainExEnv functionCall
 
--- executeFunctionCall :: EnvironmentStack -> SyntaxTree -> IO D.Data
--- executeFunctionCall env tr =
---   execute
---     (encloseEnvironmentIn thisCalledFunctionEnv env)
---     (getMainExecutionTree thisDisambiguatedFunction)
---   where
---     thisCalledFunctionSymbol = calledFunctionSymbol env tr
---     thisCalledFunction = symbolVal thisCalledFunctionSymbol
---     thisCalledFunctionEnv = calledFunctionEnv env tr
---     thisDisambiguatedFunction = disambiguateFunction env tr thisCalledFunction
-
--- calledFunctionEnv :: EnvironmentStack -> SyntaxTree -> EnvironmentStack
--- calledFunctionEnv env tr =
---   makeEnvironmentStackFrame
---     . Tree.treeChildren
---     $ disambiguateFunction env tr (calledFunction env tr)
-
 calledFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree
 calledFunction env =
   symbolVal . calledFunctionSymbol env
@@ -455,29 +426,6 @@ calledFunction env =
 calledFunctionSymbol :: EnvironmentStack -> Tree.Tree SyntaxUnit -> SymbolPair
 calledFunctionSymbol env =
   lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
-
--- evaluateNode :: EnvironmentStack -> SyntaxTree -> D.Data
--- evaluateNode _ Tree.Empty = D.Null
--- evaluateNode env tr
---   | otherwise = case applyIsPrimitiveEvaluable tr of
---     [True, False, False] -> evaluateOperator env tr
---     _ ->
---       Exception.raiseError $
---         Exception.newException
---           Exception.General
---           []
---           ( "The tree: "
---               ++ (Tree.fPrintTree 0 tr)
---               ++ "Matched too many criteria for evaluation in the function, "
---               ++ "\'evaluateNode\' : "
---               ++ (show . applyIsPrimitiveEvaluable) tr
---               ++ "\nFor tokens, \'"
---               ++ show tr
---               ++ "\'"
---               ++ "\nIn environment: \n"
---               ++ fPrintEnvironmentStack env
---           )
---           Exception.Fatal
 
 --Boolean comparison functions used primarily for function guards.------------------------
 ------------------------------------------------------------------------------------------
@@ -614,9 +562,6 @@ getNodeTokenBaseData =
 getNodeToken :: SyntaxTree -> Lexer.Token
 getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
 
-getTreeChildrenPrimitiveValues :: EnvironmentStack -> SyntaxTree -> [IO D.Data]
-getTreeChildrenPrimitiveValues env = map (execute env) . Tree.treeChildren
-
 getOperatorArgs :: EnvironmentStack -> SyntaxTree -> (IO D.Data, IO D.Data)
 getOperatorArgs env tr =
   ( (execute env . DMaybe.fromJust . head' . Tree.treeChildren) tr,
@@ -751,7 +696,7 @@ listSingleton x = [x]
 
 s' :: [Char]
 s' =
-  "fish add >(x)> >(fish y >()> <(1)<)> <(+ >(x)> >(y >()>)>)< <(add >(1)>)<"
+  "fish recur >(n)> <(fin >(== >(n)> >(0)>)> >(n)> >(recur >(- >(n)> >(1)>)>)>)< <(recur >(0)>)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
