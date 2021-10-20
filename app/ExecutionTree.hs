@@ -489,6 +489,10 @@ nodeStrictlySatisfies = Tree.maybeOnTreeNode False
 nodeIsDataToken :: SyntaxUnit -> Bool
 nodeIsDataToken = LikeClass.like Lexer.genericData . SyntaxUnit.token
 
+nodeIsNull :: SyntaxUnit -> Bool
+nodeIsNull (SyntaxUnit.SyntaxUnit (Lexer.Data (D.Null)) _ _) = True
+nodeIsNull _ = False
+
 nodeIsDataTokenAndPrimitive :: SyntaxUnit -> Bool
 nodeIsDataTokenAndPrimitive =
   foldIdApplicativeOnSingleton
@@ -620,7 +624,11 @@ getOperatorArgs env tr =
   )
 
 getFuncDeclArgs :: SyntaxTree -> [SyntaxTree]
-getFuncDeclArgs = tail' . init' . Tree.treeChildren
+getFuncDeclArgs =
+  filter (nodeStrictlySatisfies (not . nodeIsNull))
+    . tail'
+    . init'
+    . Tree.treeChildren
 
 getFunctionDeclPositionalArgs :: SyntaxTree -> [SyntaxTree]
 getFunctionDeclPositionalArgs =

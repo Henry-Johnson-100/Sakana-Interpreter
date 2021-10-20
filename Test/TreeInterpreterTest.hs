@@ -348,7 +348,7 @@ executesMixedArgFunction = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Num 2.0
-    f = prepareFunctionForTest $ "fish add >(x)> >(fish y >()> <(1)<)> <(+ >(x)> >(y)>)< <(add >(1)>)<"
+    f = prepareFunctionForTest $ "fish add >(x)> >(fish y <(1)<)> <(+ >(x)> >(y)>)< <(add >(1)>)<"
 
 executesFunctionWithFin = standardTimeout 3 $ testCase name assertion
   where
