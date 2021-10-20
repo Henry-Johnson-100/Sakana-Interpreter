@@ -92,18 +92,57 @@ fish factorial
         >(n)>
         >(prod)>
         <(
-          fin
-            >(<= >(n)> >(0)>)>
-            >(prod)>
+          trout >(n)>
+          >(
+            trout >(prod)>
             >(
-              fact_st >(- >(n)> >(1)>)> >(* >(prod)> >(n)>)>
+              fin
+                >(<= >(n)> >(0)>)>
+                >(prod)>
+                >(
+                  fact_st >(- >(n)> >(1)>)> >(* >(prod)> >(n)>)>
+                )>
             )>
+          )>
         )<
   )>
 
   <(fact_st >(n)> >(1)>)<
 
+fish prompt_input
+  >(prompt)>
+  <(trout >(prompt)> >(dolphin >()>)>)<
+
+/*
+The function arguments are eagerly evaluated lol, so until partial application, or lazy arg evaluation, is a feature,
+a function like this one will not work.
+*/
+fish trout_newline
+  >(line)>
+  >(to_eval)>
+  <(
+    trout >(" ")> >(trout >(line)> >(to_eval)>)>
+  )<
+
 /*Here is the main execution*/
 <(
-  + >("Hello ")> >("Bruh multiple styring lols")>
+  encrust >(x >(5)>)>
+  >(
+    encrust >(y >(3)>)>
+    >(
+      fin
+      >(
+          trout >("Is x greater than y?")>
+          >(> >(x)> >(y)>)>
+      )>
+      >(
+          trout >("Yes it is!")>
+          >(- >(x)> >(y)>)>
+      )>
+      >(
+          trout >("No it's not..")>
+          >(+ >(x)> >(y)>)>
+      )>
+    )>
+  )>
 )<

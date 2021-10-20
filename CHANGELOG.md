@@ -18,3 +18,11 @@
 * Changed the ```Num``` data type from a Float to a Double.
 * Fixed ```String``` data types from printing with ```\" \"``` wrapped around them. 
 * Implemented some general collapsible terminal cases.
+
+## 0.2.0.0 -- 2021-10-20
+
+* Implemented standard library functions:
+    * trout
+    * dolphin
+    * encrust
+* See the README for usage details.
