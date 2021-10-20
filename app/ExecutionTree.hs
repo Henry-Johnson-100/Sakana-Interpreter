@@ -310,6 +310,22 @@ execute env tr
   | nodeStrictlySatisfies nodeIsFin tr = evaluateFin env tr
   | nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr = evaluatePrimitiveData tr
   | nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator env tr
+  | treeIsStandardLibCall tr =
+    case ( D.fromData
+             . DMaybe.fromJust
+             . Lexer.baseData
+             . SyntaxUnit.token
+             . DMaybe.fromJust
+             . Tree.treeNode
+         )
+      tr of
+      "trout" ->
+        trout
+          env
+          ((DMaybe.fromJust . head' . Tree.treeChildren) tr)
+          ((DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr)
+      "dolphin" -> dolphin
+      _ -> return D.Null
   | foldIdApplicativeOnSingleton
       any
       [treeIsFunctionCall, treeIsSimpleValueBindingCall]
@@ -538,17 +554,17 @@ treeIsExecutable tr =
 treeIsPositionalArg :: SyntaxTree -> Bool
 treeIsPositionalArg = null . Tree.treeChildren
 
--- treeIsStandardLibCall :: SyntaxTree -> Bool
--- treeIsStandardLibCall tr =
---   nodeStrictlySatisfies nodeIsDataToken tr
---     && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
---   where
---     funcIdInStdLibList =
---       flip elem sakanaStdLib
---         . D.fromData
---         . DMaybe.fromJust
---         . Lexer.baseData
---         . SyntaxUnit.token
+treeIsStandardLibCall :: SyntaxTree -> Bool
+treeIsStandardLibCall tr =
+  nodeStrictlySatisfies nodeIsDataToken tr
+    && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
+  where
+    funcIdInStdLibList =
+      flip elem sakanaStandardLibrary
+        . D.fromData
+        . DMaybe.fromJust
+        . Lexer.baseData
+        . SyntaxUnit.token
 
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -637,7 +653,7 @@ makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
     makeSymbolTableFromFuncCall mainExEnv (argValBinding : table) cfargs dfargs
   | otherwise = do
     let fromJustSymbolTable =
-          DMaybe.maybe table (\x -> x : table) (maybeTreeToSymbolPair table dfarg)
+          DMaybe.maybe table (: table) (maybeTreeToSymbolPair table dfarg)
     makeSymbolTableFromFuncCall mainExEnv (fromJustSymbolTable) cfargs dfargs
   where
     createSymbolPairFromArgTreePair :: SyntaxTree -> D.Data -> SymbolPair
@@ -659,6 +675,22 @@ makeIOEnvFromFuncCall ::
 makeIOEnvFromFuncCall mainExEnv cfargs dfargs = do
   newSubScope <- makeSymbolTableFromFuncCall mainExEnv [] cfargs dfargs
   return (newSubScope : mainExEnv)
+
+----Standard Library Functions------------------------------------------------------------
+------------------------------------------------------------------------------------------
+sakanaStandardLibrary = ["trout", "dolphin"]
+
+sakanaPrint :: D.Data -> IO ()
+sakanaPrint = hPutStrLn stdout . D.fromData
+
+-- | Must to evaluations in this function to preserve laziness,
+-- prompt should ALWAYS be printed before toEval is evaluated.
+trout :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> IO D.Data
+trout envInToEval toPrint toEval =
+  (execute envInToEval toPrint >>= sakanaPrint) >> execute envInToEval toEval
+
+dolphin :: IO D.Data
+dolphin = hGetLine stdin >>= return . D.String
 
 -- Utility functions, including an improved head and tail---------------------------------
 ------------------------------------------------------------------------------------------
