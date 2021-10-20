@@ -1,6 +1,6 @@
 module Main where
 
-import ExecutionTree (executeMain)
+import ExecutionTree (executeMain, getMainEnvironmentStack, getMainExecutionTree, noEnvironmentStack)
 import Lexer (tokenize)
 import SyntaxTree (generateSyntaxTree)
 import System.Environment (getArgs)
@@ -19,5 +19,7 @@ main = do
   args <- getArgs
   handle <- openFile (head args) ReadMode
   contents <- hGetContents handle
-  (hPutStrLn stdout . D.fromData . executeMain . generateSyntaxTree . tokenize) contents
+  fileTree <- return . generateSyntaxTree . tokenize $ contents
+  result <- executeMain ((return . getMainEnvironmentStack) fileTree) ((return . getMainExecutionTree) fileTree)
+  (hPutStrLn stdout . D.fromData) result
   hClose handle

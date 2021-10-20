@@ -1,9 +1,11 @@
 module ExecutionTree
   ( EnvironmentStack (..),
     calct',
-    evaluateNode,
+    -- evaluateNode,
     executeMain,
     execute,
+    getMainExecutionTree,
+    getMainEnvironmentStack,
     --Anything below this is a temporary export
     noEnvironmentStack,
     disambiguateFunction,
@@ -308,44 +310,104 @@ getMainExecutionTree =
 -- | This will be our new main entry point for a fish program
 -- If no execution tree can be found in 'main' then a single tree containing a null value
 -- will be returned.
-executeMain :: Tree.Tree SyntaxUnit -> D.Data
-executeMain tr = execute (getMainEnvironmentStack tr) (getMainExecutionTree tr)
+executeMain :: IO EnvironmentStack -> IO SyntaxTree -> IO D.Data
+executeMain envio trio = do
+  tr <- trio
+  env <- envio
+  execute (env) (tr)
 
-execute :: EnvironmentStack -> SyntaxTree -> D.Data
+execute :: EnvironmentStack -> SyntaxTree -> IO D.Data
 execute env tr
-  | treeIsStandardLibCall tr =
-    case ( D.fromData
-             . DMaybe.fromJust
-             . Lexer.baseData
-             . SyntaxUnit.token
-             . DMaybe.fromJust
-             . Tree.treeNode
-         )
-      tr of
-      "trout" ->
-        trout
-          env
-          ((DMaybe.fromJust . head' . Tree.treeChildren) tr)
-          ((DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr)
-      "dolphin" -> dolphin ""
-      nonExistentStdLibFunction ->
-        Exception.raiseError $
-          Exception.newException
-            Exception.General
-            ([SyntaxTree.getSyntaxAttributeFromTree (SyntaxUnit.line) tr])
-            ("The std lib function: " ++ (nonExistentStdLibFunction) ++ " Does not exist")
-            Exception.Debug
-  | treeIsPrimitivelyEvaluable tr = evaluateNode env tr
-  | treeIsSymbolValueBinding tr =
-    (evaluateNode env . DMaybe.fromJust . head' . Tree.treeChildren) tr
+  | nodeStrictlySatisfies nodeIsFin tr = evaluateFin env tr
+  | nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr = evaluatePrimitiveData tr
+  | nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator env tr
   | foldIdApplicativeOnSingleton
       any
       [treeIsFunctionCall, treeIsSimpleValueBindingCall]
       tr =
     executeFunctionCall env tr
-  | otherwise = D.Null
+  | otherwise = return D.Null
 
-executeFunctionCall :: EnvironmentStack -> SyntaxTree -> D.Data
+evaluatePrimitiveData :: SyntaxTree -> IO D.Data
+evaluatePrimitiveData = return . getNodeTokenBaseData
+
+evaluateFin :: EnvironmentStack -> SyntaxTree -> IO D.Data
+evaluateFin env tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
+  where
+    args = getTreeChildrenPrimitiveValues env tr
+
+evaluateOperator :: EnvironmentStack -> SyntaxTree -> IO D.Data
+evaluateOperator env tr = do
+  let ioOperatorArguments = getOperatorArgs env tr
+  argx <- fst ioOperatorArguments
+  argy <- snd ioOperatorArguments
+  if both D.isNumeric (argx, argy)
+    then return $
+      case getNodeOperator tr of
+        O.Add -> D.Num (justUnNum argx + justUnNum argy)
+        O.Sub -> D.Num (justUnNum argx - justUnNum argy)
+        O.Mult -> D.Num (justUnNum argx * justUnNum argy)
+        O.Div -> D.Num (justUnNum argx / justUnNum argy)
+        O.Pow -> D.Num (justUnNum argx ** justUnNum argy)
+        O.Eq -> D.Boolean (justUnNum argx == justUnNum argy) --This one doesn't really need to be under 'both isNumeric'
+        O.NEq -> D.Boolean (justUnNum argx /= justUnNum argy)
+        O.Gt -> D.Boolean (justUnNum argx > justUnNum argy)
+        O.Lt -> D.Boolean (justUnNum argx < justUnNum argy)
+        O.GtEq -> D.Boolean (justUnNum argx >= justUnNum argy)
+        O.LtEq -> D.Boolean (justUnNum argx <= justUnNum argy)
+    else
+      if both (D.String "" `LikeClass.like`) (argx, argy)
+        then return $
+          case getNodeOperator tr of
+            O.Add -> D.String (justUnString argx ++ justUnString argy)
+            O.Eq -> D.Boolean (justUnString argx == justUnString argy)
+            O.NEq -> D.Boolean (justUnString argx /= justUnString argy)
+            O.Gt -> D.Boolean (justUnString argx > justUnString argy)
+            O.Lt -> D.Boolean (justUnString argx < justUnString argy)
+            O.GtEq -> D.Boolean (justUnString argx >= justUnString argy)
+            O.LtEq -> D.Boolean (justUnString argx <= justUnString argy)
+            otherOp -> undefinedOperatorBehaviorException (O.fromOp otherOp) (map show [argx, argy])
+        else
+          if both (D.Boolean True `LikeClass.like`) (argx, argy)
+            then return $
+              case getNodeOperator tr of
+                O.Eq -> D.Boolean (justUnBoolean argx == justUnBoolean argy)
+                O.NEq -> D.Boolean (justUnBoolean argx /= justUnBoolean argy)
+                O.Gt -> D.Boolean (justUnBoolean argx > justUnBoolean argy)
+                O.Lt -> D.Boolean (justUnBoolean argx < justUnBoolean argy)
+                O.GtEq -> D.Boolean (justUnBoolean argx >= justUnBoolean argy)
+                O.LtEq -> D.Boolean (justUnBoolean argx <= justUnBoolean argy)
+                otherOp -> undefinedOperatorBehaviorException (O.fromOp otherOp) (map show [argx, argy])
+            else return $ operatorTypeError ((O.fromOp . getNodeOperator) tr) (map show [argx, argy])
+  where
+    getNodeOperator tr' = case getNodeToken tr' of (Lexer.Operator o) -> o; _ -> O.Eq
+    justUnNum = DMaybe.fromJust . D.unNum
+    justUnString = DMaybe.fromJust . D.unString
+    justUnBoolean = DMaybe.fromJust . D.unBoolean
+    undefinedOperatorBehaviorException opString argStrAndType =
+      Exception.raiseError $
+        Exception.newException
+          Exception.UndefinedOperatorBehavior
+          [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
+          ( "The operator \'" ++ opString
+              ++ "\' does not have defined usage for the types of: \'"
+              ++ DList.intercalate "and" argStrAndType
+              ++ "\'."
+          )
+          Exception.Fatal
+    operatorTypeError opString argStrAndType =
+      Exception.raiseError $
+        Exception.newException
+          Exception.OperatorTypeError
+          [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
+          ( "The operator \'" ++ opString
+              ++ "\' cannot be aaplied to the arguments of incompatible types: "
+              ++ unwords argStrAndType
+              ++ "."
+          )
+          Exception.Fatal
+
+executeFunctionCall :: EnvironmentStack -> SyntaxTree -> IO D.Data
 executeFunctionCall env tr =
   execute
     (encloseEnvironmentIn thisCalledFunctionEnv env)
@@ -370,123 +432,28 @@ calledFunctionSymbol :: EnvironmentStack -> Tree.Tree SyntaxUnit -> SymbolPair
 calledFunctionSymbol env =
   lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
 
-evaluateNode :: EnvironmentStack -> SyntaxTree -> D.Data
-evaluateNode _ Tree.Empty = D.Null
-evaluateNode env tr
-  | treeIsSimpleValueBindingCall tr =
-    execute
-      env
-      ( ( symbolVal
-            . lookupSymbolInEnvironmentStack env
-            . DMaybe.fromJust
-            . Tree.treeNode
-        )
-          tr
-      )
-  | otherwise = case applyIsPrimitiveEvaluable tr of
-    [True, False, False] -> evaluateOperator env tr
-    [False, True, False] -> evaluateFin env tr
-    [False, False, True] -> evaluatePrimitiveData tr
-    _ ->
-      Exception.raiseError $
-        Exception.newException
-          Exception.General
-          []
-          ( "The tree: "
-              ++ (Tree.fPrintTree 0 tr)
-              ++ "Matched too many criteria for evaluation in the function, "
-              ++ "\'evaluateNode\' : "
-              ++ (show . applyIsPrimitiveEvaluable) tr
-              ++ "\nFor tokens, \'"
-              ++ show tr
-              ++ "\'"
-              ++ "\nIn environment: \n"
-              ++ fPrintEnvironmentStack env
-          )
-          Exception.Fatal
-
-evaluatePrimitiveData :: SyntaxTree -> D.Data
-evaluatePrimitiveData = getNodeTokenBaseData
-
-evaluateOperator :: EnvironmentStack -> SyntaxTree -> D.Data
-evaluateOperator env tr
-  | both D.isNumeric args = case getNodeOperator tr of
-    O.Add -> uncurryArgsToNumOperator (+)
-    O.Sub -> uncurryArgsToNumOperator (-)
-    O.Mult -> uncurryArgsToNumOperator (*)
-    O.Div -> uncurryArgsToNumOperator (/)
-    O.Pow -> uncurryArgsToNumOperator (**)
-    O.Eq -> uncurryArgsToBoolOperator (==) numArgVals
-    O.NEq -> uncurryArgsToBoolOperator (/=) numArgVals
-    O.Gt -> uncurryArgsToBoolOperator (>) numArgVals
-    O.Lt -> uncurryArgsToBoolOperator (<) numArgVals
-    O.GtEq -> uncurryArgsToBoolOperator (>=) numArgVals
-    O.LtEq -> uncurryArgsToBoolOperator (<=) numArgVals
-  | both (D.String "" `LikeClass.like`) args = case getNodeOperator tr of
-    O.Add -> uncurryArgsToStringOperator (++)
-    O.Eq -> uncurryArgsToBoolOperator (==) stringArgVals
-    O.NEq -> uncurryArgsToBoolOperator (/=) stringArgVals
-    O.Gt -> uncurryArgsToBoolOperator (>) stringArgVals
-    O.Lt -> uncurryArgsToBoolOperator (<) stringArgVals
-    O.GtEq -> uncurryArgsToBoolOperator (>=) stringArgVals
-    O.LtEq -> uncurryArgsToBoolOperator (<=) stringArgVals
-    otherOp ->
-      undefinedOperatorBehaviorException
-        (O.fromOp otherOp)
-        (map show ([fst, snd] <*> [args]))
-  | both (D.Boolean True `LikeClass.like`) args = case getNodeOperator tr of
-    O.Eq -> uncurryArgsToBoolOperator (==) boolArgVals
-    O.NEq -> uncurryArgsToBoolOperator (/=) boolArgVals
-    O.Gt -> uncurryArgsToBoolOperator (>) boolArgVals
-    O.Lt -> uncurryArgsToBoolOperator (<) boolArgVals
-    O.GtEq -> uncurryArgsToBoolOperator (>=) boolArgVals
-    O.LtEq -> uncurryArgsToBoolOperator (<=) boolArgVals
-    otherOp ->
-      undefinedOperatorBehaviorException
-        (O.fromOp otherOp)
-        (map show ([fst, snd] <*> [args]))
-  | otherwise =
-    operatorTypeError ((O.fromOp . getNodeOperator) tr) (map show ([fst, snd] <*> [args]))
-  where
-    args = getOperatorArgs env tr
-    argValGeneric f =
-      ( (DMaybe.fromJust . f . fst) args,
-        (DMaybe.fromJust . f . snd) args
-      )
-    numArgVals = argValGeneric D.unNum
-    stringArgVals = argValGeneric D.unString
-    boolArgVals = argValGeneric D.unBoolean
-    getNodeOperator tr' = case getNodeToken tr' of (Lexer.Operator o) -> o; _ -> O.Eq
-    uncurryArgsToNumOperator op = D.Num (op `DTuple.uncurry` numArgVals)
-    uncurryArgsToStringOperator op = D.String (op `DTuple.uncurry` stringArgVals)
-    uncurryArgsToBoolOperator op argVals = D.Boolean (op `DTuple.uncurry` argVals)
-    operatorTypeError opString argStrAndType =
-      Exception.raiseError $
-        Exception.newException
-          Exception.OperatorTypeError
-          [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
-          ( "The operator \'" ++ opString
-              ++ "\' cannot be aaplied to the arguments of incompatible types: "
-              ++ unwords argStrAndType
-              ++ "."
-          )
-          Exception.Fatal
-    undefinedOperatorBehaviorException opString argStrAndType =
-      Exception.raiseError $
-        Exception.newException
-          Exception.UndefinedOperatorBehavior
-          [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
-          ( "The operator \'" ++ opString
-              ++ "\' does not have defined usage for the types of: \'"
-              ++ DList.intercalate "and" argStrAndType
-              ++ "\'."
-          )
-          Exception.Fatal
-
-evaluateFin :: EnvironmentStack -> SyntaxTree -> D.Data
-evaluateFin env tr = if (truthy . (!! 0)) args then args !! 1 else args !! 2
-  where
-    args = getTreeChildrenPrimitiveValues env tr
+-- evaluateNode :: EnvironmentStack -> SyntaxTree -> D.Data
+-- evaluateNode _ Tree.Empty = D.Null
+-- evaluateNode env tr
+--   | otherwise = case applyIsPrimitiveEvaluable tr of
+--     [True, False, False] -> evaluateOperator env tr
+--     _ ->
+--       Exception.raiseError $
+--         Exception.newException
+--           Exception.General
+--           []
+--           ( "The tree: "
+--               ++ (Tree.fPrintTree 0 tr)
+--               ++ "Matched too many criteria for evaluation in the function, "
+--               ++ "\'evaluateNode\' : "
+--               ++ (show . applyIsPrimitiveEvaluable) tr
+--               ++ "\nFor tokens, \'"
+--               ++ show tr
+--               ++ "\'"
+--               ++ "\nIn environment: \n"
+--               ++ fPrintEnvironmentStack env
+--           )
+--           Exception.Fatal
 
 --Boolean comparison functions used primarily for function guards.------------------------
 ------------------------------------------------------------------------------------------
@@ -595,17 +562,17 @@ treeIsExecutable tr =
 treeIsPositionalArg :: SyntaxTree -> Bool
 treeIsPositionalArg = null . Tree.treeChildren
 
-treeIsStandardLibCall :: SyntaxTree -> Bool
-treeIsStandardLibCall tr =
-  nodeStrictlySatisfies nodeIsDataToken tr
-    && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
-  where
-    funcIdInStdLibList =
-      flip elem sakanaStdLib
-        . D.fromData
-        . DMaybe.fromJust
-        . Lexer.baseData
-        . SyntaxUnit.token
+-- treeIsStandardLibCall :: SyntaxTree -> Bool
+-- treeIsStandardLibCall tr =
+--   nodeStrictlySatisfies nodeIsDataToken tr
+--     && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
+--   where
+--     funcIdInStdLibList =
+--       flip elem sakanaStdLib
+--         . D.fromData
+--         . DMaybe.fromJust
+--         . Lexer.baseData
+--         . SyntaxUnit.token
 
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -619,16 +586,14 @@ getNodeTokenBaseData =
 getNodeToken :: SyntaxTree -> Lexer.Token
 getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
 
-getTreeChildrenPrimitiveValues :: EnvironmentStack -> SyntaxTree -> [D.Data]
+getTreeChildrenPrimitiveValues :: EnvironmentStack -> SyntaxTree -> [IO D.Data]
 getTreeChildrenPrimitiveValues env = map (execute env) . Tree.treeChildren
 
-getOperatorArgs :: EnvironmentStack -> SyntaxTree -> (D.Data, D.Data)
+getOperatorArgs :: EnvironmentStack -> SyntaxTree -> (IO D.Data, IO D.Data)
 getOperatorArgs env tr =
-  ( (getValue . DMaybe.fromJust . head' . Tree.treeChildren) tr,
-    (getValue . DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr
+  ( (execute env . DMaybe.fromJust . head' . Tree.treeChildren) tr,
+    (execute env . DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr
   )
-  where
-    getValue tr = execute env tr
 
 getFuncDeclArgs :: SyntaxTree -> [SyntaxTree]
 getFuncDeclArgs = tail' . init' . Tree.treeChildren
@@ -740,26 +705,37 @@ listSingleton x = [x]
 
 ----StdLibFunctions-----------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
-sakanaStdLib = ["trout", "dolphin"]
+-- sakanaStdLib = ["trout", "dolphin"]
 
-trout :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> D.Data
-{-# NOINLINE trout #-}
-trout env toPrint toEval = unsafePerformIO $ trout' env toPrint toEval
-  where
-    trout' :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> IO D.Data
-    trout' env' toPrint' toEval' = do
-      dataToPrint <- (return . D.fromData . execute env') toPrint'
-      hPutStrLn stdout dataToPrint
-      (return . execute env') toEval'
+-- trout :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> D.Data
+-- {-# NOINLINE trout #-}
+-- trout env toPrint toEval = unsafePerformIO $ trout' env toPrint toEval
+--   where
+--     trout' :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> IO D.Data
+--     trout' env' toPrint' toEval' = do
+--       dataToPrint <- (return . D.fromData . execute env') toPrint'
+--       hPutStrLn stdout dataToPrint
+--       (return . execute env') toEval'
 
--- | Dolphin seems to need this string as an arg for some reason or else it will continue
---  to return the same thing
-dolphin :: String -> D.Data
-{-# NOINLINE dolphin #-}
-dolphin str = unsafePerformIO $ dolphin' str
-  where
-    dolphin' :: String -> IO D.Data
-    dolphin' str = hGetLine stdin >>= (return . D.String)
+-- -- | Dolphin seems to need this string as an arg for some reason or else it will continue
+-- --  to return the same thing
+-- dolphin :: String -> D.Data
+-- {-# NOINLINE dolphin #-}
+-- dolphin str = unsafePerformIO $ dolphin' str
+--   where
+--     dolphin' :: String -> IO D.Data
+--     dolphin' str = do
+--       tempSakanaTempFile <- openTempFile "./" "SakanaStdIn.ext"
+--       let tempSakanaHandle = snd tempSakanaTempFile
+--       let tempSakanaPath = fst tempSakanaTempFile
+--       hClose tempSakanaHandle
+--       -- hSetBuffering tempSakanaHandle LineBuffering
+--       inputToWrite <- writeFile tempSakanaPath =<< hGetLine stdin
+
+--       input <- readFile' tempSakanaPath
+--       (return . D.String) input
+
+-- -- hGetContents' stdin >>= (return . D.String)
 
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -786,20 +762,10 @@ calct' =
     . SyntaxTree.generateSyntaxTree
     . Lexer.tokenize
 
-ex' = executeMain . SyntaxTree.generateSyntaxTree . Lexer.tokenize
+ex' = executeMain (return noEnvironmentStack) . return . SyntaxTree.generateSyntaxTree . Lexer.tokenize
 
 -- calc' :: String -> D.Data
 -- calc' = evaluateNode . calct'
-
-iotest :: IO ()
-iotest = do
-  args <- getArgs
-  handle <- openFile (head args) ReadMode
-  contents <- hGetContents handle
-  print . executeMain
-    . SyntaxTree.generateSyntaxTree
-    . Lexer.tokenize
-    $ contents
 
 fishEnv =
   "fish to_bool\
