@@ -54,6 +54,7 @@ import qualified Token.Data as D
 import qualified Token.Keyword as K
   ( Keyword (Fish, Migrate),
     fromKeyword,
+    isDeclarationRequiringId,
     readKeyword,
     repr,
   )
@@ -125,8 +126,7 @@ getTokenBracketScopeType (Bracket st _) = st
 
 keywordTokenIsDeclarationRequiringId :: Token -> Bool
 keywordTokenIsDeclarationRequiringId t =
-  t `like` genericKeyword
-    && t /= Keyword K.Migrate
+  Data.Maybe.maybe False (K.isDeclarationRequiringId) (baseKeyword t)
 
 dataTokenIsId :: Token -> Bool
 dataTokenIsId (Data (D.Id _)) = True
@@ -146,6 +146,10 @@ tokenPacketToUnit tp = map (\t -> PacketUnit t (packetLine tp)) (members tp)
 baseData :: Token -> Data.Maybe.Maybe D.Data
 baseData (Data d) = Data.Maybe.Just d
 baseData _ = Data.Maybe.Nothing
+
+baseKeyword :: Token -> Data.Maybe.Maybe K.Keyword
+baseKeyword (Keyword k) = Data.Maybe.Just k
+baseKeyword _ = Data.Maybe.Nothing
 
 baseDataString :: Token -> String
 baseDataString t = maybe "" D.fromData (baseData t)

@@ -3,7 +3,7 @@ module ExecutionTree
     calct',
     executeMain,
     execute,
-    getMainExecutionTree,
+    getMainExecutionTrees,
     getMainEnvironmentStack,
     --Anything below this is a temporary export
     noEnvironmentStack,
@@ -76,7 +76,7 @@ import qualified Exception.Base as Exception
     raiseError,
   )
 import qualified Lexer
-  ( Token (Control, Data, Operator),
+  ( Token (Control, Data, Keyword, Operator),
     TokenUnit,
     baseData,
     dataTokenIsId,
@@ -99,7 +99,7 @@ import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
 import System.Environment (getArgs)
 import System.IO
 import System.IO.Unsafe
-import qualified Token.Bracket as B (ScopeType (Return))
+import qualified Token.Bracket as B (ScopeType (Return, Send))
 import qualified Token.Control as C (Control (Fin))
 import qualified Token.Data as D
   ( Data (Boolean, Null, Num, String),
@@ -110,6 +110,7 @@ import qualified Token.Data as D
     unNum,
     unString,
   )
+import qualified Token.Keyword as K
 import qualified Token.Operator as O
   ( Operator (Add, Div, Eq, Gt, GtEq, Lt, LtEq, Mult, NEq, Pow, Sub),
     fromOp,
@@ -202,7 +203,7 @@ maybeLookupSymbolInEnvironmentStack (st : sts) lookupId =
     maybeSymbolInCurrentTable = maybeLookupSymbolInSymbolTable lookupId st
 
 makeEnvironmentStackFrame :: [SyntaxTree] -> EnvironmentStack
-makeEnvironmentStackFrame = flip (:) noEnvironmentStack . makeSymbolTable
+makeEnvironmentStackFrame = (: noEnvironmentStack) . makeSymbolTable
 
 makeSymbolTable :: [SyntaxTree] -> SymbolTable
 makeSymbolTable = makeSymbolTable' []
@@ -212,7 +213,7 @@ makeSymbolTable' st [] = st
 makeSymbolTable' st (tr : trs) =
   DMaybe.maybe
     (makeSymbolTable' st trs)
-    (\sp -> makeSymbolTable' (sp : st) trs)
+    (flip makeSymbolTable' trs . (: st))
     (maybeTreeToSymbolPair st tr)
 
 maybeTreeToSymbolPair :: SymbolTable -> SyntaxTree -> Maybe SymbolPair
@@ -288,22 +289,41 @@ makeSymbolPair tr
 getMainEnvironmentStack :: SyntaxTree -> EnvironmentStack
 getMainEnvironmentStack = makeEnvironmentStackFrame . Tree.treeChildren
 
--- | Gets the last tree in 'main' that can be executed.
-getMainExecutionTree :: SyntaxTree -> SyntaxTree
-getMainExecutionTree =
-  DMaybe.fromMaybe ((Tree.tree . SyntaxTree.genericSyntaxUnit) (Lexer.Data (D.Null)))
-    . last'
-    . filter (treeIsExecutable)
-    . Tree.treeChildren
+-- -- | Gets the last tree in 'main' that can be executed.
+-- getMainExecutionTree :: SyntaxTree -> SyntaxTree
+-- getMainExecutionTree =
+--   DMaybe.fromMaybe ((Tree.tree . SyntaxTree.genericSyntaxUnit) (Lexer.Data (D.Null)))
+--     . last'
+--     . filter (treeIsExecutable)
+--     . Tree.treeChildren
+
+getMainExecutionTrees :: SyntaxTree -> [SyntaxTree]
+getMainExecutionTrees docTree =
+  DMaybe.maybe [] Tree.treeChildren ((DList.find treeIsSwim . Tree.treeChildren) docTree)
+  where
+    treeIsSwim tr =
+      nodeStrictlySatisfies ((Lexer.Keyword (K.Swim) ==) . SyntaxUnit.token) tr
 
 -- | This will be our new main entry point for a fish program
 -- If no execution tree can be found in 'main' then a single tree containing a null value
 -- will be returned.
-executeMain :: IO EnvironmentStack -> IO SyntaxTree -> IO D.Data
+executeMain :: IO EnvironmentStack -> IO [SyntaxTree] -> IO D.Data
 executeMain envio trio = do
   tr <- trio
   env <- envio
-  execute (env) (tr)
+  procExecute (env) (tr)
+
+-- Will cease execution and return at the first return context it sees
+procExecute :: EnvironmentStack -> [SyntaxTree] -> IO D.Data --A lot of this depends on do notation not really being lazy so..
+procExecute _ [] = return D.Null
+procExecute env (tr : trs)
+  | treeIsSendingValueBinding tr = do
+    fishSendEnv <- fishSend env tr
+    procExecute fishSendEnv trs
+  | nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr =
+    execute env tr >> procExecute env trs
+  | nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr = execute env tr
+  | otherwise = return D.Null
 
 execute :: EnvironmentStack -> SyntaxTree -> IO D.Data
 execute env tr
@@ -323,11 +343,7 @@ execute env tr
         trout
           env
           ((DMaybe.fromJust . head' . Tree.treeChildren) tr)
-          ((DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr)
       "dolphin" -> dolphin
-      "encrust" -> do
-        encrustedEnv <- encrust env ((DMaybe.fromJust . head' . Tree.treeChildren) tr)
-        execute encrustedEnv ((DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr)
       _ -> return D.Null
   | foldIdApplicativeOnSingleton
       any
@@ -431,10 +447,11 @@ evaluateOperator env tr = do
           Exception.Fatal
 
 executeFunctionCall :: EnvironmentStack -> SyntaxTree -> IO D.Data
-executeFunctionCall mainExEnv functionCall =
-  DTuple.uncurry
-    (executeMain)
-    (prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration)
+executeFunctionCall mainExEnv functionCall = do
+  let preparedStateIO = prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration
+  newFuncEnv <- fst preparedStateIO
+  newFuncProcTrees <- snd preparedStateIO
+  procExecute newFuncEnv newFuncProcTrees
   where
     functionDeclaration = calledFunction mainExEnv functionCall
 
@@ -497,6 +514,14 @@ treeIsSymbolValueBinding tr =
         Nothing -> False
         Just x -> ((B.Return ==) . SyntaxUnit.context) x
 
+-- | For a fish like >(some_id <(***)<)>
+-- Where some_id should then be bound to the value *** in whatever scope immediately
+-- follows.
+treeIsSendingValueBinding :: SyntaxTree -> Bool
+treeIsSendingValueBinding tr =
+  treeIsSymbolValueBinding tr
+    && nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr
+
 -- | ditto for this, I don't like it that much
 treeIsPrimitiveValueBinding :: SyntaxTree -> Bool
 treeIsPrimitiveValueBinding =
@@ -555,7 +580,9 @@ treeIsExecutable tr =
     contextIsReturn = nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context)
 
 treeIsPositionalArg :: SyntaxTree -> Bool
-treeIsPositionalArg = null . Tree.treeChildren
+treeIsPositionalArg tr =
+  (null . Tree.treeChildren) tr
+    && nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr
 
 treeIsStandardLibCall :: SyntaxTree -> Bool
 treeIsStandardLibCall tr =
@@ -615,14 +642,17 @@ applyIsPrimitiveEvaluable =
     . listSingleton
 
 prepareFunctionCallForExecution ::
-  EnvironmentStack -> SyntaxTree -> SyntaxTree -> (IO EnvironmentStack, IO SyntaxTree)
-prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration =
-  ( makeIOEnvFromFuncCall
-      mainExEnv
-      (Tree.treeChildren functionCall)
-      (getFuncDeclArgs functionDeclaration),
-    (return . getMainExecutionTree) functionDeclaration
-  )
+  EnvironmentStack -> SyntaxTree -> SyntaxTree -> (IO EnvironmentStack, IO [SyntaxTree])
+prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration = do
+  let functionIOEnvironment = makeIOEnvFromFuncCall mainExEnv (Tree.treeChildren functionCall) (getFunctionDeclPositionalArgs functionDeclaration)
+  let functionDeclarationProcTrees = getFunctionDeclarationProcTrees functionDeclaration
+  let executionTreeIO = return functionDeclarationProcTrees
+  (functionIOEnvironment, executionTreeIO)
+  where
+    getFunctionDeclarationProcTrees tr =
+      if nodeStrictlySatisfies (Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token) tr
+        then (filter (not . treeIsPositionalArg) . tail' . Tree.treeChildren) tr
+        else (filter (not . treeIsPositionalArg) . Tree.treeChildren) tr
 
 makeSymbolTableFromFuncCall ::
   EnvironmentStack -> SymbolTable -> [SyntaxTree] -> [SyntaxTree] -> IO SymbolTable
@@ -682,25 +712,25 @@ makeIOEnvFromFuncCall mainExEnv cfargs dfargs = do
 ----Standard Library Functions------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 sakanaStandardLibrary :: [String]
-sakanaStandardLibrary = ["trout", "dolphin", "encrust"]
+sakanaStandardLibrary = ["trout", "dolphin"]
 
 sakanaPrint :: D.Data -> IO ()
 sakanaPrint = hPutStrLn stdout . D.fromData
 
--- | Must to evaluations in this function to preserve laziness,
--- prompt should ALWAYS be printed before toEval is evaluated.
-trout :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> IO D.Data
-trout envInToEval toPrint toEval =
-  (execute envInToEval toPrint >>= sakanaPrint) >> execute envInToEval toEval
+trout :: EnvironmentStack -> SyntaxTree -> IO D.Data
+trout env toPrint = (execute env toPrint >>= sakanaPrint) >> return D.Null
 
 dolphin :: IO D.Data
 dolphin = hGetLine stdin >>= return . D.String
 
-encrust :: EnvironmentStack -> SyntaxTree -> IO EnvironmentStack
-encrust env encTree = do
-  let encrustedSymbolDataIO = (execute env . DMaybe.fromJust . head' . Tree.treeChildren) encTree
+fishSend :: EnvironmentStack -> SyntaxTree -> IO EnvironmentStack
+fishSend env encTree = do
+  let encrustedSymbolDataIO =
+        (execute env . DMaybe.fromJust . head' . Tree.treeChildren) encTree
   encrustedSymbolData <- encrustedSymbolDataIO
-  encrustedSymbolPair <- return $ createSymbolPairFromArgTreePair (encTree) encrustedSymbolData
+  encrustedSymbolPair <-
+    return $
+      createSymbolPairFromArgTreePair (encTree) encrustedSymbolData
   return ([encrustedSymbolPair] : env)
 
 -- Utility functions, including an improved head and tail---------------------------------
@@ -739,7 +769,9 @@ listSingleton x = [x]
 
 s' :: [Char]
 s' =
-  "fish recur >(n)> <(fin >(== >(n)> >(0)>)> >(n)> >(recur >(- >(n)> >(1)>)>)>)< <(recur >(0)>)<"
+  "swim >(p <(5)<)>\
+  \>(trout >(p)>)>\
+  \<(p)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
@@ -751,7 +783,7 @@ pt'' = Tree.treeChildren pt'
 
 env' = getMainEnvironmentStack pt'
 
-met' = getMainExecutionTree pt'
+met' = getMainExecutionTrees pt'
 
 calct' :: String -> Tree.Tree SyntaxUnit
 calct' =
@@ -762,7 +794,7 @@ calct' =
 ex' s = do
   let docTree = SyntaxTree.generateSyntaxTree . Lexer.tokenize $ s
   let mainExEnv = return . getMainEnvironmentStack $ docTree
-  let mainExTr = return . getMainExecutionTree $ docTree
+  let mainExTr = return . getMainExecutionTrees $ docTree
   executeMain mainExEnv mainExTr
 
 -- calc' :: String -> D.Data
@@ -804,7 +836,7 @@ fishEnv =
   \  >(to_bool >(y)>)>\
   \ )<"
 
-fishCall str = (fishEnv ++ " ") ++ ("<(" ++ str ++ ")<")
+fishCall str = (fishEnv ++ " swim") ++ ("<(" ++ str ++ ")<")
 
 fenv' = putStrLn . fPrintEnvironmentStack
 

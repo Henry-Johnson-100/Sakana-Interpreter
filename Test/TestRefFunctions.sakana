@@ -1,4 +1,4 @@
-
+/*
 
 fish to_bool
 
@@ -113,36 +113,33 @@ fish prompt_input
   >(prompt)>
   <(trout >(prompt)> >(dolphin >()>)>)<
 
-/*
-The function arguments are eagerly evaluated lol, so until partial application, or lazy arg evaluation, is a feature,
-a function like this one will not work.
+
 */
-fish trout_newline
-  >(line)>
-  >(to_eval)>
+fish proc
+  >(x)>
+  >(z)>
+  >(trout >("YEEEHAW")> )>
+  >(y <(+ >(x)> >(1)>)<)>
   <(
-    trout >(" ")> >(trout >(line)> >(to_eval)>)>
+    +
+    >(y)>
+    >(z)>
   )<
 
-/*Here is the main execution*/
-<(
-  encrust >(x >(5)>)>
-  >(
-    encrust >(y >(3)>)>
-    >(
-      fin
-      >(
-          trout >("Is x greater than y?")>
-          >(> >(x)> >(y)>)>
-      )>
-      >(
-          trout >("Yes it is!")>
-          >(- >(x)> >(y)>)>
-      )>
-      >(
-          trout >("No it's not..")>
-          >(+ >(x)> >(y)>)>
-      )>
-    )>
-  )>
-)<
+/*Should return 10*/
+swim 
+/*This keyword denotes where the main execution block is
+Send fish can be executed procedurally like -> 
+>(a)> >(b)> == a >> b as a Haskell analogue
+>(x <(y)<)> is a binding and, in haskell, will just return a new EnvironmentStack
+*/
+>(trout >("Now you can do some procedural coding in Sakana!")>)>
+>(trout >("Anything you want to calculate and ignore, just wrap in a send fish")>)>
+>(trout >("Any execution scope will return what the first return fish is")>)>
+>(trout >("You can bind values to a scope using the below syntax: >(id <(value)< )>")>)>
+>(x <(100)<)>
+>(trout >("Now the id 'x' is bound to the scope below it with a value of 100")>)>
+>(trout >("Now, this program will return the value of 'x'")>)>
+<(x)<
+>(trout >("Any value below a return fish in an execution scope will be ignored.")>)>
+
