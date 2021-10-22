@@ -27,10 +27,14 @@
     * encrust
 * See the README for usage details.
 
-#### 0.2.0.1 -- YYYY-MM-DD
+#### 0.2.0.1 -- 2021-10-21
 
 * Removed the ```encrust``` std lib function because it was awful.
 * working on implementing a method of procedurally executing code in a very similar way
     to Haskell's ```do``` notation.
 
-    * Some rewriting of tests and writing of more tests will be required before I am confident releasing it.
+#### 0.2.0.2 -- 2021-10-21
+
+* A more official release of the procedural execution update.
+* Tweaked fetching execution trees so that either a ```swim``` keyword could be used or it
+    could not be.

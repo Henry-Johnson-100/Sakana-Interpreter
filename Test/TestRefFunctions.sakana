@@ -1,4 +1,4 @@
-/*
+
 
 fish to_bool
 
@@ -83,61 +83,33 @@ fish increment
   <(+ >(n)> >(1)>)<
 
 
-fish factorial
 
+fish factorial
   >(n)>
   >(
-      fish fact_st
-
-        >(n)>
-        >(prod)>
+    fish sub_fact
+      >(n)>
+      >(prod)>
+      <(
+        swim
+        >(new_prod <(* >(prod)> >(n)>)<)>
+        >(new_n <(- >(n)> >(1)>)<)>
         <(
-          trout >(n)>
-          >(
-            trout >(prod)>
-            >(
-              fin
-                >(<= >(n)> >(0)>)>
-                >(prod)>
-                >(
-                  fact_st >(- >(n)> >(1)>)> >(* >(prod)> >(n)>)>
-                )>
-            )>
-          )>
+          fin
+          >(<= >(n)> >(0)>)>
+          >(prod)>
+          >(sub_fact >(new_n)> >(new_prod)>)>
         )<
+      )<
   )>
-
-  <(fact_st >(n)> >(1)>)<
-
-fish prompt_input
-  >(prompt)>
-  <(trout >(prompt)> >(dolphin >()>)>)<
-
-
-*/
-fish test
-  >(pos)>
-  >(
-    fish sub
-    >(sub_pos)>
-    <(
-      swim
-      >(trout >("In sub")>)>
-      >(trout >("another print in sub")>)>
-      >(trout >(sub_pos)>)>
-      <(sub_pos)<
-    )<
-  )>
-  <(swim
-    >(trout >(pos)>)>
-    >(trout >("in test")>)>
-    <(sub >(pos)>)<
+  <(
+    swim
+    >(trout >("computing the factorial of: ")>)>
+    >(trout >(n)>)>
+    <(sub_fact >(n)> >(1)>)<
   )<
 
 swim
->(final <(
-  test >(test >(test >(10)>)>)>
-)<
-)>
->(trout >("Final value:")>)>
-<(final)<
+>(output <(factorial >(30)>)<)>
+>(trout >("The final value is: ")>)>
+<(output)<

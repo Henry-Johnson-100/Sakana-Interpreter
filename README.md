@@ -1,4 +1,4 @@
-# Sakana
+# Sakana - 0.2.0.2
 
 A syntax-tree based interpreter implementation for the Sakana programming language.
 
@@ -19,6 +19,12 @@ You can also peak at the file's tree structure using:
 
 ```cabal run SakanaST path/```
 
+you can also,
+
+```cabal install```
+
+inside the project directory to put a ```Sakana``` interpreter executable on your path.
+
 I apologize in advance for cabal not building properly. You can always use ghc to compile
 the executable files yourself.
 The executables are app/Main.hs and app/PTIO.hs
@@ -33,19 +39,20 @@ Send fish provide information to the return fish they are immediately in front o
 A return fish will execute its code and return a value. That's the most fundamental rule of fish,
 return fish always execute and return.
 
-## Keywords
+# Keywords
 
 - fish
+- swim
 - fin
 
-## Primitive Data Types
+# Primitive Data Types
 
 - Num
 - String
 - Boolean
 - Null
 
-## Operators
+# Operators
 
 - \+
 - \-
@@ -59,27 +66,19 @@ return fish always execute and return.
 - \<=
 - \>=
 
-## Standard Library
+# Standard Library
 
 - Trout
     - Sakana's print function.
-    - Usage: ```trout >(a)> >(b)>```
-        - Where ```a``` is the value that is printed and ```b``` is the operation carried out after printing ```a```
-        - Analagous to: ```trout a b = hPutStrLn stdout a >> b``` in Haskell.
+    - Usage: ```trout >(a)>```
+        - Prints ```a``` and returns a null value.
 - Dolphin
     - Sakana's input function
     - Usage: ```dolphin >()>```
         - Where the function all itself will be replaced with a string of whatever the user entered.
         - Analagous to ```dolphin = hGetLine stdin``` in Haskell.
-- Encrust
-    - A way to expose IO or other values to a scope without defining a function.
-    - Usage: ```encrust >(id >(a)>)> >(b)>```
-    - Where ```a``` is a value bound to the function ```id``` in the scope where ```b``` is executed.
-        - See code examples for usage of ```encrust```.
 
-# Sample Code
-
-## Basic Arithmetic
+# Basic Arithmetic
 
 ```
 <(+
@@ -100,7 +99,7 @@ Returns 2.0
 ```
 Returns 6.0
 
-### Boolean operations
+## Boolean operations
 
 ```
 <(==
@@ -110,7 +109,7 @@ Returns 6.0
 ```
 Returns True
 
-## Control Flow
+# Control Flow
 
 Control flow is done using the ```fin``` keyword.
 fin is actually a function that takes three arguments:
@@ -131,7 +130,7 @@ fin
     >(0.0)>
 ```
 
-## Function Declaration
+# Function Declaration
 
 Functions are declared with the ```fish``` keyword.
 
@@ -208,106 +207,88 @@ It should also be noted that Sakana does not have a loop, so any looping must be
 
 Hope you enjoyed your quick primer on Sakana!
 
-## IO
+# IO
 
 ```
 <(
-    trout >("Printing this line...")> >("returning this line")>
+    trout >("Printing this line...")>
 )<
 ```
 
-Will print the string ```Printing this line...``` and ouput the string ```returning this line```.
-
-The output from the second argument can be used in other contexts.
-For example, as print flags in a ```fin``` statement:
+Will print the string ```Printing this line...``` and ouput a null value.
 
 ```
-<(
-    fin
-    >(
-        trout >("Is x greater than y?")>
-        >(> >(x)> >(y)>)>
-    )>
-    >(
-        trout >("Yes it is!")>
-        >(- >(x)> >(y)>)>
-    )>
-    >(
-        trout >("No it's not..")>
-        >(+ >(x)> >(y)>)>
-    )>
+<(dolphin)<
+```
+Will simply return whatever the user enters as a string.
 
-)<
+# Executing a Sakana program
+
+So you have written a few functions and would like to call them in an executable Sakana file.
+
+To do so, you must have an execution block in your program.
+An execution block is defined as either a return fish ```<()<``` for when you want to perform a single operation.
+
+Or you can use Sakana's new keyword, ```swim```!.
+
+## Swim
+
+This keyword allows you execute code procedurally in Sakana.
+If you have worked with Haskell's IO monad, this concept essentially the same.
+There are a few essential concepts in a swim block:
+
+* In a swim block, any value contained in a send fish will be executed 
+    but ignored by the program output.
+
+* A swim block will instead return the first value it finds inside a return fish.
+
+* Additionally, swim blocks let you bind values to variables inside the scope of the swim block,
+    to call them multiple times.
+    * Binding values has the following syntax:
+```
+>(this_binding <(10)<)>
 ```
 
-Below is a function to concatenate two entered strings with a space in the middle:
+Where the binding is essentially declared with a send fish, an id, and a value returned to that id via a return fish.
+
+#### Example - procedural factorial
 
 ```
-<(
-    +
-    >(trout >("Please enter the first string")>
-        >(dolphin >()>)>
-    )>
-    >(trout >("Please enter the second string")>
-        >(+ 
-            >(" ")>
-            dolphin >()>
-        )>
-    )>
-)<
-```
-
-Here is a function demonstrating the use of ```encrust``` for binding IO values, 
-and perhaps, also demonstrating a hint of the depths of ugliness and depravity you can dive to with Sakana code.
-```
-<(
-  trout >("If you enter a string, I will show how you can use 'encrust' to bind a value to an id in a given scope: ")>
+fish factorial
+  >(n)>
   >(
-    encrust >(x >(dolphin >()>)>)>
-      >(
-        trout >(+ 
-          >("You entered: ")> 
-          >(x)>
-        )>
-        >(trout 
-            >( + 
-              >("You see how I can now reference the encrusted id where I want inside this scope? ")> 
-              >(x)>
-            )>
-          >(trout 
-            >(+ 
-              >(x)> 
-              >(" Here it is again, you can do this as many times as you want in an encrusted scope.")>
-            )>
-            >(x)>
-          )>
-        )>
-      )>
+    fish sub_fact
+      >(n)>
+      >(prod)>
+      <(
+        swim
+        >(new_prod <(* >(prod)> >(n)>)<)>
+        >(new_n <(- >(n)> >(1)>)<)>
+        <(
+          fin
+          >(<= >(n)> >(0)>)>
+          >(prod)>
+          >(sub_fact >(new_n)> >(new_prod)>)>
+        )<
+      )<
   )>
-)<
+  <(
+    swim
+    >(trout >("computing the factorial of: ")>)>
+    >(trout >(n)>)>
+    <(sub_fact >(n)> >(1)>)<
+  )<
+
+swim
+>(output <(factorial >(30)>)<)>
+>(trout >("The final value is: ")>)>
+<(output)<
 ```
 
-Here is another example of using encrust (Where you shouldn't be, really) and trout calls to evaluate a fin statement:
+This program will produce output like:
 ```
-<(
-  encrust >(x >(5)>)>
-  >(
-    encrust >(y >(3)>)>
-    >(
-      fin
-      >(
-          trout >("Is x greater than y?")>
-          >(> >(x)> >(y)>)>
-      )>
-      >(
-          trout >("Yes it is!")>
-          >(- >(x)> >(y)>)>
-      )>
-      >(
-          trout >("No it's not..")>
-          >(+ >(x)> >(y)>)>
-      )>
-    )>
-  )>
-)<
+computing the factorial of:
+30.0
+The final value is:
+2.652528598121911e32
 ```
