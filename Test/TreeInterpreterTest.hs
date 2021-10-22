@@ -9,7 +9,7 @@ import Token.Data
 import Token.Util.Tree
 
 executeFirstChild :: String -> Data
-executeFirstChild = unsafePerformIO . ExecutionTree.execute noEnvironmentStack . ExecutionTree.calct'
+executeFirstChild = unsafePerformIO . ExecutionTree.execute emptyEnvironmentStack . ExecutionTree.calct'
 
 getMainTree :: String -> IO SyntaxTree
 getMainTree = return . generateSyntaxTree . tokenize
@@ -18,7 +18,7 @@ prepareFunctionForTest str = unsafePerformIO $ executeMain (exEnv str) (exTr str
   where
     docTree = SyntaxTree.generateSyntaxTree . Lexer.tokenize
     exEnv = return . getMainEnvironmentStack . docTree
-    exTr = return . getMainExecutionTree . docTree
+    exTr = return . getMainExecutionTrees . docTree
 
 agnosticizeLines tr = fmap (setLineToZero) tr
   where
@@ -66,7 +66,7 @@ fishEnv =
   \<(+ >(n)> >(1)>)<"
 
 fishCall :: [Char] -> [Char]
-fishCall str = (fishEnv ++ " ") ++ ("<(" ++ str ++ ")<")
+fishCall str = (fishEnv ++ " swim ") ++ ("<(" ++ str ++ ")<")
 
 -- | main
 main = do
@@ -260,95 +260,39 @@ allPosArgsAreFetchedMultipleMixesTwo = standardTimeout 3 $ testCase name asserti
     a = [noLineCalct] <*> [">(n)>", ">(o)>", ">(q)>"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> >(fish thing >(x)> <(x)<)> >(q)> <(n)<"
 
--- functionDisambiguationTests = testGroup "Function disambiguation tests" testList
---   where
---     testList =
---       [ simpleFunctionIsDisambiguated,
---         multiplePositionalArgsAreDisambiguated,
---         functionWithArgMixIsDisambiguatedOne,
---         functionWithArgMixIsDisambiguatedTwo,
---         functionWithArgMixIsDisambiguatedThree
---       ]
-
--- simpleFunctionIsDisambiguated = standardTimeout 3 $ testCase name assertion
---   where
---     name = "Simple function can be disambiguated"
---     assertion = assertEqual d a f
---     d = "Simple function can be disambiguated"
---     a = noLineCalct "fish return_n >(n <(1)<)> <(n)<"
---     f =
---       disambiguateFunction
---         noEnvironmentStack
---         (noLineCalct "return_n >(1)>")
---         (noLineCalct "fish return_n >(n)> <(n)<")
-
--- multiplePositionalArgsAreDisambiguated = standardTimeout 3 $ testCase name assertion
---   where
---     name = "function declaration with multiple pos. args is disambiguated"
---     assertion = assertEqual d a f
---     d = name
---     a = noLineCalct "fish add >(x <(1)<)> >(y <(2)<)> <(something)<"
---     f =
---       disambiguateFunction
---         noEnvironmentStack
---         (noLineCalct "add >(1)> >(2)>")
---         (noLineCalct "fish add >(x)> >(y)> <(something)<")
-
--- functionWithArgMixIsDisambiguatedOne = standardTimeout 3 $ testCase name assertion
---   where
---     name = "A function with a mix of positional args and sending data is disambiguated"
---     assertion = assertEqual d a f
---     d = name
---     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
---     f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(2)>") (noLineCalct "fish xyz >(x)> >(y)> >(z <(3)<)> <(z)<")
-
--- functionWithArgMixIsDisambiguatedTwo = standardTimeout 3 $ testCase name assertion
---   where
---     name = "A function with a mix of positional args and sending data is disambiguated"
---     assertion = assertEqual d a f
---     d = name
---     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
---     f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(3)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> <(z)<")
-
--- functionWithArgMixIsDisambiguatedThree = standardTimeout 3 $ testCase name assertion
---   where
---     name = "A function with a mix of positional args and sending data is disambiguated"
---     assertion = assertEqual d a f
---     d = name
---     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> <(z)<"
---     f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(2)> >(3)>") (noLineCalct "fish xyz >(x <(1)<)> >(y)> >(z)> <(z)<")
-
--- functionWithMultipleArgMixIsDisambiguatedOne = standardTimeout 3 $ testCase name assertion
---   where
---     name = "A function with a mix of positional args and sending data is disambiguated"
---     assertion = assertEqual d a f
---     d = name
---     a = noLineCalct "fish xyz >(x <(1)<)> >(y <(2)<)> >(z <(3)<)> >(a <(4)<)> >(b <(5)<)> <(z)<"
---     f = disambiguateFunction noEnvironmentStack (noLineCalct "xyz >(1)> >(3)> >(5)>") (noLineCalct "fish xyz >(x)> >(y <(2)<)> >(z)> >(a <(4)<)> >(b)> <(z)<")
+-----function execution tests------------------------------------------------------------------------
 
 executesVerySimpleFunction = standardTimeout 3 $ testCase name assertion
   where
-    name = "A very simple function can be defined and executed"
+    name = "A very simple function can be defined and executed (1)"
     assertion = assertEqual d a f
     d = name
     a = Num 1.0
-    f = prepareFunctionForTest $ "fish return_n >(n)> <(n)< <(return_n >(1)>)<"
+    f = prepareFunctionForTest $ "fish return_n >(n)> <(n)< swim <(return_n >(1)>)<"
 
 executesVerySimpleFunctionTwo = standardTimeout 3 $ testCase name assertion
   where
-    name = "A very simple function can be defined and executed"
+    name = "A very simple function can be defined and executed (2)"
     assertion = assertEqual d a f
     d = name
     a = Num 2.0
-    f = prepareFunctionForTest $ "fish add >(x)> >(y)> <(+ >(x)> >(y)>)< <(add >(1)> >(1)>)<"
+    f = prepareFunctionForTest $ "fish add >(x)> >(y)> <(+ >(x)> >(y)>)< swim <(add >(1)> >(1)>)<"
 
 executesMixedArgFunction = standardTimeout 3 $ testCase name assertion
   where
-    name = "A very simple function can be defined and executed"
+    name = "A very simple function can be defined and executed (3)"
     assertion = assertEqual d a f
     d = name
     a = Num 2.0
-    f = prepareFunctionForTest $ "fish add >(x)> >(fish y <(1)<)> <(+ >(x)> >(y)>)< <(add >(1)>)<"
+    f = prepareFunctionForTest $ "fish add >(x)> >(fish y <(1)<)> <(swim <(+ >(x)> >(y)>)<)< swim <(add >(1)>)<"
+
+executesSingleValueFunction = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A very simple function can be defined and executed (4)"
+    assertion = assertEqual d a f
+    d = name
+    a = Num 5.0
+    f = prepareFunctionForTest $ "fish return_five <(5)< swim <(return_five)<"
 
 executesFunctionWithFin = standardTimeout 3 $ testCase name assertion
   where
@@ -356,7 +300,7 @@ executesFunctionWithFin = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = Boolean True
-    f = prepareFunctionForTest $ "fish to_bool >(x)> <(fin >(x)> >(True)> >(False)>)< <(to_bool >(1)>)<"
+    f = prepareFunctionForTest $ "fish to_bool >(x)> <(fin >(x)> >(True)> >(False)>)< swim <(to_bool >(1)>)<"
 
 executesFunctionWithNestedFin = standardTimeout 3 $ testCase name assertion
   where
@@ -518,10 +462,114 @@ metaFishCallWorks = standardTimeout 3 $ testCase name assertion
     a = Boolean False
     f = prepareFunctionForTest $ fishCall "and >(True)> >(False)>"
 
+functionWithSwimWorks = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A function with a swim keyword will still return the correct value."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 5.0
+    f = prepareFunctionForTest "fish print_and_return >(x)> <(swim >(trout >(x)>)> <(x)<)< swim <(print_and_return >(5)>)<"
+
+functionWithSwimWorksTwo = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A function with a swim keyword will still return the correct value (2)."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 5.0
+    f = prepareFunctionForTest "fish print_and_return >(x)> <(swim >(trout >(x)>)> >(trout >(\"Slightly more complex swim block\")>)> <(x)<)< swim <(print_and_return >(5)>)<"
+
+subFunctionsExecutedAppriopriatelyWithSwim = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A function with a defined sub-function will execute properly with a swim block."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f = prepareFunctionForTest "fish outer >(x)> >(fish inner >(y)> <(+ >(y)> >(1)>)<)> <(swim >(trout >(x)>)> <(inner >(x)>)<)< swim <(outer >(1)>)<"
+
+subFunctionsExecutedAppriopriatelyWithSwimTwo = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A function with a slight more complex defined sub-function will execute properly with a swim block."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f = prepareFunctionForTest "fish outer >(x)> >(fish inner >(y)> <(swim >(trout >(\"This sub-function should still return the right value\")>)> <(+ >(y)> >(1)>)<)<)> <(swim >(trout >(x)>)> <(inner >(x)>)<)< swim <(outer >(1)>)<"
+
+simpleFishSendingBindingWorks = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A fish send can be used to bind the result of a function to a scope."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 50.0
+    f = prepareFunctionForTest "fish mult_ten >(x)> <(* >(x)> >(10)>)< swim >(result <(mult_ten >(5)>)<)> >(trout >(result)>)> <(result)<"
+
+simpleFishSendingBindingWorksTwo = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A fish send can be used to bind the result of a function to a scope (2)."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 150.0
+    f = prepareFunctionForTest "fish mult_ten >(x)> <(* >(x)> >(10)>)< swim >(result <(mult_ten >(5)>)<)> >(result_two <(mult_ten >(10)>)<)> >(trout >(result)>)> <(+ >(result)> >(result_two)>)<"
+
+simpleFishSendingBindingWorksThree = standardTimeout 3 $ testCase name assertion
+  where
+    name = "A fish send can be used to bind the result of a function to a scope (2)."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 150.0
+    f = prepareFunctionForTest "fish mult_ten >(x)> <(* >(x)> >(10)>)< swim >(result <(mult_ten >(5)>)<)> >(result_two <(mult_ten >(10)>)<)> >(final <(+ >(result)> >(result_two)>)<)> >(trout >(result)>)> <(final)<"
+
+subFunctionsWorkWithFishSend = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Fish sends work in the main block when executing functions with sub functions."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 6.0
+    f = prepareFunctionForTest "fish outer >(x)> >(fish inner >(y)> <(swim >(trout >(\"This sub-function should still return the right value\")>)> <(+ >(y)> >(1)>)<)<)> <(swim >(trout >(x)>)> <(inner >(x)>)<)< swim >(a <(outer >(1)>)<)> >(b <(outer >(2)>)<)> <(* >(a)> >(b)>)<"
+
+subFunctionsWorkWithFishSendTwo = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Fish sends work in the main block when executing functions with sub functions that have send fish."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 6.0
+    f =
+      prepareFunctionForTest
+        "fish outer >(x)>\
+        \ >(fish inner >(y)>\
+        \<(swim >(trout >(\"This sub-function should still return the right value\")>)> <(+ >(y)> >(1)>)<)<)>\
+        \ <(swim >(to_return <(inner >(x)>)<)> >(trout >(x)>)> <(to_return)<)<\
+        \ swim >(a <(outer >(1)>)<)> >(b <(outer >(2)>)<)> <(* >(a)> >(b)>)<"
+
+subFunctionsWorkWithFishSendThree = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Fish sends work in the main block when executing functions with sub functions that have send fish."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 35.0
+    f =
+      prepareFunctionForTest
+        "fish outer >(x)>\
+        \ >(fish inner >(y)>\
+        \<(swim >(trout >(\"This sub-function should still return the right value\")>)> <(+ >(y)> >(1)>)<)<)>\
+        \ <(swim >(z <(* >(inner >(x)>)> >(2)>)<)> >(to_return <(inner >(z)>)<)> >(trout >(z)>)> <(to_return)<)<\
+        \ swim >(a <(outer >(1)>)<)> >(b <(outer >(2)>)<)> <(* >(a)> >(b)>)<"
+
+--outer 1 = 5
+--outer 2 = 7
 functionExecutionTests = testGroup "Function execution tests" testList
   where
     testList =
-      [ tenNestedFunctionCall,
+      [ subFunctionsWorkWithFishSendThree,
+        subFunctionsWorkWithFishSendTwo,
+        subFunctionsWorkWithFishSend,
+        simpleFishSendingBindingWorksThree,
+        simpleFishSendingBindingWorksTwo,
+        simpleFishSendingBindingWorks,
+        subFunctionsExecutedAppriopriatelyWithSwimTwo,
+        subFunctionsExecutedAppriopriatelyWithSwim,
+        functionWithSwimWorksTwo,
+        functionWithSwimWorks,
+        tenNestedFunctionCall,
         oneNestedFunctionCall,
         functionCanReturnNull,
         functionsWithExplicitNoArgsTwo,
@@ -532,6 +580,7 @@ functionExecutionTests = testGroup "Function execution tests" testList
         executesVerySimpleFunction,
         executesVerySimpleFunctionTwo,
         executesMixedArgFunction,
+        executesSingleValueFunction,
         executesFunctionWithFin,
         executesFunctionWithNestedFin,
         executesFunctionWithSubFunc,
