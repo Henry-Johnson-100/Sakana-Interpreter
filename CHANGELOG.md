@@ -26,3 +26,11 @@
     * dolphin
     * encrust
 * See the README for usage details.
+
+#### 0.2.0.1 -- YYYY-MM-DD
+
+* Removed the ```encrust``` std lib function because it was awful.
+* working on implementing a method of procedurally executing code in a very similar way
+    to Haskell's ```do``` notation.
+
+    * Some rewriting of tests and writing of more tests will be required before I am confident releasing it.

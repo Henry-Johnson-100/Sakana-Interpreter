@@ -6,7 +6,7 @@ module ExecutionTree
     getMainExecutionTrees,
     getMainEnvironmentStack,
     --Anything below this is a temporary export
-    noEnvironmentStack,
+    emptyEnvironmentStack,
     getFuncDeclArgs,
     getFunctionDeclPositionalArgs,
   )
@@ -58,7 +58,7 @@ where
 --                                      █████
 
 import qualified Data.Char as DChar (isSpace)
-import qualified Data.List as DList (find, foldl', intercalate, intersperse)
+import qualified Data.List as DList (find, foldl', intercalate, intersperse, takeWhile)
 import Data.Maybe (Maybe (..))
 import qualified Data.Maybe as DMaybe (fromJust, fromMaybe, isJust, isNothing, maybe)
 import qualified Data.Tuple as DTuple (uncurry)
@@ -167,8 +167,8 @@ fPrintSymbolPair' :: SymbolPair -> String
 fPrintSymbolPair' (SymbolPair sid tr) =
   concat ["Symbol ID: ", show sid, "\n", Tree.fPrintTree 0 tr]
 
-noEnvironmentStack :: EnvironmentStack
-noEnvironmentStack = []
+emptyEnvironmentStack :: EnvironmentStack
+emptyEnvironmentStack = []
 
 --Functions to manage scope and environments----------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -203,7 +203,7 @@ maybeLookupSymbolInEnvironmentStack (st : sts) lookupId =
     maybeSymbolInCurrentTable = maybeLookupSymbolInSymbolTable lookupId st
 
 makeEnvironmentStackFrame :: [SyntaxTree] -> EnvironmentStack
-makeEnvironmentStackFrame = (: noEnvironmentStack) . makeSymbolTable
+makeEnvironmentStackFrame = (: emptyEnvironmentStack) . makeSymbolTable
 
 makeSymbolTable :: [SyntaxTree] -> SymbolTable
 makeSymbolTable = makeSymbolTable' []
@@ -300,9 +300,6 @@ getMainEnvironmentStack = makeEnvironmentStackFrame . Tree.treeChildren
 getMainExecutionTrees :: SyntaxTree -> [SyntaxTree]
 getMainExecutionTrees docTree =
   DMaybe.maybe [] Tree.treeChildren ((DList.find treeIsSwim . Tree.treeChildren) docTree)
-  where
-    treeIsSwim tr =
-      nodeStrictlySatisfies ((Lexer.Keyword (K.Swim) ==) . SyntaxUnit.token) tr
 
 -- | This will be our new main entry point for a fish program
 -- If no execution tree can be found in 'main' then a single tree containing a null value
@@ -314,7 +311,7 @@ executeMain envio trio = do
   procExecute (env) (tr)
 
 -- Will cease execution and return at the first return context it sees
-procExecute :: EnvironmentStack -> [SyntaxTree] -> IO D.Data --A lot of this depends on do notation not really being lazy so..
+procExecute :: EnvironmentStack -> [SyntaxTree] -> IO D.Data
 procExecute _ [] = return D.Null
 procExecute env (tr : trs)
   | treeIsSendingValueBinding tr = do
@@ -327,8 +324,10 @@ procExecute env (tr : trs)
 
 execute :: EnvironmentStack -> SyntaxTree -> IO D.Data
 execute env tr
-  | nodeStrictlySatisfies nodeIsFin tr = evaluateFin env tr
   | nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr = evaluatePrimitiveData tr
+  | treeIsSimpleValueBindingCall tr = 
+    execute env ((DMaybe.fromJust . head' . Tree.treeChildren . symbolVal . lookupSymbolInEnvironmentStack env . (DMaybe.fromJust . Tree.treeNode)) tr) --Will require some extensive testing to make sure I'm not totally screwing this up.
+  | nodeStrictlySatisfies nodeIsFin tr = evaluateFin env tr
   | nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator env tr
   | treeIsStandardLibCall tr =
     case ( D.fromData
@@ -345,10 +344,7 @@ execute env tr
           ((DMaybe.fromJust . head' . Tree.treeChildren) tr)
       "dolphin" -> dolphin
       _ -> return D.Null
-  | foldIdApplicativeOnSingleton
-      any
-      [treeIsFunctionCall, treeIsSimpleValueBindingCall]
-      tr =
+  | treeIsFunctionCall tr =
     executeFunctionCall env tr
   | otherwise = return D.Null
 
@@ -448,7 +444,8 @@ evaluateOperator env tr = do
 
 executeFunctionCall :: EnvironmentStack -> SyntaxTree -> IO D.Data
 executeFunctionCall mainExEnv functionCall = do
-  let preparedStateIO = prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration
+  let preparedStateIO =
+        prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration
   newFuncEnv <- fst preparedStateIO
   newFuncProcTrees <- snd preparedStateIO
   procExecute newFuncEnv newFuncProcTrees
@@ -549,13 +546,8 @@ treeIsFunctionCall tr =
 
 treeIsSimpleValueBindingCall :: SyntaxTree -> Bool
 treeIsSimpleValueBindingCall tr =
-  nodeStrictlySatisfies nodeIsId tr
-    && foldIdApplicativeOnSingleton
-      all
-      [ null . Tree.treeChildren,
-        not . DMaybe.isNothing . Tree.treeNode
-      ]
-      tr
+  treeIsFunctionCall tr
+    && (null . filter (not . nodeStrictlySatisfies nodeIsNull) . Tree.treeChildren) tr
 
 -- | Can be stored in a symbol table.
 --  As of right now, treeIsStoreable and treeIsExecutable are not opposites.
@@ -564,12 +556,7 @@ treeIsSimpleValueBindingCall tr =
 --  but, named lambda functions: 'x <( >(m)> <(+ >(m)> >(1)>)<' for instance,
 --  are storeable and should be stored as normal value bindings.
 treeIsStoreable :: SyntaxTree -> Bool
-treeIsStoreable =
-  foldIdApplicativeOnSingleton
-    any
-    [ nodeStrictlySatisfies nodeIsDeclarationRequiringId,
-      treeIsSymbolValueBinding
-    ]
+treeIsStoreable = nodeStrictlySatisfies nodeIsDeclarationRequiringId
 
 treeIsExecutable :: SyntaxTree -> Bool
 treeIsExecutable Tree.Empty = False
@@ -595,6 +582,10 @@ treeIsStandardLibCall tr =
         . DMaybe.fromJust
         . Lexer.baseData
         . SyntaxUnit.token
+
+treeIsSwim :: Tree.Tree SyntaxUnit -> Bool
+treeIsSwim tr =
+  nodeStrictlySatisfies ((Lexer.Keyword (K.Swim) ==) . SyntaxUnit.token) tr
 
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -641,18 +632,37 @@ applyIsPrimitiveEvaluable =
   )
     . listSingleton
 
+-- | This function serves to create the new stack frame
+-- and execution trees when a function is called.
 prepareFunctionCallForExecution ::
   EnvironmentStack -> SyntaxTree -> SyntaxTree -> (IO EnvironmentStack, IO [SyntaxTree])
 prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration = do
-  let functionIOEnvironment = makeIOEnvFromFuncCall mainExEnv (Tree.treeChildren functionCall) (getFunctionDeclPositionalArgs functionDeclaration)
-  let functionDeclarationProcTrees = getFunctionDeclarationProcTrees functionDeclaration
-  let executionTreeIO = return functionDeclarationProcTrees
-  (functionIOEnvironment, executionTreeIO)
-  where
-    getFunctionDeclarationProcTrees tr =
-      if nodeStrictlySatisfies (Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token) tr
-        then (filter (not . treeIsPositionalArg) . tail' . Tree.treeChildren) tr
-        else (filter (not . treeIsPositionalArg) . Tree.treeChildren) tr
+  let functionIOEnvironment =
+        makeIOEnvFromFuncCall
+          mainExEnv
+          (Tree.treeChildren functionCall)
+          (getBindableArgs functionDeclaration)
+  let functionDeclarationProcTrees = getExecutableChildren functionDeclaration
+  (functionIOEnvironment, return functionDeclarationProcTrees)
+
+-- where
+-- getFunctionDeclarationProcTrees tr =
+--   if nodeStrictlySatisfies
+--     (Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token)
+--     tr
+--     then (filter (not . treeIsPositionalArg) . tail' . Tree.treeChildren) tr
+--     else (filter (not . treeIsPositionalArg) . Tree.treeChildren) tr
+-- This function is required to get all of the execution trees of a function
+-- declaration, which is why 'getMainExecutionTrees' is called.
+-- Ideally, a function declaration works like a miniature program.
+-- So it is only natural that it's execution trees are denoted by the 'swim' keyword.
+getExecutableChildren :: SyntaxTree -> [SyntaxTree]
+getExecutableChildren tr = getMainExecutionTrees tr
+
+-- This function is required to get and potentially bind all provided bindable
+-- information in a function declaration, like extra sub-function declarations.
+getBindableArgs :: SyntaxTree -> [SyntaxTree]
+getBindableArgs = DList.takeWhile (not . treeIsSwim) . getFuncDeclArgs
 
 makeSymbolTableFromFuncCall ::
   EnvironmentStack -> SymbolTable -> [SyntaxTree] -> [SyntaxTree] -> IO SymbolTable
@@ -769,9 +779,7 @@ listSingleton x = [x]
 
 s' :: [Char]
 s' =
-  "swim >(p <(5)<)>\
-  \>(trout >(p)>)>\
-  \<(p)<"
+  "fish test >(pos)> <(swim <(pos)<)< swim <(test >(10)>)<"
 
 t' :: [Lexer.TokenUnit]
 t' = Lexer.tokenize s'
