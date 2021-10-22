@@ -299,7 +299,13 @@ getMainEnvironmentStack = makeEnvironmentStackFrame . Tree.treeChildren
 
 getMainExecutionTrees :: SyntaxTree -> [SyntaxTree]
 getMainExecutionTrees docTree =
-  DMaybe.maybe [] Tree.treeChildren ((DList.find treeIsSwim . Tree.treeChildren) docTree)
+  DMaybe.maybe
+    [getLastExecutionTree docTree]
+    Tree.treeChildren
+    ((DList.find treeIsSwim . Tree.treeChildren) docTree)
+  where
+    getLastExecutionTree =
+      DMaybe.fromMaybe Tree.Empty . last' . filter (treeIsExecutable) . Tree.treeChildren
 
 -- | This will be our new main entry point for a fish program
 -- If no execution tree can be found in 'main' then a single tree containing a null value
@@ -325,8 +331,8 @@ procExecute env (tr : trs)
 execute :: EnvironmentStack -> SyntaxTree -> IO D.Data
 execute env tr
   | nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr = evaluatePrimitiveData tr
-  | treeIsSimpleValueBindingCall tr = 
-    execute env ((DMaybe.fromJust . head' . Tree.treeChildren . symbolVal . lookupSymbolInEnvironmentStack env . (DMaybe.fromJust . Tree.treeNode)) tr) --Will require some extensive testing to make sure I'm not totally screwing this up.
+  -- | treeIsSimpleValueBindingCall tr =
+  --   execute env ((DMaybe.fromJust . head' . Tree.treeChildren . symbolVal . lookupSymbolInEnvironmentStack env . (DMaybe.fromJust . Tree.treeNode)) tr) --Will require some extensive testing to make sure I'm not totally screwing this up.
   | nodeStrictlySatisfies nodeIsFin tr = evaluateFin env tr
   | nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator env tr
   | treeIsStandardLibCall tr =
