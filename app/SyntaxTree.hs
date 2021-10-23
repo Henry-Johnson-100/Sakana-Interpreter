@@ -40,9 +40,9 @@ import qualified Token.Bracket as B
   )
 import qualified Token.Data as D (Data (Id, Null))
 import qualified Token.Keyword as K (Keyword (School))
-import qualified Token.Util.EagerCollapsible as EagerCollapsible (dropInfix)
-import qualified Token.Util.CollapsibleTerminalCases as CTC (CollapsibleTerminalCases(..))
-import qualified Token.Util.NestedCollapsible as NestedCollapsible
+import qualified Util.EagerCollapsible as EagerCollapsible (dropInfix)
+import qualified Util.CollapsibleTerminalCases as CTC (CollapsibleTerminalCases(..))
+import qualified Util.NestedCollapsible as NestedCollapsible
   (
     TriplePartition (..),
     breakByNest,
@@ -53,8 +53,8 @@ import qualified Token.Util.NestedCollapsible as NestedCollapsible
     takeNestWhileComplete,
     takeWhileList,
   )
-import Token.Util.Tree (Tree ((:-<-:)), (-<=))
-import qualified Token.Util.Tree as Tree
+import Util.Tree (Tree ((:-<-:)), (-<=))
+import qualified Util.Tree as Tree
   ( Tree (Empty),
     TreeIO (..),
     childMap,

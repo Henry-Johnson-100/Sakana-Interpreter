@@ -59,18 +59,18 @@ import qualified Token.Keyword as K
     repr,
   )
 import qualified Token.Operator as O (Operator (Add), fromOp, readOp, repr, spacingRepr)
-import qualified Token.Util.CollapsibleTerminalCases as CTC
+import qualified Util.CollapsibleTerminalCases as CTC
   ( CollapsibleTerminalCases (..),
     sameCase,
   )
-import qualified Token.Util.EagerCollapsible as EagerCollapsible
+import qualified Util.EagerCollapsible as EagerCollapsible
   ( dropBetween,
     dropInfix,
     isEagerCollapsible,
     takeBetween,
   )
-import Token.Util.Like (Like (..))
-import Token.Util.String (onlyLiteral, padEqual)
+import Util.Like (Like (..))
+import Util.String (onlyLiteral, padEqual)
 
 data Token
   = Bracket B.ScopeType B.BracketTerminal

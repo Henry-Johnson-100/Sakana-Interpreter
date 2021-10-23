@@ -26,23 +26,21 @@ executable Sakana
 
     --Modules included in this executable, other than Main.
     other-modules:
-        Lexer
-        ExecutionTree
-        SyntaxTree
         Exception.Base
+        TreeInterpreter
+        Lexer
         SyntaxTree
         Token.Bracket
         Token.Control
         Token.Data
         Token.Keyword
         Token.Operator
-        Token.Util.Like
-        Token.Util.NestedCollapsible
-        Token.Util.String
-        Token.Util.Tree
-        Token.Util.EagerCollapsible
-        Token.Util.CollapsibleTerminalCases
-
+        Util.CollapsibleTerminalCases
+        Util.EagerCollapsible
+        Util.Like
+        Util.NestedCollapsible
+        Util.String
+        Util.Tree
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: MagicHash
@@ -53,36 +51,25 @@ executable Sakana
       --, tasty >= 0.7 && < 1.4.1
       --, tasty-hunit ^>=0.10.0.3
     hs-source-dirs:   app
+                      app/Exception
                       app/Token
-                      app/Token/Util
+                      app/Util
                       Test
     default-language: Haskell2010
 
 executable SakanaST
     main-is: PTIO.hs
     other-modules:
-        Lexer,
-        SyntaxTree,
-        Exception.Base,
-        Token.Control,
-        Token.Bracket,
-        Token.Data,
-        Token.Keyword,
-        Token.Operator,
-        Token.Util.EagerCollapsible,
-        Token.Util.Like,
-        Token.Util.NestedCollapsible,
-        Token.Util.String,
-        Token.Util.Tree,
-        Token.Util.CollapsibleTerminalCases
+
     build-depends:
         base >= 4.8.0.0
         , ghc-prim >= 0.5.0
         -- , tasty >= 0.7 && < 1.4.1
         -- , tasty-hunit ^>=0.10.0.3
     hs-source-dirs: app
+                    app/Exception
                     app/Token
-                    app/Token/Util
+                    app/Util
                     Test
     default-language: Haskell2010
 
@@ -114,8 +101,8 @@ test-suite Token_Util_EagerCollapsible
     main-is:
         EagerCollapsibleTest.hs
     other-modules:
-        Token.Util.EagerCollapsible,
-        Token.Util.CollapsibleTerminalCases
+        Util.EagerCollapsible,
+        Util.CollapsibleTerminalCases
     build-depends:
         base >= 4.8.0.0
       , tasty >= 0.7 && < 1.4.1

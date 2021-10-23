@@ -1,4 +1,4 @@
-module Token.Util.String
+module Util.String
   ( replaceAll,
     genSpace,
     padFront,
@@ -11,7 +11,7 @@ where
 
 import qualified Data.Char (isSpace)
 import qualified Data.List (isPrefixOf, isSuffixOf)
-import qualified Token.Util.EagerCollapsible as EagerCollapsible (dropInfix)
+import qualified Util.EagerCollapsible as EagerCollapsible (dropInfix)
 
 replaceAll :: String -> String -> String -> String
 replaceAll (s : str) find replace

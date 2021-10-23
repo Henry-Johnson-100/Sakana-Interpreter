@@ -1,4 +1,4 @@
-module Token.Util.Like
+module Util.Like
   ( Like (..),
   )
 where

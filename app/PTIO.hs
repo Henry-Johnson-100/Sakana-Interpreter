@@ -7,7 +7,7 @@ import System.IO
     hGetContents,
     openFile,
   )
-import Token.Util.Tree (TreeIO (fPrintTree))
+import Util.Tree (TreeIO (fPrintTree))
 
 printTree :: String -> String -> String
 printTree fileContents treeName =

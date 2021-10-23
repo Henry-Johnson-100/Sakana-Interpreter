@@ -1,15 +1,15 @@
 import Data.Maybe
-import ExecutionTree
+import TreeInterpreter
 import Lexer
 import SyntaxTree
 import System.IO.Unsafe
 import Test.Tasty
 import Test.Tasty.HUnit
 import Token.Data
-import Token.Util.Tree
+import Util.Tree
 
 executeFirstChild :: String -> Data
-executeFirstChild = unsafePerformIO . ExecutionTree.execute emptyEnvironmentStack . ExecutionTree.calct'
+executeFirstChild = unsafePerformIO . TreeInterpreter.execute emptyEnvironmentStack . TreeInterpreter.calct'
 
 getMainTree :: String -> IO SyntaxTree
 getMainTree = return . generateSyntaxTree . tokenize
@@ -72,7 +72,7 @@ fishCall str = (fishEnv ++ " swim ") ++ ("<(" ++ str ++ ")<")
 main = do
   defaultMain tests
 
-tests = testGroup "ExecutionTree tests" testList
+tests = testGroup "TreeInterpreter tests" testList
   where
     testList =
       [ finTests,

@@ -1,6 +1,6 @@
 module Main where
 
-import ExecutionTree (executeMain, getMainEnvironmentStack, getMainExecutionTrees)
+import TreeInterpreter (executeMain, getMainEnvironmentStack, getMainExecutionTrees)
 import Lexer (tokenize)
 import SyntaxTree (generateSyntaxTree)
 import System.Environment (getArgs)

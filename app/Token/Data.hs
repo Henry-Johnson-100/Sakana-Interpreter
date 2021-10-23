@@ -13,8 +13,8 @@ where
 
 import qualified Data.Char (isAlpha, isAlphaNum, isDigit, isPunctuation)
 import qualified Data.List (isPrefixOf, isSuffixOf)
-import qualified Token.Util.Like as LikeClass (Like (..))
-import qualified Token.Util.String (strip, onlyLiteral)
+import qualified Util.Like as LikeClass (Like (..))
+import qualified Util.String (strip, onlyLiteral)
 
 data Data
   = Num Double
@@ -102,13 +102,13 @@ readData :: String -> Data --These guards are order dependent which is annoying
 readData paddedStr
   | null str = Other ""
   | Data.List.isPrefixOf "/*" str || Data.List.isSuffixOf "*/" str = Comment str
-  | allAlphaNum $ Token.Util.String.strip str = Other str
-  | allDigits $ Token.Util.String.strip str = Num (read str)
-  | isFloatStr $ Token.Util.String.strip str = Num (read str)
-  | allPunct $ Token.Util.String.strip str = Punct str
-  | '\"' `elem` str = (String . Token.Util.String.onlyLiteral) str --Don't like this one
+  | allAlphaNum $ Util.String.strip str = Other str
+  | allDigits $ Util.String.strip str = Num (read str)
+  | isFloatStr $ Util.String.strip str = Num (read str)
+  | allPunct $ Util.String.strip str = Punct str
+  | '\"' `elem` str = (String . Util.String.onlyLiteral) str --Don't like this one
   | str == "True" || str == "False" = Boolean (read str :: Bool)
-  | couldBeId $ Token.Util.String.strip str = Id str
+  | couldBeId $ Util.String.strip str = Id str
   | otherwise = Other str
   where
-    str = Token.Util.String.strip paddedStr
+    str = Util.String.strip paddedStr

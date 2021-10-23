@@ -1,4 +1,4 @@
-module Token.Util.NestedCollapsible
+module Util.NestedCollapsible
   ( TriplePartition (..),
     NCCase (..),
     unwrapPartition,
@@ -23,8 +23,8 @@ module Token.Util.NestedCollapsible
   )
 where
 
-import qualified Token.Util.EagerCollapsible as EagerCollapsible
-import qualified Token.Util.CollapsibleTerminalCases as CTC (CollapsibleTerminalCases(..))
+import qualified Util.EagerCollapsible as EagerCollapsible
+import qualified Util.CollapsibleTerminalCases as CTC (CollapsibleTerminalCases(..))
 
 data TriplePartition a = TriplePartition
   { partFst :: [a],

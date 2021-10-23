@@ -1,4 +1,4 @@
-module ExecutionTree
+module TreeInterpreter
   ( EnvironmentStack (..),
     calct',
     executeMain,
@@ -115,8 +115,8 @@ import qualified Token.Operator as O
   ( Operator (Add, Div, Eq, Gt, GtEq, Lt, LtEq, Mult, NEq, Pow, Sub),
     fromOp,
   )
-import qualified Token.Util.Like as LikeClass (Like (like))
-import qualified Token.Util.Tree as Tree
+import qualified Util.Like as LikeClass (Like (like))
+import qualified Util.Tree as Tree
   ( Tree (Empty),
     TreeIO (fPrintTree, ioPrintTree),
     maybeOnTreeNode,
@@ -331,8 +331,6 @@ procExecute env (tr : trs)
 execute :: EnvironmentStack -> SyntaxTree -> IO D.Data
 execute env tr
   | nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr = evaluatePrimitiveData tr
-  -- | treeIsSimpleValueBindingCall tr =
-  --   execute env ((DMaybe.fromJust . head' . Tree.treeChildren . symbolVal . lookupSymbolInEnvironmentStack env . (DMaybe.fromJust . Tree.treeNode)) tr) --Will require some extensive testing to make sure I'm not totally screwing this up.
   | nodeStrictlySatisfies nodeIsFin tr = evaluateFin env tr
   | nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator env tr
   | treeIsStandardLibCall tr =

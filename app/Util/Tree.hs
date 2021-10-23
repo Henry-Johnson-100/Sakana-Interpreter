@@ -1,4 +1,4 @@
-module Token.Util.Tree
+module Util.Tree
   ( Tree (..),
     TreeIO (..),
     tree,

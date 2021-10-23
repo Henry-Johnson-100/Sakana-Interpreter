@@ -1,8 +1,8 @@
 import Data.List
 import Test.Tasty
 import Test.Tasty.HUnit
-import Token.Util.CollapsibleTerminalCases as CTC
-import Token.Util.EagerCollapsible as EC
+import Util.CollapsibleTerminalCases as CTC
+import Util.EagerCollapsible as EC
 
 ctc = CTC.CollapsibleTerminalCases
 

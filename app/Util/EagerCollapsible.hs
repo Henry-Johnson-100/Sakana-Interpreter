@@ -1,4 +1,4 @@
-module Token.Util.EagerCollapsible
+module Util.EagerCollapsible
   ( takeBetween,
     dropBetween,
     isEagerCollapsible,
@@ -7,7 +7,7 @@ module Token.Util.EagerCollapsible
 where
 
 import qualified Data.List (isPrefixOf)
-import qualified Token.Util.CollapsibleTerminalCases as CTC
+import qualified Util.CollapsibleTerminalCases as CTC
   ( CollapsibleTerminalCases (..),
     sameCase,
   )

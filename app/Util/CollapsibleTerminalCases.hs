@@ -1,4 +1,4 @@
-module Token.Util.CollapsibleTerminalCases
+module Util.CollapsibleTerminalCases
   ( CollapsibleTerminalCases (..),
     sameCase,
   )
