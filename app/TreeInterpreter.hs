@@ -98,7 +98,6 @@ import qualified SyntaxTree
 import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
 import System.Environment (getArgs)
 import System.IO
-import System.IO.Unsafe
 import qualified Token.Bracket as B (ScopeType (Return, Send))
 import qualified Token.Control as C (Control (Fin))
 import qualified Token.Data as D
@@ -125,11 +124,22 @@ import TreeInterpreter.Environment as Env
     makeEnvironmentStackFrame,
     makeSymbolPair,
     maybeTreeToSymbolPair,
-    nodeIsId,
-    treeIsSymbolValueBinding,
   )
 import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
-import Util.General
+  ( dataTokenAndPrimitive,
+    fin,
+    nullNode,
+    operator,
+  )
+import qualified TreeInterpreter.LocalCheck.TreeIs as Check.TreeIs
+  ( executable,
+    functionCall,
+    positionalArg,
+    sendingValueBinding,
+    standardLibCall,
+    swim,
+  )
+import qualified Util.General
   ( both,
     foldIdApplicativeOnSingleton,
     head',
@@ -185,10 +195,13 @@ getMainExecutionTrees docTree =
   DMaybe.maybe
     [getLastExecutionTree docTree]
     Tree.treeChildren
-    ((DList.find treeIsSwim . Tree.treeChildren) docTree)
+    ((DList.find Check.TreeIs.swim . Tree.treeChildren) docTree)
   where
     getLastExecutionTree =
-      DMaybe.fromMaybe Tree.Empty . last' . filter (treeIsExecutable) . Tree.treeChildren
+      DMaybe.fromMaybe Tree.Empty
+        . Util.General.last'
+        . filter (Check.TreeIs.executable)
+        . Tree.treeChildren
 
 -- | This will be our new main entry point for a fish program
 -- If no execution tree can be found in 'main' then a single tree containing a null value
@@ -203,20 +216,22 @@ executeMain envio trio = do
 procExecute :: EnvironmentStack -> [SyntaxTree] -> IO D.Data
 procExecute _ [] = return D.Null
 procExecute env (tr : trs)
-  | treeIsSendingValueBinding tr = do
+  | Check.TreeIs.sendingValueBinding tr = do
     fishSendEnv <- fishSend env tr
     procExecute fishSendEnv trs
   | Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr =
     execute env tr >> procExecute env trs
-  | Tree.nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr = execute env tr
+  | Tree.nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr =
+    execute env tr
   | otherwise = return D.Null
 
 execute :: EnvironmentStack -> SyntaxTree -> IO D.Data
 execute env tr
-  | Tree.nodeStrictlySatisfies Check.NodeIs.dataTokenAndPrimitive tr = evaluatePrimitiveData tr
+  | Tree.nodeStrictlySatisfies Check.NodeIs.dataTokenAndPrimitive tr =
+    evaluatePrimitiveData tr
   | Tree.nodeStrictlySatisfies Check.NodeIs.fin tr = evaluateFin env tr
   | Tree.nodeStrictlySatisfies Check.NodeIs.operator tr = evaluateOperator env tr
-  | treeIsStandardLibCall tr =
+  | Check.TreeIs.standardLibCall tr =
     case ( D.fromData
              . DMaybe.fromJust
              . Lexer.baseData
@@ -228,10 +243,10 @@ execute env tr
       "trout" ->
         trout
           env
-          ((DMaybe.fromJust . head' . Tree.treeChildren) tr)
+          ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
       "dolphin" -> dolphin
       _ -> return D.Null
-  | treeIsFunctionCall tr =
+  | Check.TreeIs.functionCall tr =
     executeFunctionCall env tr
   | otherwise = return D.Null
 
@@ -240,9 +255,15 @@ evaluatePrimitiveData = return . getNodeTokenBaseData
 
 evaluateFin :: EnvironmentStack -> SyntaxTree -> IO D.Data
 evaluateFin env tr = do
-  cond <- (execute env . DMaybe.fromJust . head') args'
-  let forTrue = (DMaybe.fromJust . head' . tail') args'
-  let forFalse = (DMaybe.fromJust . head' . tail' . tail') args'
+  cond <- (execute env . DMaybe.fromJust . Util.General.head') args'
+  let forTrue = (DMaybe.fromJust . Util.General.head' . Util.General.tail') args'
+  let forFalse =
+        ( DMaybe.fromJust
+            . Util.General.head'
+            . Util.General.tail'
+            . Util.General.tail'
+        )
+          args'
   if truthy cond then execute env forTrue else execute env forFalse
   where
     args' = Tree.treeChildren tr
@@ -252,7 +273,7 @@ evaluateOperator env tr = do
   let ioOperatorArguments = getOperatorArgs env tr
   argx <- fst ioOperatorArguments
   argy <- snd ioOperatorArguments
-  if both D.isNumeric (argx, argy)
+  if Util.General.both D.isNumeric (argx, argy)
     then return $
       case getNodeOperator tr of
         O.Add -> D.Num (justUnNum argx + justUnNum argy)
@@ -268,7 +289,7 @@ evaluateOperator env tr = do
         O.GtEq -> D.Boolean (justUnNum argx >= justUnNum argy)
         O.LtEq -> D.Boolean (justUnNum argx <= justUnNum argy)
     else
-      if both (D.String "" `LikeClass.like`) (argx, argy)
+      if Util.General.both (D.String "" `LikeClass.like`) (argx, argy)
         then return $
           case getNodeOperator tr of
             O.Add -> D.String (justUnString argx ++ justUnString argy)
@@ -283,7 +304,7 @@ evaluateOperator env tr = do
                 (O.fromOp otherOp)
                 (map show [argx, argy])
         else
-          if both (D.Boolean True `LikeClass.like`) (argx, argy)
+          if Util.General.both (D.Boolean True `LikeClass.like`) (argx, argy)
             then return $
               case getNodeOperator tr of
                 O.Eq -> D.Boolean (justUnBoolean argx == justUnBoolean argy)
@@ -353,73 +374,6 @@ calledFunctionSymbol env =
 
 ----On Tree-------------------------------------------------------------------------------
 
--- | For a fish like >(some_id <(***)<)>
--- Where some_id should then be bound to the value *** in whatever scope immediately
--- follows.
-treeIsSendingValueBinding :: SyntaxTree -> Bool
-treeIsSendingValueBinding tr =
-  treeIsSymbolValueBinding tr
-    && Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr
-
--- | ditto for this, I don't like it that much
-treeIsPrimitiveValueBinding :: SyntaxTree -> Bool
-treeIsPrimitiveValueBinding =
-  foldIdApplicativeOnSingleton
-    all
-    [ treeIsSymbolValueBinding,
-      Tree.nodeStrictlySatisfies nodeIsId,
-      treeIsPrimitivelyEvaluable . head . Tree.treeChildren
-    ]
-
-treeIsPrimitivelyEvaluable :: SyntaxTree -> Bool
-treeIsPrimitivelyEvaluable = any id . applyIsPrimitiveEvaluable
-
--- | A tree is a function call if and only if the base node is an id
--- and it has no return children.
-treeIsFunctionCall :: SyntaxTree -> Bool
-treeIsFunctionCall tr =
-  Tree.nodeStrictlySatisfies nodeIsId tr
-    && hasNoReturnChildren tr
-  where
-    hasNoReturnChildren =
-      null
-        . filter (Tree.maybeOnTreeNode True ((B.Return ==) . SyntaxUnit.context))
-        . Tree.treeChildren
-
-treeIsSimpleValueBindingCall :: SyntaxTree -> Bool
-treeIsSimpleValueBindingCall tr =
-  treeIsFunctionCall tr
-    && (null . filter (not . Tree.nodeStrictlySatisfies Check.NodeIs.nullNode) . Tree.treeChildren) tr
-
-treeIsExecutable :: SyntaxTree -> Bool
-treeIsExecutable Tree.Empty = False
-treeIsExecutable tr =
-  contextIsReturn tr
-    && (treeIsFunctionCall tr || treeIsPrimitivelyEvaluable tr)
-  where
-    contextIsReturn = Tree.nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context)
-
-treeIsPositionalArg :: SyntaxTree -> Bool
-treeIsPositionalArg tr =
-  (null . Tree.treeChildren) tr
-    && Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr
-
-treeIsStandardLibCall :: SyntaxTree -> Bool
-treeIsStandardLibCall tr =
-  Tree.nodeStrictlySatisfies Check.NodeIs.dataToken tr
-    && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
-  where
-    funcIdInStdLibList =
-      flip elem sakanaStandardLibrary
-        . D.fromData
-        . DMaybe.fromJust
-        . Lexer.baseData
-        . SyntaxUnit.token
-
-treeIsSwim :: Tree.Tree SyntaxUnit -> Bool
-treeIsSwim tr =
-  Tree.nodeStrictlySatisfies ((Lexer.Keyword (K.Swim) ==) . SyntaxUnit.token) tr
-
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -434,36 +388,29 @@ getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
 
 getOperatorArgs :: EnvironmentStack -> SyntaxTree -> (IO D.Data, IO D.Data)
 getOperatorArgs env tr =
-  ( (execute env . DMaybe.fromJust . head' . Tree.treeChildren) tr,
-    (execute env . DMaybe.fromJust . head' . tail' . Tree.treeChildren) tr
+  ( (execute env . DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr,
+    ( execute env
+        . DMaybe.fromJust
+        . Util.General.head'
+        . Util.General.tail'
+        . Tree.treeChildren
+    )
+      tr
   )
 
 getFuncDeclArgs :: SyntaxTree -> [SyntaxTree]
 getFuncDeclArgs =
   filter (Tree.nodeStrictlySatisfies (not . Check.NodeIs.nullNode))
-    . tail'
-    . init'
+    . Util.General.tail'
+    . Util.General.init'
     . Tree.treeChildren
 
 getFunctionDeclPositionalArgs :: SyntaxTree -> [SyntaxTree]
 getFunctionDeclPositionalArgs =
-  filter (treeIsPositionalArg) . getFuncDeclArgs
+  filter (Check.TreeIs.positionalArg) . getFuncDeclArgs
 
 ----misc----------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
-
-applyIsPrimitiveEvaluable :: SyntaxTree -> [Bool]
--- Apply new boolean functions that operate on a
--- SyntaxUnit to the second list in this function
-applyIsPrimitiveEvaluable =
-  ( [Tree.nodeStrictlySatisfies]
-      <*> [ Check.NodeIs.operator,
-            Check.NodeIs.fin,
-            Check.NodeIs.dataTokenAndPrimitive
-          ]
-      <*>
-  )
-    . listSingleton
 
 -- | This function serves to create the new stack frame
 -- and execution trees when a function is called.
@@ -495,13 +442,13 @@ getExecutableChildren tr = getMainExecutionTrees tr
 -- This function is required to get and potentially bind all provided bindable
 -- information in a function declaration, like extra sub-function declarations.
 getBindableArgs :: SyntaxTree -> [SyntaxTree]
-getBindableArgs = DList.takeWhile (not . treeIsSwim) . getFuncDeclArgs
+getBindableArgs = DList.takeWhile (not . Check.TreeIs.swim) . getFuncDeclArgs
 
 makeSymbolTableFromFuncCall ::
   EnvironmentStack -> SymbolTable -> [SyntaxTree] -> [SyntaxTree] -> IO SymbolTable
 makeSymbolTableFromFuncCall _ table _ [] = return table
 makeSymbolTableFromFuncCall _ table [] dfargs =
-  if any treeIsPositionalArg dfargs
+  if any Check.TreeIs.positionalArg dfargs
     then missingPositionalArgumentException dfargs
     else
       ( return
@@ -523,7 +470,7 @@ makeSymbolTableFromFuncCall _ table [] dfargs =
           )
           Exception.Fatal
 makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
-  | treeIsPositionalArg dfarg = do
+  | Check.TreeIs.positionalArg dfarg = do
     cfargVal <- execute mainExEnv cfarg
     argValBinding <- return $ createSymbolPairFromArgTreePair dfarg cfargVal
     makeSymbolTableFromFuncCall mainExEnv (argValBinding : table) cfargs dfargs
@@ -569,7 +516,7 @@ dolphin = hGetLine stdin >>= return . D.String
 fishSend :: EnvironmentStack -> SyntaxTree -> IO EnvironmentStack
 fishSend env encTree = do
   let encrustedSymbolDataIO =
-        (execute env . DMaybe.fromJust . head' . Tree.treeChildren) encTree
+        (execute env . DMaybe.fromJust . Util.General.head' . Tree.treeChildren) encTree
   encrustedSymbolData <- encrustedSymbolDataIO
   encrustedSymbolPair <-
     return $

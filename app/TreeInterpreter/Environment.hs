@@ -20,9 +20,6 @@ module TreeInterpreter.Environment
     symbolNotFoundError,
     maybeLookupSymbolInSymbolTable,
     makeSymbolPair,
-    treeIsStoreable,
-    treeIsSymbolValueBinding,
-    nodeIsId,
   )
 where
 
@@ -52,6 +49,13 @@ import qualified SyntaxTree
   )
 import qualified Token.Bracket as B (ScopeType (Return))
 import qualified Token.Data as D (Data (Null))
+import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
+  ( declarationRequiringId,
+  )
+import qualified TreeInterpreter.LocalCheck.TreeIs as Check.TreeIs
+  ( storeable,
+    symbolValueBinding,
+  )
 import qualified Util.General (head')
 import qualified Util.Tree as Tree
   ( Tree (Empty),
@@ -137,7 +141,7 @@ makeSymbolTable' st (tr : trs) =
 
 maybeTreeToSymbolPair :: SymbolTable -> SyntaxTree.SyntaxTree -> Maybe SymbolPair
 maybeTreeToSymbolPair st tr' =
-  if treeIsStoreable tr'
+  if Check.TreeIs.storeable tr'
     then (Just . checkForSameScopeAssignment st . makeSymbolPair) tr'
     else Nothing
 
@@ -193,42 +197,12 @@ makeSymbolPair Tree.Empty =
     Tree.Empty
 makeSymbolPair tr
   | Tree.nodeStrictlySatisfies
-      nodeIsDeclarationRequiringId
+      Check.NodeIs.declarationRequiringId
       tr =
     SymbolPair (declId tr) tr
-  | treeIsSymbolValueBinding tr = SymbolPair ((DMaybe.fromJust . Tree.treeNode) tr) tr
+  | Check.TreeIs.symbolValueBinding tr = SymbolPair ((DMaybe.fromJust . Tree.treeNode) tr) tr
   where
     declId tr =
       DMaybe.fromMaybe
         (SyntaxTree.genericSyntaxUnit (Lexer.Data D.Null))
         ((Util.General.head' . Tree.treeChildren) tr >>= Tree.treeNode)
-
--- | Can be stored in a symbol table.
---  As of right now, treeIsStoreable and treeIsExecutable are not opposites.
---  because an anonymous function definition is not storeable
---  yet it is also not executable
---  but, named lambda functions: 'x <( >(m)> <(+ >(m)> >(1)>)<' for instance,
---  are storeable and should be stored as normal value bindings.
-treeIsStoreable :: SyntaxTree.SyntaxTree -> Bool
-treeIsStoreable = Tree.nodeStrictlySatisfies nodeIsDeclarationRequiringId
-
-nodeIsDeclarationRequiringId :: SyntaxTree.SyntaxUnit -> Bool
-nodeIsDeclarationRequiringId =
-  Lexer.keywordTokenIsDeclarationRequiringId . SyntaxTree.token
-
--- | For fish code that looks like:
--- 'some_id <(***)<'
--- where '***' is some wildcard value
--- I would like to not have this as a feature in the language to be honest.
-treeIsSymbolValueBinding :: SyntaxTree.SyntaxTree -> Bool
-treeIsSymbolValueBinding tr =
-  Tree.nodeStrictlySatisfies nodeIsId tr
-    && firstChildIsReturnContext tr
-  where
-    firstChildIsReturnContext tr =
-      case ((Util.General.head' . Tree.treeChildren) tr) >>= Tree.treeNode of
-        Nothing -> False
-        Just x -> ((B.Return ==) . SyntaxTree.context) x
-
-nodeIsId :: SyntaxTree.SyntaxUnit -> Bool
-nodeIsId = Lexer.dataTokenIsId . SyntaxTree.token

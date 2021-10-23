@@ -4,34 +4,50 @@ module TreeInterpreter.LocalCheck.NodeIs
     dataTokenAndPrimitive,
     operator,
     fin,
+    idNode,
+    declarationRequiringId,
   )
 where
 
-import Data.Maybe as DMaybe
-import Lexer
-import SyntaxTree
-import Token.Control as C
-import Token.Data as D
-import Util.General
-import Util.Like as LikeClass
+import qualified Data.Maybe as DMaybe (maybe)
+import qualified Lexer
+  ( Token (Control, Data),
+    baseData,
+    dataTokenIsId,
+    genericData,
+    genericOperator,
+    keywordTokenIsDeclarationRequiringId,
+  )
+import qualified SyntaxTree (SyntaxUnit (SyntaxUnit, token))
+import qualified Token.Control as C (Control (Fin))
+import qualified Token.Data as D (Data (Null), isPrimitive)
+import qualified Util.General (foldIdApplicativeOnSingleton)
+import qualified Util.Like as LikeClass (Like (like))
 
-dataToken :: SyntaxUnit -> Bool
+dataToken :: SyntaxTree.SyntaxUnit -> Bool
 dataToken = LikeClass.like Lexer.genericData . SyntaxTree.token
 
-nullNode :: SyntaxUnit -> Bool
+nullNode :: SyntaxTree.SyntaxUnit -> Bool
 nullNode (SyntaxTree.SyntaxUnit (Lexer.Data (D.Null)) _ _) = True
 nullNode _ = False
 
-dataTokenAndPrimitive :: SyntaxUnit -> Bool
+dataTokenAndPrimitive :: SyntaxTree.SyntaxUnit -> Bool
 dataTokenAndPrimitive =
-  foldIdApplicativeOnSingleton
+  Util.General.foldIdApplicativeOnSingleton
     all
     [ dataToken,
       (DMaybe.maybe False D.isPrimitive) . Lexer.baseData . SyntaxTree.token
     ]
 
-operator :: SyntaxUnit -> Bool
+operator :: SyntaxTree.SyntaxUnit -> Bool
 operator = LikeClass.like Lexer.genericOperator . SyntaxTree.token
 
-fin :: SyntaxUnit -> Bool
+fin :: SyntaxTree.SyntaxUnit -> Bool
 fin = LikeClass.like (Lexer.Control C.Fin) . SyntaxTree.token
+
+idNode :: SyntaxTree.SyntaxUnit -> Bool
+idNode = Lexer.dataTokenIsId . SyntaxTree.token
+
+declarationRequiringId :: SyntaxTree.SyntaxUnit -> Bool
+declarationRequiringId =
+  Lexer.keywordTokenIsDeclarationRequiringId . SyntaxTree.token
