@@ -128,6 +128,7 @@ import TreeInterpreter.Environment as Env
     nodeIsId,
     treeIsSymbolValueBinding,
   )
+import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
 import Util.General
   ( both,
     foldIdApplicativeOnSingleton,
@@ -212,9 +213,9 @@ procExecute env (tr : trs)
 
 execute :: EnvironmentStack -> SyntaxTree -> IO D.Data
 execute env tr
-  | Tree.nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr = evaluatePrimitiveData tr
-  | Tree.nodeStrictlySatisfies nodeIsFin tr = evaluateFin env tr
-  | Tree.nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator env tr
+  | Tree.nodeStrictlySatisfies Check.NodeIs.dataTokenAndPrimitive tr = evaluatePrimitiveData tr
+  | Tree.nodeStrictlySatisfies Check.NodeIs.fin tr = evaluateFin env tr
+  | Tree.nodeStrictlySatisfies Check.NodeIs.operator tr = evaluateOperator env tr
   | treeIsStandardLibCall tr =
     case ( D.fromData
              . DMaybe.fromJust
@@ -350,27 +351,6 @@ calledFunctionSymbol env =
 ------------------------------------------------------------------------------------------
 ----On Node-------------------------------------------------------------------------------
 
-nodeIsDataToken :: SyntaxUnit -> Bool
-nodeIsDataToken = LikeClass.like Lexer.genericData . SyntaxUnit.token
-
-nodeIsNull :: SyntaxUnit -> Bool
-nodeIsNull (SyntaxUnit.SyntaxUnit (Lexer.Data (D.Null)) _ _) = True
-nodeIsNull _ = False
-
-nodeIsDataTokenAndPrimitive :: SyntaxUnit -> Bool
-nodeIsDataTokenAndPrimitive =
-  foldIdApplicativeOnSingleton
-    all
-    [ nodeIsDataToken,
-      (DMaybe.maybe False D.isPrimitive) . Lexer.baseData . SyntaxUnit.token
-    ]
-
-nodeIsOperator :: SyntaxUnit -> Bool
-nodeIsOperator = LikeClass.like Lexer.genericOperator . SyntaxUnit.token
-
-nodeIsFin :: SyntaxUnit -> Bool
-nodeIsFin = LikeClass.like (Lexer.Control C.Fin) . SyntaxUnit.token
-
 ----On Tree-------------------------------------------------------------------------------
 
 -- | For a fish like >(some_id <(***)<)>
@@ -409,7 +389,7 @@ treeIsFunctionCall tr =
 treeIsSimpleValueBindingCall :: SyntaxTree -> Bool
 treeIsSimpleValueBindingCall tr =
   treeIsFunctionCall tr
-    && (null . filter (not . Tree.nodeStrictlySatisfies nodeIsNull) . Tree.treeChildren) tr
+    && (null . filter (not . Tree.nodeStrictlySatisfies Check.NodeIs.nullNode) . Tree.treeChildren) tr
 
 treeIsExecutable :: SyntaxTree -> Bool
 treeIsExecutable Tree.Empty = False
@@ -426,7 +406,7 @@ treeIsPositionalArg tr =
 
 treeIsStandardLibCall :: SyntaxTree -> Bool
 treeIsStandardLibCall tr =
-  Tree.nodeStrictlySatisfies nodeIsDataToken tr
+  Tree.nodeStrictlySatisfies Check.NodeIs.dataToken tr
     && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
   where
     funcIdInStdLibList =
@@ -460,7 +440,7 @@ getOperatorArgs env tr =
 
 getFuncDeclArgs :: SyntaxTree -> [SyntaxTree]
 getFuncDeclArgs =
-  filter (Tree.nodeStrictlySatisfies (not . nodeIsNull))
+  filter (Tree.nodeStrictlySatisfies (not . Check.NodeIs.nullNode))
     . tail'
     . init'
     . Tree.treeChildren
@@ -477,9 +457,9 @@ applyIsPrimitiveEvaluable :: SyntaxTree -> [Bool]
 -- SyntaxUnit to the second list in this function
 applyIsPrimitiveEvaluable =
   ( [Tree.nodeStrictlySatisfies]
-      <*> [ nodeIsOperator,
-            nodeIsFin,
-            nodeIsDataTokenAndPrimitive
+      <*> [ Check.NodeIs.operator,
+            Check.NodeIs.fin,
+            Check.NodeIs.dataTokenAndPrimitive
           ]
       <*>
   )
@@ -595,9 +575,6 @@ fishSend env encTree = do
     return $
       createSymbolPairFromArgTreePair (encTree) encrustedSymbolData
   return ([encrustedSymbolPair] : env)
-
-----StdLibFunctions-----------------------------------------------------------------------
-------------------------------------------------------------------------------------------
 
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
