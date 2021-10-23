@@ -16,6 +16,7 @@ module Util.Tree
     lookupOn,
     treeMap,
     maybeOnTreeNode,
+    nodeStrictlySatisfies,
   )
 where
 
@@ -100,3 +101,6 @@ treeMap f tra = (f . reTree) tra -<= map (treeMap f) (treeChildren tra)
 
 maybeOnTreeNode :: b -> (a -> b) -> Tree a -> b
 maybeOnTreeNode defaultVal f st = maybe defaultVal f (treeNode st)
+
+nodeStrictlySatisfies :: (a -> Bool) -> Tree a -> Bool
+nodeStrictlySatisfies = maybeOnTreeNode False

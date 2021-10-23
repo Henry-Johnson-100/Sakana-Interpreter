@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               Sakana
-version:            0.2.0.2
+version:            0.2.0.3
 
 -- A short (one-line) description of the package.
 synopsis: A syntax-tree based interpreter for the Sakana functional language.
@@ -28,6 +28,7 @@ executable Sakana
     other-modules:
         Exception.Base
         TreeInterpreter
+        TreeInterpreter.Environment
         Lexer
         SyntaxTree
         Token.Bracket
@@ -41,6 +42,7 @@ executable Sakana
         Util.NestedCollapsible
         Util.String
         Util.Tree
+        Util.General
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: MagicHash

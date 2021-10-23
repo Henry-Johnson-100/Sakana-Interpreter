@@ -115,11 +115,34 @@ import qualified Token.Operator as O
   ( Operator (Add, Div, Eq, Gt, GtEq, Lt, LtEq, Mult, NEq, Pow, Sub),
     fromOp,
   )
+import TreeInterpreter.Environment as Env
+  ( EnvironmentStack,
+    SymbolPair (symbolVal),
+    SymbolTable,
+    emptyEnvironmentStack,
+    fPrintEnvironmentStack,
+    lookupSymbolInEnvironmentStack,
+    makeEnvironmentStackFrame,
+    makeSymbolPair,
+    maybeTreeToSymbolPair,
+    nodeIsId,
+    treeIsSymbolValueBinding,
+  )
+import Util.General
+  ( both,
+    foldIdApplicativeOnSingleton,
+    head',
+    init',
+    last',
+    listSingleton,
+    tail',
+  )
 import qualified Util.Like as LikeClass (Like (like))
 import qualified Util.Tree as Tree
   ( Tree (Empty),
     TreeIO (fPrintTree, ioPrintTree),
     maybeOnTreeNode,
+    nodeStrictlySatisfies,
     reTree,
     tree,
     treeChildren,
@@ -140,149 +163,8 @@ instance Truthy D.Data where
   truthy _ = False
   falsy = not . truthy
 
-data SymbolPair = SymbolPair
-  { symbolId :: SyntaxUnit,
-    symbolVal :: SyntaxTree
-  }
-  deriving (Show, Eq)
-
-type SymbolTable = [SymbolPair]
-
-type EnvironmentStack = [SymbolTable]
-
-currentStackSymbolTable :: EnvironmentStack -> SymbolTable
-currentStackSymbolTable [] = []
-currentStackSymbolTable env = head env
-
-enclosingEnvironmentStack :: EnvironmentStack -> EnvironmentStack
-enclosingEnvironmentStack [] = []
-enclosingEnvironmentStack (st : []) = []
-enclosingEnvironmentStack (st : sts) = sts
-
-fPrintEnvironmentStack :: EnvironmentStack -> [Char]
-fPrintEnvironmentStack env =
-  (DList.intercalate "\n" . map (DList.intercalate "\n" . map fPrintSymbolPair')) env
-
-fPrintSymbolPair' :: SymbolPair -> String
-fPrintSymbolPair' (SymbolPair sid tr) =
-  concat ["Symbol ID: ", show sid, "\n", Tree.fPrintTree 0 tr]
-
-emptyEnvironmentStack :: EnvironmentStack
-emptyEnvironmentStack = []
-
 --Functions to manage scope and environments----------------------------------------------
 ------------------------------------------------------------------------------------------
-
--- | The first environment is prepended to the second,
--- meaning it is enclosed in the second.
-encloseEnvironmentIn :: EnvironmentStack -> EnvironmentStack -> EnvironmentStack
-encloseEnvironmentIn envInner envOuter = envInner ++ envOuter
-
-addSymbolToEnvironmentStack :: EnvironmentStack -> SymbolPair -> EnvironmentStack
-addSymbolToEnvironmentStack [] symPair = [[symPair]]
-addSymbolToEnvironmentStack env symPair =
-  (symPair : (currentStackSymbolTable env)) : (enclosingEnvironmentStack env)
-
-addTableToEnvironmentStack :: EnvironmentStack -> SymbolTable -> EnvironmentStack
-addTableToEnvironmentStack [] symTable = [symTable]
-addTableToEnvironmentStack env symTable = symTable : env
-
-lookupSymbolInEnvironmentStack :: EnvironmentStack -> SyntaxUnit -> SymbolPair
-lookupSymbolInEnvironmentStack env lookupId =
-  DMaybe.fromMaybe
-    (symbolNotFoundError lookupId)
-    (maybeLookupSymbolInEnvironmentStack env lookupId)
-
-maybeLookupSymbolInEnvironmentStack :: EnvironmentStack -> SyntaxUnit -> Maybe SymbolPair
-maybeLookupSymbolInEnvironmentStack [] _ = Nothing
-maybeLookupSymbolInEnvironmentStack (st : sts) lookupId =
-  if DMaybe.isNothing maybeSymbolInCurrentTable
-    then maybeLookupSymbolInEnvironmentStack sts lookupId
-    else maybeSymbolInCurrentTable
-  where
-    maybeSymbolInCurrentTable = maybeLookupSymbolInSymbolTable lookupId st
-
-makeEnvironmentStackFrame :: [SyntaxTree] -> EnvironmentStack
-makeEnvironmentStackFrame = (: emptyEnvironmentStack) . makeSymbolTable
-
-makeSymbolTable :: [SyntaxTree] -> SymbolTable
-makeSymbolTable = makeSymbolTable' []
-
-makeSymbolTable' :: SymbolTable -> [SyntaxTree] -> SymbolTable
-makeSymbolTable' st [] = st
-makeSymbolTable' st (tr : trs) =
-  DMaybe.maybe
-    (makeSymbolTable' st trs)
-    (flip makeSymbolTable' trs . (: st))
-    (maybeTreeToSymbolPair st tr)
-
-maybeTreeToSymbolPair :: SymbolTable -> SyntaxTree -> Maybe SymbolPair
-maybeTreeToSymbolPair st tr' =
-  if treeIsStoreable tr'
-    then (Just . checkForSameScopeAssignment st . makeSymbolPair) tr'
-    else Nothing
-
-checkForSameScopeAssignment :: SymbolTable -> SymbolPair -> SymbolPair
-checkForSameScopeAssignment [] sp = sp
-checkForSameScopeAssignment st sp =
-  if (DMaybe.isNothing . flip maybeLookupSymbolInSymbolTable st . symbolId) sp
-    then sp
-    else
-      symbolAlreadyExistsException
-        (symbolId sp)
-        ((DMaybe.fromJust . flip maybeLookupSymbolInSymbolTable st . symbolId) sp)
-
-symbolAlreadyExistsException :: SyntaxUnit -> SymbolPair -> a2
-symbolAlreadyExistsException lookupId existingSymbol =
-  Exception.raiseError $
-    Exception.newException
-      Exception.SymbolIsAlreadyBound
-      [line lookupId, (line . symbolId) existingSymbol]
-      ( "The symbol: \'"
-          ++ (Lexer.fromToken . token) lookupId
-          ++ "\' Already exists in the current scope and is bound to the symbol entry:\n"
-          ++ fPrintSymbolPair' existingSymbol
-      )
-      Exception.Fatal
-
-symbolNotFoundError :: SyntaxUnit -> a2
-symbolNotFoundError lookupId =
-  Exception.raiseError $
-    Exception.newException
-      Exception.SymbolNotFound
-      [SyntaxUnit.line lookupId]
-      ( "A value binding with the Id, \'"
-          ++ ((Lexer.fromToken . SyntaxUnit.token) lookupId)
-          ++ "\' does not exist in the current scope."
-      )
-      Exception.Fatal
-
-maybeLookupSymbolInSymbolTable ::
-  SyntaxUnit ->
-  SymbolTable ->
-  Maybe SymbolPair
-maybeLookupSymbolInSymbolTable lookupId =
-  DList.find (((SyntaxUnit.token) lookupId ==) . SyntaxUnit.token . symbolId)
-
--- | Take a syntax tree and create a symbol pair.
--- Is NOT agnostic, should only be called on trees where it would make sense to create a
--- symbol pair.
-makeSymbolPair :: SyntaxTree -> SymbolPair
-makeSymbolPair Tree.Empty =
-  SymbolPair
-    (SyntaxTree.genericSyntaxUnit (Lexer.Data D.Null))
-    Tree.Empty
-makeSymbolPair tr
-  | nodeStrictlySatisfies
-      nodeIsDeclarationRequiringId
-      tr =
-    SymbolPair (declId tr) tr
-  | treeIsSymbolValueBinding tr = SymbolPair ((DMaybe.fromJust . Tree.treeNode) tr) tr
-  where
-    declId tr =
-      DMaybe.fromMaybe
-        (SyntaxTree.genericSyntaxUnit (Lexer.Data D.Null))
-        ((head' . Tree.treeChildren) tr >>= Tree.treeNode)
 
 --Evaluation functions used to take a tree and return some FISH value.--------------------
 ------------------------------------------------------------------------------------------
@@ -323,16 +205,16 @@ procExecute env (tr : trs)
   | treeIsSendingValueBinding tr = do
     fishSendEnv <- fishSend env tr
     procExecute fishSendEnv trs
-  | nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr =
+  | Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr =
     execute env tr >> procExecute env trs
-  | nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr = execute env tr
+  | Tree.nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr = execute env tr
   | otherwise = return D.Null
 
 execute :: EnvironmentStack -> SyntaxTree -> IO D.Data
 execute env tr
-  | nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr = evaluatePrimitiveData tr
-  | nodeStrictlySatisfies nodeIsFin tr = evaluateFin env tr
-  | nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator env tr
+  | Tree.nodeStrictlySatisfies nodeIsDataTokenAndPrimitive tr = evaluatePrimitiveData tr
+  | Tree.nodeStrictlySatisfies nodeIsFin tr = evaluateFin env tr
+  | Tree.nodeStrictlySatisfies nodeIsOperator tr = evaluateOperator env tr
   | treeIsStandardLibCall tr =
     case ( D.fromData
              . DMaybe.fromJust
@@ -468,9 +350,6 @@ calledFunctionSymbol env =
 ------------------------------------------------------------------------------------------
 ----On Node-------------------------------------------------------------------------------
 
-nodeStrictlySatisfies :: (a -> Bool) -> Tree.Tree a -> Bool
-nodeStrictlySatisfies = Tree.maybeOnTreeNode False
-
 nodeIsDataToken :: SyntaxUnit -> Bool
 nodeIsDataToken = LikeClass.like Lexer.genericData . SyntaxUnit.token
 
@@ -486,34 +365,13 @@ nodeIsDataTokenAndPrimitive =
       (DMaybe.maybe False D.isPrimitive) . Lexer.baseData . SyntaxUnit.token
     ]
 
-nodeIsId :: SyntaxUnit -> Bool
-nodeIsId = Lexer.dataTokenIsId . SyntaxUnit.token
-
 nodeIsOperator :: SyntaxUnit -> Bool
 nodeIsOperator = LikeClass.like Lexer.genericOperator . SyntaxUnit.token
 
 nodeIsFin :: SyntaxUnit -> Bool
 nodeIsFin = LikeClass.like (Lexer.Control C.Fin) . SyntaxUnit.token
 
-nodeIsDeclarationRequiringId :: SyntaxUnit -> Bool
-nodeIsDeclarationRequiringId =
-  Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token
-
 ----On Tree-------------------------------------------------------------------------------
-
--- | For fish code that looks like:
--- 'some_id <(***)<'
--- where '***' is some wildcard value
--- I would like to not have this as a feature in the language to be honest.
-treeIsSymbolValueBinding :: SyntaxTree -> Bool
-treeIsSymbolValueBinding tr =
-  nodeStrictlySatisfies nodeIsId tr
-    && firstChildIsReturnContext tr
-  where
-    firstChildIsReturnContext tr =
-      case ((head' . Tree.treeChildren) tr) >>= Tree.treeNode of
-        Nothing -> False
-        Just x -> ((B.Return ==) . SyntaxUnit.context) x
 
 -- | For a fish like >(some_id <(***)<)>
 -- Where some_id should then be bound to the value *** in whatever scope immediately
@@ -521,7 +379,7 @@ treeIsSymbolValueBinding tr =
 treeIsSendingValueBinding :: SyntaxTree -> Bool
 treeIsSendingValueBinding tr =
   treeIsSymbolValueBinding tr
-    && nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr
+    && Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr
 
 -- | ditto for this, I don't like it that much
 treeIsPrimitiveValueBinding :: SyntaxTree -> Bool
@@ -529,7 +387,7 @@ treeIsPrimitiveValueBinding =
   foldIdApplicativeOnSingleton
     all
     [ treeIsSymbolValueBinding,
-      nodeStrictlySatisfies nodeIsId,
+      Tree.nodeStrictlySatisfies nodeIsId,
       treeIsPrimitivelyEvaluable . head . Tree.treeChildren
     ]
 
@@ -540,7 +398,7 @@ treeIsPrimitivelyEvaluable = any id . applyIsPrimitiveEvaluable
 -- and it has no return children.
 treeIsFunctionCall :: SyntaxTree -> Bool
 treeIsFunctionCall tr =
-  nodeStrictlySatisfies nodeIsId tr
+  Tree.nodeStrictlySatisfies nodeIsId tr
     && hasNoReturnChildren tr
   where
     hasNoReturnChildren =
@@ -551,16 +409,7 @@ treeIsFunctionCall tr =
 treeIsSimpleValueBindingCall :: SyntaxTree -> Bool
 treeIsSimpleValueBindingCall tr =
   treeIsFunctionCall tr
-    && (null . filter (not . nodeStrictlySatisfies nodeIsNull) . Tree.treeChildren) tr
-
--- | Can be stored in a symbol table.
---  As of right now, treeIsStoreable and treeIsExecutable are not opposites.
---  because an anonymous function definition is not storeable
---  yet it is also not executable
---  but, named lambda functions: 'x <( >(m)> <(+ >(m)> >(1)>)<' for instance,
---  are storeable and should be stored as normal value bindings.
-treeIsStoreable :: SyntaxTree -> Bool
-treeIsStoreable = nodeStrictlySatisfies nodeIsDeclarationRequiringId
+    && (null . filter (not . Tree.nodeStrictlySatisfies nodeIsNull) . Tree.treeChildren) tr
 
 treeIsExecutable :: SyntaxTree -> Bool
 treeIsExecutable Tree.Empty = False
@@ -568,16 +417,16 @@ treeIsExecutable tr =
   contextIsReturn tr
     && (treeIsFunctionCall tr || treeIsPrimitivelyEvaluable tr)
   where
-    contextIsReturn = nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context)
+    contextIsReturn = Tree.nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context)
 
 treeIsPositionalArg :: SyntaxTree -> Bool
 treeIsPositionalArg tr =
   (null . Tree.treeChildren) tr
-    && nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr
+    && Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr
 
 treeIsStandardLibCall :: SyntaxTree -> Bool
 treeIsStandardLibCall tr =
-  nodeStrictlySatisfies nodeIsDataToken tr
+  Tree.nodeStrictlySatisfies nodeIsDataToken tr
     && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
   where
     funcIdInStdLibList =
@@ -589,7 +438,7 @@ treeIsStandardLibCall tr =
 
 treeIsSwim :: Tree.Tree SyntaxUnit -> Bool
 treeIsSwim tr =
-  nodeStrictlySatisfies ((Lexer.Keyword (K.Swim) ==) . SyntaxUnit.token) tr
+  Tree.nodeStrictlySatisfies ((Lexer.Keyword (K.Swim) ==) . SyntaxUnit.token) tr
 
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -611,7 +460,7 @@ getOperatorArgs env tr =
 
 getFuncDeclArgs :: SyntaxTree -> [SyntaxTree]
 getFuncDeclArgs =
-  filter (nodeStrictlySatisfies (not . nodeIsNull))
+  filter (Tree.nodeStrictlySatisfies (not . nodeIsNull))
     . tail'
     . init'
     . Tree.treeChildren
@@ -627,7 +476,7 @@ applyIsPrimitiveEvaluable :: SyntaxTree -> [Bool]
 -- Apply new boolean functions that operate on a
 -- SyntaxUnit to the second list in this function
 applyIsPrimitiveEvaluable =
-  ( [nodeStrictlySatisfies]
+  ( [Tree.nodeStrictlySatisfies]
       <*> [ nodeIsOperator,
             nodeIsFin,
             nodeIsDataTokenAndPrimitive
@@ -651,7 +500,7 @@ prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration = do
 
 -- where
 -- getFunctionDeclarationProcTrees tr =
---   if nodeStrictlySatisfies
+--   if Tree.nodeStrictlySatisfies
 --     (Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token)
 --     tr
 --     then (filter (not . treeIsPositionalArg) . tail' . Tree.treeChildren) tr
@@ -746,34 +595,6 @@ fishSend env encTree = do
     return $
       createSymbolPairFromArgTreePair (encTree) encrustedSymbolData
   return ([encrustedSymbolPair] : env)
-
--- Utility functions, including an improved head and tail---------------------------------
-------------------------------------------------------------------------------------------
-
-both :: (a -> Bool) -> (a, a) -> Bool
-both f (x, y) = f x && f y
-
-head' :: [a] -> Maybe a
-head' [] = Nothing
-head' xs = (Just . head) xs
-
-tail' :: [a] -> [a]
-tail' [] = []
-tail' xs = tail xs
-
-init' :: [a] -> [a]
-init' [] = []
-init' xs = init xs
-
-last' :: [a] -> Maybe a
-last' [] = Nothing
-last' xs = (Just . last) xs
-
-foldIdApplicativeOnSingleton :: ((a1 -> a1) -> [b] -> c) -> [a2 -> b] -> a2 -> c
-foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . listSingleton
-
-listSingleton :: a -> [a]
-listSingleton x = [x]
 
 ----StdLibFunctions-----------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
