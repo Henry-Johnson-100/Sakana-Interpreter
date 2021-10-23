@@ -38,3 +38,8 @@
 * A more official release of the procedural execution update.
 * Tweaked fetching execution trees so that either a ```swim``` keyword could be used or it
     could not be.
+
+#### 0.2.0.3 -- YYYY-MM-DD
+
+* No changes that will affect how a Sakana program is written.
+    * The back-end organization of the interpreter was changed quite a bit.
