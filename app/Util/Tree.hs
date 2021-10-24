@@ -74,6 +74,8 @@ childrenOfChildren (_ :-<-: cs) = cs : concatMap childrenOfChildren cs
 transplantChildren :: Tree a -> Tree a -> Tree a
 transplantChildren t (_ :-<-: cs) = t -<= cs
 
+-- | Apply function 'f :: a -> a' to the node of a tree,
+-- not affecting the children in any way.
 mutateTreeNode :: Tree a -> (a -> a) -> Tree a
 mutateTreeNode Empty _ = Empty
 mutateTreeNode (n :-<-: cs) f = f n :-<-: cs

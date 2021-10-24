@@ -41,5 +41,5 @@
 
 #### 0.2.0.3 -- YYYY-MM-DD
 
-* No changes that will affect how a Sakana program is written.
-    * The back-end organization of the interpreter was changed quite a bit.
+* Updated the organization of the program files a little bit.
+* Fin arguments can now be executed procedurally with a swim keyword as well.

@@ -150,9 +150,10 @@ import qualified Util.General
   )
 import qualified Util.Like as LikeClass (Like (like))
 import qualified Util.Tree as Tree
-  ( Tree (Empty),
+  ( Tree (Empty, (:-<-:)),
     TreeIO (fPrintTree, ioPrintTree),
     maybeOnTreeNode,
+    mutateTreeNode,
     nodeStrictlySatisfies,
     reTree,
     tree,
@@ -254,19 +255,18 @@ evaluatePrimitiveData :: SyntaxTree -> IO D.Data
 evaluatePrimitiveData = return . getNodeTokenBaseData
 
 evaluateFin :: EnvironmentStack -> SyntaxTree -> IO D.Data
-evaluateFin env tr = do
-  cond <- (execute env . DMaybe.fromJust . Util.General.head') args'
-  let forTrue = (DMaybe.fromJust . Util.General.head' . Util.General.tail') args'
-  let forFalse =
-        ( DMaybe.fromJust
-            . Util.General.head'
-            . Util.General.tail'
-            . Util.General.tail'
-        )
-          args'
-  if truthy cond then execute env forTrue else execute env forFalse
+evaluateFin env tr = fin env (fstArg tr) (sndArg tr) (thdArg tr)
   where
-    args' = Tree.treeChildren tr
+    fromMaybeFinArg tr' xs =
+      DMaybe.fromMaybe
+        ((missingPositionalArgumentException . Tree.treeChildren) tr')
+        (Util.General.head' xs)
+    fstArg tr' = fromMaybeFinArg tr' (Tree.treeChildren tr')
+    sndArg tr' = fromMaybeFinArg tr' ((Util.General.tail' . Tree.treeChildren) tr')
+    thdArg tr' =
+      fromMaybeFinArg
+        tr'
+        ((Util.General.tail' . Util.General.tail' . Tree.treeChildren) tr')
 
 evaluateOperator :: EnvironmentStack -> SyntaxTree -> IO D.Data
 evaluateOperator env tr = do
@@ -458,17 +458,6 @@ makeSymbolTableFromFuncCall _ table [] dfargs =
           . map (maybeTreeToSymbolPair table)
       )
         dfargs
-  where
-    missingPositionalArgumentException :: [Tree.Tree SyntaxUnit] -> a2
-    missingPositionalArgumentException fdas =
-      Exception.raiseError $
-        Exception.newException
-          Exception.MissingPositionalArguments
-          (map (Tree.maybeOnTreeNode 0 SyntaxUnit.line) fdas)
-          ( "Missing positional arguments:\n"
-              ++ (unlines . map (Tree.maybeOnTreeNode "N/A" (show))) fdas
-          )
-          Exception.Fatal
 makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
   | Check.TreeIs.positionalArg dfarg = do
     cfargVal <- execute mainExEnv cfarg
@@ -478,6 +467,17 @@ makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
     let fromJustSymbolTable =
           DMaybe.maybe table (: table) (maybeTreeToSymbolPair table dfarg)
     makeSymbolTableFromFuncCall mainExEnv (fromJustSymbolTable) cfargs dfargs
+
+missingPositionalArgumentException :: [Tree.Tree SyntaxUnit] -> a2
+missingPositionalArgumentException fdas =
+  Exception.raiseError $
+    Exception.newException
+      Exception.MissingPositionalArguments
+      (map (Tree.maybeOnTreeNode 0 SyntaxUnit.line) fdas)
+      ( "Missing positional arguments:\n"
+          ++ (unlines . map (Tree.maybeOnTreeNode "N/A" (show))) fdas
+      )
+      Exception.Fatal
 
 createSymbolPairFromArgTreePair :: SyntaxTree -> D.Data -> SymbolPair
 createSymbolPairFromArgTreePair dfarg' cfargVal' =
@@ -506,6 +506,25 @@ sakanaStandardLibrary = ["trout", "dolphin"]
 
 sakanaPrint :: D.Data -> IO ()
 sakanaPrint = hPutStrLn stdout . D.fromData
+
+fin :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> SyntaxTree -> IO D.Data
+fin env cond forTrue forFalse = do
+  condValue <- (procExecute env . getExecutableChildrenOrNode) cond
+  if truthy condValue
+    then (procExecute env . getExecutableChildrenOrNode) forTrue
+    else (procExecute env . getExecutableChildrenOrNode) forFalse
+  where
+    getExecutableChildrenOrNode :: SyntaxTree -> [SyntaxTree]
+    getExecutableChildrenOrNode tr =
+      if Check.TreeIs.swim tr
+        then Tree.treeChildren tr
+        else [recontextualizeFinChild tr]
+    -- This function is required because fin's arguments have a send context,
+    -- but if a value is required after procExecution, they must have a return type,
+    -- or a Null value will be
+    -- returned.
+    recontextualizeFinChild :: SyntaxTree -> SyntaxTree
+    recontextualizeFinChild = flip Tree.mutateTreeNode (SyntaxTree.setContext B.Return)
 
 trout :: EnvironmentStack -> SyntaxTree -> IO D.Data
 trout env toPrint = (execute env toPrint >>= sakanaPrint) >> return D.Null

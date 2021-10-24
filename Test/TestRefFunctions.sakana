@@ -97,8 +97,16 @@ fish factorial
         <(
           fin
           >(<= >(n)> >(0)>)>
-          >(prod)>
-          >(sub_fact >(new_n)> >(new_prod)>)>
+          >(
+            swim
+            >(trout >("Bracketing is a mess and error messages are barely helpful")>)>
+            <(prod)<
+          )>
+          >(
+            swim
+            >(trout >("Calling sub_fact again")>)>
+            <(sub_fact >(new_n)> >(new_prod)>)<
+          )>
         )<
       )<
   )>
