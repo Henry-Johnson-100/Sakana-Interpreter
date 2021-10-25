@@ -118,6 +118,4 @@ fish factorial
   )<
 
 swim
->(output <(factorial >(30)>)<)>
->(trout >("The final value is: ")>)>
-<(output)<
+>(trout >(_args)>)>

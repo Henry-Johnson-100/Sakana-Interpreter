@@ -15,6 +15,7 @@ import System.IO
   )
 import qualified Token.Data as D (fromData)
 import TreeInterpreter (executeMain, getMainEnvironmentStack, getMainExecutionTrees)
+import qualified Util.General (tail')
 
 main :: IO ()
 main = do
@@ -35,12 +36,12 @@ usingArgs args
       \\t\tDisplays this help."
   | argsContainAny ["-v", "--version"] =
     putStrLn $ "Sakana Interpeter Version: " ++ (showVersion Paths_Sakana.version)
-  | otherwise = interpretFileAndReturn (head args)
+  | otherwise = interpretFileAndReturn (head args) ((unwords . Util.General.tail') args)
   where
     argsContainAny = any (`elem` args)
 
-interpretFileAndReturn :: FilePath -> IO ()
-interpretFileAndReturn filePathToInterpret = do
+interpretFileAndReturn :: FilePath -> String -> IO ()
+interpretFileAndReturn filePathToInterpret sakanaArgs = do
   fileHandle <- openFile filePathToInterpret ReadMode
   fileTree <-
     hGetContents fileHandle
@@ -48,5 +49,6 @@ interpretFileAndReturn filePathToInterpret = do
   executeMain
     ((return . getMainEnvironmentStack) fileTree)
     ((return . getMainExecutionTrees) fileTree)
+    (return sakanaArgs)
     >>= hPutStrLn stdout . D.fromData
   hClose fileHandle

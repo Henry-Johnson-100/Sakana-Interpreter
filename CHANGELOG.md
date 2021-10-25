@@ -39,7 +39,12 @@
 * Tweaked fetching execution trees so that either a ```swim``` keyword could be used or it
     could not be.
 
-#### 0.2.0.3 -- YYYY-MM-DD
+#### 0.2.0.3 -- 2021-10-25
 
+* Gave a few options to the Sakana interpreter.
+    * Calling ```Sakana -v``` or ```--version``` will display the version number.
+    * The ```-h, --help``` flag will display a little help.
 * Updated the organization of the program files a little bit.
 * Fin arguments can now be executed procedurally with a swim keyword as well.
+* Can now pass command line arguments into a Sakana program. Retrieve the arg string
+by calling the function ```_args```

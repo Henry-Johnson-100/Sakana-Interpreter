@@ -75,7 +75,7 @@ return fish always execute and return.
 - Dolphin
     - Sakana's input function
     - Usage: ```dolphin >()>```
-        - Where the function all itself will be replaced with a string of whatever the user entered.
+        - Where the function call itself will be replaced with a string of whatever the user entered.
         - Analagous to ```dolphin = hGetLine stdin``` in Haskell.
 
 # Basic Arithmetic
@@ -235,7 +235,7 @@ Or you can use Sakana's new keyword, ```swim```!.
 
 This keyword allows you execute code procedurally in Sakana.
 If you have worked with Haskell's IO monad, this concept essentially the same.
-There are a few essential concepts in a swim block:
+There are a few options for calculations in a swim block:
 
 * In a swim block, any value contained in a send fish will be executed 
     but ignored by the program output.
@@ -249,7 +249,7 @@ There are a few essential concepts in a swim block:
 >(this_binding <(10)<)>
 ```
 
-Where the binding is essentially declared with a send fish, an id, and a value returned to that id via a return fish.
+Where the binding is declared with a send fish, an id, and a value returned to that id via a return fish.
 
 #### Example - procedural factorial
 

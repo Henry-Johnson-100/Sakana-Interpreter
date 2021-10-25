@@ -101,7 +101,7 @@ import System.IO
 import qualified Token.Bracket as B (ScopeType (Return, Send))
 import qualified Token.Control as C (Control (Fin))
 import qualified Token.Data as D
-  ( Data (Boolean, Null, Num, String),
+  ( Data (Boolean, Id, Null, Num, String),
     fromData,
     isNumeric,
     isPrimitive,
@@ -118,6 +118,7 @@ import TreeInterpreter.Environment as Env
   ( EnvironmentStack,
     SymbolPair (symbolVal),
     SymbolTable,
+    addSymbolToEnvironmentStack,
     emptyEnvironmentStack,
     fPrintEnvironmentStack,
     lookupSymbolInEnvironmentStack,
@@ -207,11 +208,33 @@ getMainExecutionTrees docTree =
 -- | This will be our new main entry point for a fish program
 -- If no execution tree can be found in 'main' then a single tree containing a null value
 -- will be returned.
-executeMain :: IO EnvironmentStack -> IO [SyntaxTree] -> IO D.Data
-executeMain envio trio = do
+executeMain :: IO EnvironmentStack -> IO [SyntaxTree] -> IO String -> IO D.Data
+executeMain envio trio sakanaIOArgs = do
   tr <- trio
   env <- envio
-  procExecute (env) (tr)
+  sakanaArgs <- sakanaIOArgs
+  let argsBoundToEnv = bindSakanaArgsToArgs env sakanaArgs
+  procExecute (argsBoundToEnv) (tr)
+  where
+    bindSakanaArgsToArgs :: Env.EnvironmentStack -> String -> Env.EnvironmentStack
+    bindSakanaArgsToArgs env args =
+      ( addSymbolToEnvironmentStack env . Env.makeSymbolPair
+          . (Tree.-<-)
+            ( ( Tree.tree
+                  . SyntaxTree.setContext B.Send
+                  . SyntaxTree.genericSyntaxUnit
+                  . Lexer.Data
+                  . D.Id
+              )
+                "_args"
+            )
+          . Tree.tree
+          . SyntaxTree.setContext B.Return
+          . SyntaxTree.genericSyntaxUnit
+          . Lexer.Data
+          . D.String
+      )
+        args
 
 -- Will cease execution and return at the first return context it sees
 procExecute :: EnvironmentStack -> [SyntaxTree] -> IO D.Data
