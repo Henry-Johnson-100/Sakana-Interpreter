@@ -6,6 +6,7 @@ module Util.General
     last',
     foldIdApplicativeOnSingleton,
     listSingleton,
+    rotateArg3,
   )
 where
 
@@ -35,3 +36,6 @@ foldIdApplicativeOnSingleton foldF funcAtoB = foldF id . (funcAtoB <*>) . listSi
 
 listSingleton :: a -> [a]
 listSingleton x = [x]
+
+rotateArg3 :: (t1 -> t2 -> t3 -> t4) -> t2 -> t3 -> t1 -> t4
+rotateArg3 f b c a = f a b c

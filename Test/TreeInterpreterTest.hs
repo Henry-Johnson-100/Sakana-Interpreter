@@ -1,11 +1,11 @@
 import Data.Maybe
-import TreeInterpreter
 import Lexer
 import SyntaxTree
 import System.IO.Unsafe
 import Test.Tasty
 import Test.Tasty.HUnit
 import Token.Data
+import TreeInterpreter
 import Util.Tree
 
 executeFirstChild :: String -> Data
@@ -14,7 +14,7 @@ executeFirstChild = unsafePerformIO . TreeInterpreter.execute emptyEnvironmentSt
 getMainTree :: String -> IO SyntaxTree
 getMainTree = return . generateSyntaxTree . tokenize
 
-prepareFunctionForTest str = unsafePerformIO $ executeMain (exEnv str) (exTr str)
+prepareFunctionForTest str = unsafePerformIO $ executeMain (exEnv str) (exTr str) (return "")
   where
     docTree = SyntaxTree.generateSyntaxTree . Lexer.tokenize
     exEnv = return . getMainEnvironmentStack . docTree

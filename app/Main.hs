@@ -1,4 +1,4 @@
-module Main where
+{- HLINT ignore "Could not find module 'Paths_Sakana'" -}
 
 import Data.Version (showVersion)
 import Lexer (tokenize)
