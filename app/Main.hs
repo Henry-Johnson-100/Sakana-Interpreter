@@ -1,8 +1,5 @@
-{- HLINT ignore "Could not find module 'Paths_Sakana'" -}
-
-import Data.Version (showVersion)
+import Data.Version (showVersion, Version(..))
 import Lexer (tokenize)
-import Paths_Sakana (version)
 import SyntaxTree (generateSyntaxTree)
 import System.Environment (getArgs)
 import System.IO
@@ -35,7 +32,7 @@ usingArgs args
       \\t-h, --help\n\
       \\t\tDisplays this help."
   | argsContainAny ["-v", "--version"] =
-    putStrLn $ "Sakana Interpeter Version: " ++ (showVersion Paths_Sakana.version)
+    putStrLn $ "Sakana Interpeter Version: " ++ (showVersion (Version [0,2,1,1] []))
   | otherwise = interpretFileAndReturn (head args) ((unwords . Util.General.tail') args)
   where
     argsContainAny = any (`elem` args)
