@@ -25,6 +25,7 @@ import qualified Util.General as Util
 import qualified Util.Like as Like (Like (..))
 import Util.Tree (Tree (..), (-<-), (-<=))
 import qualified Util.Tree as Tree
+import qualified Data.Maybe as DMaybe (Maybe (..), fromJust)
 
 newtype Parser a = Parser {parse :: [Lexer.TokenUnit] -> [(a, [Lexer.TokenUnit])]}
 
@@ -48,7 +49,7 @@ instance Alternative Parser where
   empty = Parser (\x -> [])
   pa <|> pb = Parser (\x -> case parse pa x of [] -> parse pb x; other -> other)
 
-t' = Lexer.tokenize "+ >(1)> >(+ >(2)> >(3)>)>"
+t' = Lexer.tokenize "swim >(x <(5)<)> <(1)<"
 
 fstBifunctorMap :: (a -> c) -> [(a, b)] -> [(c, b)]
 fstBifunctorMap f tupAB = [(f a', b') | (a', b') <- tupAB]
@@ -56,6 +57,13 @@ fstBifunctorMap f tupAB = [(f a', b') | (a', b') <- tupAB]
 makeParserFunction :: (t -> Bool) -> (t -> a) -> [t] -> [(a, [t])]
 makeParserFunction _ _ [] = []
 makeParserFunction f transform (x : xs) = if f x then [(transform x, xs)] else []
+
+determinedResult :: [(a, xs)] -> DMaybe.Maybe a
+determinedResult [] = DMaybe.Nothing
+determinedResult ((a , xs):_) = DMaybe.Just a
+
+ioDeterminedTree :: (Show a) => [(Tree.Tree a, x)] -> IO ()
+ioDeterminedTree = Tree.ioPrintTree . DMaybe.fromJust . determinedResult
 
 -- Primitive parsers----------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -122,9 +130,19 @@ finExpr st = do
 swimExp :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 swimExp st = do
   swim <- keyword K.Swim
-  procs <- many (bracketContents B.Send)
+  procs <- many (bracketContents B.Send <|> fishSend)
   value <- bracketContents B.Return
   return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) swim -<= procs -<- value)
+
+fishSend :: Parser (SyntaxTree.SyntaxTree)
+fishSend = do
+  bracket B.Send B.Open
+  bindId <- isId
+  bracket B.Return B.Open
+  bindValue <- expr B.Return
+  bracket B.Return B.Close
+  bracket B.Send B.Close
+  return $ (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit B.Send) bindId -<- bindValue
 
 funcCall :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 funcCall st = do
@@ -140,3 +158,16 @@ dataToTree st = fmap (tokenUnitToTree) isData
 
 expr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 expr st = opExpr st <|> finExpr st <|> swimExp st <|> funcCall st <|> dataToTree st
+
+isIdTree :: B.ScopeType -> Parser (Tree SyntaxTree.SyntaxUnit)
+isIdTree st = do
+  idToTree <- isId
+  return . Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st $ idToTree
+
+funcDecl :: B.ScopeType -> Parser (Tree SyntaxTree.SyntaxUnit)
+funcDecl st = do
+  fish <- keyword K.Fish
+  funcId <- isId
+  args <- many (isIdTree B.Send <|> funcDecl B.Send)
+  value <- expr B.Return
+  return $ (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) fish -<= args -<- value
