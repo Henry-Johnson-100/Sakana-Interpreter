@@ -7,6 +7,7 @@ where
 
 import Control.Applicative
 import qualified Data.List as DList
+import qualified Data.Maybe as DMaybe (Maybe (..), fromJust)
 import qualified Exception.Base as Exception
 import qualified Lexer
 import qualified SyntaxTree
@@ -25,7 +26,6 @@ import qualified Util.General as Util
 import qualified Util.Like as Like (Like (..))
 import Util.Tree (Tree (..), (-<-), (-<=))
 import qualified Util.Tree as Tree
-import qualified Data.Maybe as DMaybe (Maybe (..), fromJust)
 
 newtype Parser a = Parser {parse :: [Lexer.TokenUnit] -> [(a, [Lexer.TokenUnit])]}
 
@@ -49,7 +49,7 @@ instance Alternative Parser where
   empty = Parser (\x -> [])
   pa <|> pb = Parser (\x -> case parse pa x of [] -> parse pb x; other -> other)
 
-t' = Lexer.tokenize "swim >(x <(5)<)> <(1)<"
+t' = Lexer.tokenize "fish add >(n)> >(m)> <(+ >(n)> >(m)>)<"
 
 fstBifunctorMap :: (a -> c) -> [(a, b)] -> [(c, b)]
 fstBifunctorMap f tupAB = [(f a', b') | (a', b') <- tupAB]
@@ -60,7 +60,7 @@ makeParserFunction f transform (x : xs) = if f x then [(transform x, xs)] else [
 
 determinedResult :: [(a, xs)] -> DMaybe.Maybe a
 determinedResult [] = DMaybe.Nothing
-determinedResult ((a , xs):_) = DMaybe.Just a
+determinedResult ((a, xs) : _) = DMaybe.Just a
 
 ioDeterminedTree :: (Show a) => [(Tree.Tree a, x)] -> IO ()
 ioDeterminedTree = Tree.ioPrintTree . DMaybe.fromJust . determinedResult
@@ -168,6 +168,16 @@ funcDecl :: B.ScopeType -> Parser (Tree SyntaxTree.SyntaxUnit)
 funcDecl st = do
   fish <- keyword K.Fish
   funcId <- isId
-  args <- many (isIdTree B.Send <|> funcDecl B.Send)
-  value <- expr B.Return
-  return $ (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) fish -<= args -<- value
+  args <- many (funcDeclArg)
+  value <- bracketContents B.Return
+  return $
+    (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) fish
+      -<- (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit B.Send) funcId
+      -<= args
+      -<- value
+
+funcDeclArg = do
+  bracket B.Send B.Open
+  argContent <- isIdTree B.Send <|> funcDecl B.Send
+  bracket B.Send B.Close
+  return argContent
