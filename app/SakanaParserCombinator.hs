@@ -150,19 +150,14 @@ funcCall st = do
   args <- many (bracketContents B.Send)
   return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) calledId -<= args)
 
-dataToTree :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
-dataToTree st = fmap (tokenUnitToTree) isData
-  where
-    tokenUnitToTree tu =
-      Tree.tree $ SyntaxTree.SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu) st
-
 expr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 expr st = opExpr st <|> finExpr st <|> swimExp st <|> funcCall st <|> dataToTree st
-
-isIdTree :: B.ScopeType -> Parser (Tree SyntaxTree.SyntaxUnit)
-isIdTree st = do
-  idToTree <- isId
-  return . Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st $ idToTree
+  where
+    dataToTree :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
+    dataToTree st = fmap (tokenUnitToTree) isData
+      where
+        tokenUnitToTree tu =
+          Tree.tree $ SyntaxTree.SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu) st
 
 funcDecl :: B.ScopeType -> Parser (Tree SyntaxTree.SyntaxUnit)
 funcDecl st = do
@@ -175,9 +170,15 @@ funcDecl st = do
       -<- (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit B.Send) funcId
       -<= args
       -<- value
-
-funcDeclArg = do
-  bracket B.Send B.Open
-  argContent <- isIdTree B.Send <|> funcDecl B.Send
-  bracket B.Send B.Close
-  return argContent
+  where
+    funcDeclArg :: Parser (Tree SyntaxTree.SyntaxUnit)
+    funcDeclArg = do
+      bracket B.Send B.Open
+      argContent <- isIdTree B.Send <|> funcDecl B.Send
+      bracket B.Send B.Close
+      return argContent
+      where
+        isIdTree :: B.ScopeType -> Parser (Tree SyntaxTree.SyntaxUnit)
+        isIdTree st = do
+          idToTree <- isId
+          return . Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st $ idToTree
