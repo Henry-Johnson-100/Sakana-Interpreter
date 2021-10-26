@@ -47,10 +47,14 @@ instance Alternative Parser where
   empty = Parser (\x -> [])
   pa <|> pb = Parser (\x -> case parse pa x of [] -> parse pb x; other -> other)
 
-t' = Lexer.tokenize "fish hello >(x)> <(\"hello\")<"
+t' = Lexer.tokenize "+ >(1)> >(1)>"
 
 fstBifunctorMap :: (a -> c) -> [(a, b)] -> [(c, b)]
 fstBifunctorMap f tupAB = [(f a', b') | (a', b') <- tupAB]
+
+satisfyFunction :: (t -> Bool) -> (t -> a) -> [t] -> [(a, [t])]
+satisfyFunction _ _ [] = []
+satisfyFunction f transform (x : xs) = if f x then [(transform x, xs)] else []
 
 -- Primitive parsers----------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -74,7 +78,7 @@ isId =
     )
 
 isData :: Parser Lexer.TokenUnit
-isData = Parser (\(tu : tus) -> if isDataAndNotId tu then [(tu, tus)] else [])
+isData = Parser $ satisfyFunction isDataAndNotId id
   where
     isDataAndNotId d' =
       Util.foldIdApplicativeOnSingleton
@@ -83,22 +87,42 @@ isData = Parser (\(tu : tus) -> if isDataAndNotId tu then [(tu, tus)] else [])
         (Lexer.unit d')
 
 control :: C.Control -> Parser Lexer.TokenUnit
-control c =
-  Parser
-    ( \(tu : tus) ->
-        if (Lexer.unit tu) == (Lexer.Control c) then [(tu, tus)] else []
-    )
+control c = Parser $ satisfyFunction (\tu -> (Lexer.unit tu) == (Lexer.Control c)) id
 
 bracket :: B.ScopeType -> B.BracketTerminal -> Parser Lexer.TokenUnit
 bracket sc bt =
-  Parser
-    ( \(tu : tus) ->
-        if (Lexer.unit tu) == (Lexer.Bracket sc bt) then [(tu, tus)] else []
-    )
+  Parser $
+    satisfyFunction (\tu -> (Lexer.unit tu) == (Lexer.Bracket sc bt)) id
 
 anyOp :: Parser Lexer.TokenUnit
 anyOp =
-  Parser
-    ( \(tu : tus) ->
-        if (Lexer.unit tu) `Like.like` Lexer.genericOperator then [(tu, tus)] else []
-    )
+  Parser $ satisfyFunction (\tu -> ((Lexer.unit tu) `Like.like` Lexer.genericOperator)) id
+
+bracketContents st = do
+  bracket st B.Open
+  contents <- expr
+  bracket st B.Close
+  return contents
+
+opExpr = do
+  op <- anyOp
+  args <- some (bracketContents B.Send)
+  return ((: concat args) op)
+
+finExpr = do
+  fin <- control C.Fin
+  args <- some (bracketContents B.Send)
+  return ((: concat args) fin)
+
+swimExp = do
+  swim <- keyword K.Swim
+  procs <- many (bracketContents B.Send)
+  value <- bracketContents B.Return
+  return (swim : value ++ (concat procs))
+
+funcCall = do
+  calledId <- isId
+  args <- many (bracketContents B.Send)
+  return (calledId : (concat args))
+
+expr = opExpr <|> finExpr <|> swimExp <|> funcCall <|> fmap (: []) isData
