@@ -45,11 +45,12 @@ instance Monad Parser where -- lol
   return = pure
   (>>=) p f = Parser $ \s -> concatMap (\(a, s') -> parse (f a) s') $ parse p s
 
+--Except for this one, this one is mine :^)
 instance Alternative Parser where
   empty = Parser (\x -> [])
   pa <|> pb = Parser (\x -> case parse pa x of [] -> parse pb x; other -> other)
 
-t' = Lexer.tokenize "fish add >(n)> >(m)> <(+ >(n)> >(m)>)<"
+t' = Lexer.tokenize "fish add >(n)> >(m)> <(+ >(n)> >(m)>)< fish add >(n)> >(m)> <(+ >(n)> >(m)>)< swim <(1)<"
 
 fstBifunctorMap :: (a -> c) -> [(a, b)] -> [(c, b)]
 fstBifunctorMap f tupAB = [(f a', b') | (a', b') <- tupAB]
@@ -69,22 +70,10 @@ ioDeterminedTree = Tree.ioPrintTree . DMaybe.fromJust . determinedResult
 ------------------------------------------------------------------------------------------
 
 keyword :: K.Keyword -> Parser Lexer.TokenUnit
-keyword k =
-  Parser
-    ( \(tu : tus) ->
-        if (Lexer.unit tu) == (Lexer.Keyword k)
-          then [(tu, tus)]
-          else []
-    )
+keyword k = Parser $ makeParserFunction (\tu -> (Lexer.unit tu) == (Lexer.Keyword k)) id
 
 isId :: Parser Lexer.TokenUnit
-isId =
-  Parser
-    ( \(tu : tus) ->
-        if Lexer.dataTokenIsId (Lexer.unit tu)
-          then [(tu, tus)]
-          else []
-    )
+isId = Parser $ makeParserFunction (\tu -> (Lexer.dataTokenIsId (Lexer.unit tu))) id
 
 isData :: Parser Lexer.TokenUnit
 isData = Parser $ makeParserFunction isDataAndNotId id
@@ -108,8 +97,8 @@ anyOp =
   Parser $
     makeParserFunction (\tu -> ((Lexer.unit tu) `Like.like` Lexer.genericOperator)) id
 
-bracketContents :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
-bracketContents st = do
+bracketContainingExpr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
+bracketContainingExpr st = do
   bracket st B.Open
   contents <- expr st
   bracket st B.Close
@@ -118,20 +107,20 @@ bracketContents st = do
 opExpr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 opExpr st = do
   op <- anyOp
-  args <- some (bracketContents B.Send)
+  args <- some (bracketContainingExpr B.Send)
   return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) op -<= args)
 
 finExpr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 finExpr st = do
   fin <- control C.Fin
-  args <- some (bracketContents B.Send)
+  args <- some (bracketContainingExpr B.Send)
   return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) fin -<= args)
 
 swimExp :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 swimExp st = do
   swim <- keyword K.Swim
-  procs <- many (bracketContents B.Send <|> fishSend)
-  value <- bracketContents B.Return
+  procs <- many (bracketContainingExpr B.Send <|> fishSend)
+  value <- bracketContainingExpr B.Return
   return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) swim -<= procs -<- value)
 
 fishSend :: Parser (SyntaxTree.SyntaxTree)
@@ -147,24 +136,24 @@ fishSend = do
 funcCall :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 funcCall st = do
   calledId <- isId
-  args <- many (bracketContents B.Send)
+  args <- many (bracketContainingExpr B.Send)
   return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) calledId -<= args)
 
 expr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 expr st = opExpr st <|> finExpr st <|> swimExp st <|> funcCall st <|> dataToTree st
   where
     dataToTree :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
-    dataToTree st = fmap (tokenUnitToTree) isData
-      where
-        tokenUnitToTree tu =
-          Tree.tree $ SyntaxTree.SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu) st
+    dataToTree st = fmap (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) isData
+
+statement :: B.ScopeType -> Parser (Tree SyntaxTree.SyntaxUnit)
+statement st = funcDecl st
 
 funcDecl :: B.ScopeType -> Parser (Tree SyntaxTree.SyntaxUnit)
 funcDecl st = do
   fish <- keyword K.Fish
   funcId <- isId
   args <- many (funcDeclArg)
-  value <- bracketContents B.Return
+  value <- bracketContainingExpr B.Return
   return $
     (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) fish
       -<- (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit B.Send) funcId
@@ -182,3 +171,12 @@ funcDecl st = do
         isIdTree st = do
           idToTree <- isId
           return . Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st $ idToTree
+
+sentence :: B.ScopeType -> Parser SyntaxTree.SyntaxTree
+sentence st = expr st <|> statement st
+
+program :: Parser (SyntaxTree.SyntaxTree)
+program = do
+  sentences <- some (sentence B.Return)
+  return $
+    (Tree.tree . SyntaxTree.genericSyntaxUnit) (Lexer.Data (D.Id "main")) -<= sentences
