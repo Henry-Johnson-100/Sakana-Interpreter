@@ -14,6 +14,7 @@ import qualified SyntaxTree
     SyntaxUnit (..),
     genericSyntaxUnit,
     setContext,
+    tokenUnitToSyntaxUnit,
   )
 import qualified Token.Bracket as B
 import qualified Token.Control as C
@@ -47,14 +48,14 @@ instance Alternative Parser where
   empty = Parser (\x -> [])
   pa <|> pb = Parser (\x -> case parse pa x of [] -> parse pb x; other -> other)
 
-t' = Lexer.tokenize "+ >(1)> >(1)>"
+t' = Lexer.tokenize "+ >(1)> >(+ >(2)> >(3)>)>"
 
 fstBifunctorMap :: (a -> c) -> [(a, b)] -> [(c, b)]
 fstBifunctorMap f tupAB = [(f a', b') | (a', b') <- tupAB]
 
-satisfyFunction :: (t -> Bool) -> (t -> a) -> [t] -> [(a, [t])]
-satisfyFunction _ _ [] = []
-satisfyFunction f transform (x : xs) = if f x then [(transform x, xs)] else []
+makeParserFunction :: (t -> Bool) -> (t -> a) -> [t] -> [(a, [t])]
+makeParserFunction _ _ [] = []
+makeParserFunction f transform (x : xs) = if f x then [(transform x, xs)] else []
 
 -- Primitive parsers----------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -78,7 +79,7 @@ isId =
     )
 
 isData :: Parser Lexer.TokenUnit
-isData = Parser $ satisfyFunction isDataAndNotId id
+isData = Parser $ makeParserFunction isDataAndNotId id
   where
     isDataAndNotId d' =
       Util.foldIdApplicativeOnSingleton
@@ -87,42 +88,55 @@ isData = Parser $ satisfyFunction isDataAndNotId id
         (Lexer.unit d')
 
 control :: C.Control -> Parser Lexer.TokenUnit
-control c = Parser $ satisfyFunction (\tu -> (Lexer.unit tu) == (Lexer.Control c)) id
+control c = Parser $ makeParserFunction (\tu -> (Lexer.unit tu) == (Lexer.Control c)) id
 
 bracket :: B.ScopeType -> B.BracketTerminal -> Parser Lexer.TokenUnit
 bracket sc bt =
   Parser $
-    satisfyFunction (\tu -> (Lexer.unit tu) == (Lexer.Bracket sc bt)) id
+    makeParserFunction (\tu -> (Lexer.unit tu) == (Lexer.Bracket sc bt)) id
 
 anyOp :: Parser Lexer.TokenUnit
 anyOp =
-  Parser $ satisfyFunction (\tu -> ((Lexer.unit tu) `Like.like` Lexer.genericOperator)) id
+  Parser $
+    makeParserFunction (\tu -> ((Lexer.unit tu) `Like.like` Lexer.genericOperator)) id
 
+bracketContents :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 bracketContents st = do
   bracket st B.Open
-  contents <- expr
+  contents <- expr st
   bracket st B.Close
-  return contents
+  return (fmap (SyntaxTree.setContext st) contents)
 
-opExpr = do
+opExpr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
+opExpr st = do
   op <- anyOp
   args <- some (bracketContents B.Send)
-  return ((: concat args) op)
+  return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) op -<= args)
 
-finExpr = do
+finExpr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
+finExpr st = do
   fin <- control C.Fin
   args <- some (bracketContents B.Send)
-  return ((: concat args) fin)
+  return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) fin -<= args)
 
-swimExp = do
+swimExp :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
+swimExp st = do
   swim <- keyword K.Swim
   procs <- many (bracketContents B.Send)
   value <- bracketContents B.Return
-  return (swim : value ++ (concat procs))
+  return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) swim -<= procs -<- value)
 
-funcCall = do
+funcCall :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
+funcCall st = do
   calledId <- isId
   args <- many (bracketContents B.Send)
-  return (calledId : (concat args))
+  return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) calledId -<= args)
 
-expr = opExpr <|> finExpr <|> swimExp <|> funcCall <|> fmap (: []) isData
+dataToTree :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
+dataToTree st = fmap (tokenUnitToTree) isData
+  where
+    tokenUnitToTree tu =
+      Tree.tree $ SyntaxTree.SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu) st
+
+expr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
+expr st = opExpr st <|> finExpr st <|> swimExp st <|> funcCall st <|> dataToTree st

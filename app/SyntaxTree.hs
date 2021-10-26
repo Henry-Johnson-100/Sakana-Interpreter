@@ -14,6 +14,7 @@ module SyntaxTree
     getSyntaxAttributeFromTree,
     nthChildMeetsCondition,
     setContext,
+    tokenUnitToSyntaxUnit,
   )
 where
 
@@ -40,11 +41,10 @@ import qualified Token.Bracket as B
   )
 import qualified Token.Data as D (Data (Id, Null))
 import qualified Token.Keyword as K (Keyword (School))
+import qualified Util.CollapsibleTerminalCases as CTC (CollapsibleTerminalCases (..))
 import qualified Util.EagerCollapsible as EagerCollapsible (dropInfix)
-import qualified Util.CollapsibleTerminalCases as CTC (CollapsibleTerminalCases(..))
 import qualified Util.NestedCollapsible as NestedCollapsible
-  (
-    TriplePartition (..),
+  ( TriplePartition (..),
     breakByNest,
     groupByPartition,
     hasNestedCollapsible,
@@ -142,8 +142,6 @@ scanTokensToSyntaxes :: [Lexer.TokenUnit] -> [SyntaxUnit]
 scanTokensToSyntaxes [] = []
 scanTokensToSyntaxes tus = zipWith tokenUnitToSyntaxUnit tus (scanScopeTypes tus)
   where
-    tokenUnitToSyntaxUnit :: Lexer.TokenUnit -> B.ScopeType -> SyntaxUnit
-    tokenUnitToSyntaxUnit tu = SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu)
     scanScopeTypes :: [Lexer.TokenUnit] -> [B.ScopeType]
     scanScopeTypes [] = []
     scanScopeTypes tus = scanl getScanScopeType B.Return tus
@@ -152,6 +150,9 @@ scanTokensToSyntaxes tus = zipWith tokenUnitToSyntaxUnit tus (scanScopeTypes tus
         getScanScopeType _ (Lexer.PacketUnit (Lexer.Bracket B.Send B.Open) _) = B.Send
         getScanScopeType _ (Lexer.PacketUnit (Lexer.Bracket B.Return B.Open) _) = B.Return
         getScanScopeType st _ = st
+
+tokenUnitToSyntaxUnit :: Lexer.TokenUnit -> B.ScopeType -> SyntaxUnit
+tokenUnitToSyntaxUnit tu = SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu)
 
 getSyntaxPartitions :: [SyntaxUnit] -> [SyntaxPartition]
 getSyntaxPartitions [] = []
