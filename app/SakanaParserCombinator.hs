@@ -20,9 +20,10 @@ import qualified Token.Data as D
 import qualified Token.Keyword as K
 import qualified Token.Operator as O
 import qualified Util.General as Util
-import qualified Util.Like as Like (Like(..))
+import qualified Util.Like as Like (Like (..))
 import Util.Tree (Tree (..), (-<-), (-<=))
 import qualified Util.Tree as Tree
+import Control.Applicative
 
 newtype Parser a = Parser {parse :: [Lexer.TokenUnit] -> [(a, [Lexer.TokenUnit])]}
 
@@ -30,7 +31,7 @@ newtype Parser a = Parser {parse :: [Lexer.TokenUnit] -> [(a, [Lexer.TokenUnit])
 -- http://dev.stephendiehl.com/fun/002_parsers.html
 
 instance Functor Parser where
-  fmap f (Parser pf) = Parser (\s -> [(f a, b) | (a, b) <- pf s])
+  fmap f (Parser pf) = Parser (\s -> fstBifunctorMap f (pf s))
 
 instance Applicative Parser where
   pure x = Parser (\s -> [(x, s)])
@@ -42,4 +43,39 @@ instance Monad Parser where -- lol
   return = pure
   (>>=) p f = Parser $ \s -> concatMap (\(a, s') -> parse (f a) s') $ parse p s
 
-  
+instance Alternative Parser where
+  empty = Parser (\x -> [])
+  pa <|> pb = Parser (\x -> case parse pa x of [] -> parse pb x; other -> other)
+
+t' = Lexer.tokenize "fish hello >(x)> <(\"hello\")<"
+
+fstBifunctorMap :: (a -> c) -> [(a, b)] -> [(c, b)]
+fstBifunctorMap f tupAB = [(f a', b') | (a', b') <- tupAB]
+
+-- Primitive tokens
+keyword :: K.Keyword -> Parser Lexer.TokenUnit
+keyword k =
+  Parser
+    ( \(tu : tus) ->
+        if (Lexer.unit tu) == (Lexer.Keyword k)
+          then [(tu, tus)]
+          else []
+    )
+
+isId :: Parser Lexer.TokenUnit
+isId =
+  Parser
+    ( \(tu : tus) ->
+        if Lexer.dataTokenIsId (Lexer.unit tu)
+          then [(tu, tus)]
+          else []
+    )
+
+isData :: p -> Parser Lexer.TokenUnit
+isData d = Parser (\(tu : tus) -> if isDataAndNotId tu then [(tu, tus)] else [])
+  where
+    isDataAndNotId d' =
+      Util.foldIdApplicativeOnSingleton
+        all
+        [Like.like Lexer.genericData, not . Lexer.dataTokenIsId]
+        (Lexer.unit d')
