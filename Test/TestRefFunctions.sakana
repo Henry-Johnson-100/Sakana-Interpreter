@@ -1,121 +1,45 @@
-
-
-fish to_bool
-
+fish and
   >(x)>
-
+  >(y)>
   <(
     fin
     >(x)>
-    >(True)>
+    >(y)>
     >(False)>
   )<
-
-
 
 fish or
-
   >(x)>
   >(y)>
-
   <(
     fin
     >(x)>
     >(True)>
-    >(to_bool >(y)>)>
+    >(y)>
   )<
-
-
-
-fish and
-
-  >(x)>
-  >(y)>
-
-  <(
-    fin
-    >(x)>
-    >(to_bool >(y)>)>
-    >(False)>
-  )<
-
-
-
-fish not
-
-  >(x)>
-
-  <(
-    fin
-    >(to_bool >(x)>)>
-    >(False)>
-    >(True)>
-  )<
-
-
-
-
-
-
-fish main
-
-  >(main_arg)>
-  >(
-    _x_ <(
-    not >(main_arg)>
-    )<
-  )>
-  >(
-    __x__ <(
-    not >(_x_)>
-    )<
-  )>
-
-  <(
-    fin
-    >(__x__)>
-    >("That's right")>
-    >("That's wrong")>
-  )<
-
-fish increment
-  >(n)>
-  <(+ >(n)> >(1)>)<
-
-
 
 fish factorial
   >(n)>
   >(
-    fish sub_fact
+    fish fact_
       >(n)>
-      >(prod)>
-      <(
-        swim
-        >(new_prod <(* >(prod)> >(n)>)<)>
+      >(prd)>
+      swim
         >(new_n <(- >(n)> >(1)>)<)>
+        >(new_prd <(* >(prd)> >(n)>)<)>
         <(
           fin
           >(<= >(n)> >(0)>)>
-          >(
-            swim
-            >(trout >("Bracketing is a mess and error messages are barely helpful")>)>
-            <(prod)<
-          )>
-          >(
-            swim
-            >(trout >("Calling sub_fact again")>)>
-            <(sub_fact >(new_n)> >(new_prod)>)<
-          )>
+          >(prd)>
+          >(fact_ >(new_n)> >(new_prd)>)>
         )<
-      )<
   )>
-  <(
-    swim
-    >(trout >("computing the factorial of: ")>)>
-    >(trout >(n)>)>
-    <(sub_fact >(n)> >(1)>)<
-  )<
+  swim
+  >(trout >("computing the factorial of: ")>)>
+  >(trout >(n)>)>
+  <(fact_ >(n)> >(1)>)<
 
 swim
->(trout >(_args)>)>
+>(trout >("Running: ")>)>
+>(trout >("")>)>
+<(factorial >(30)>)<
