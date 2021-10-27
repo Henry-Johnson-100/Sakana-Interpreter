@@ -7,6 +7,8 @@ import Test.Tasty.HUnit
 import Token.Data
 import TreeInterpreter
 import Util.Tree
+import Token.Bracket
+import Util.General
 
 executeFirstChild :: String -> Data
 executeFirstChild = unsafePerformIO . TreeInterpreter.execute emptyEnvironmentStack . TreeInterpreter.calct'
@@ -196,12 +198,14 @@ functionDeclArgFetchingTests = testGroup "Fetching arguments from function decla
         allPosArgsAreFetchedMultipleMixesOne
       ]
 
+assertArgs xs = fmap agnosticizeLines $ map (tree . rotateArg3 SyntaxUnit 0 Send . Data . Id) xs
+
 oneFuncArgIsFetched = standardTimeout 3 $ testCase name assertion
   where
     name = "A function declaration with one positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
     d = name
-    a = [noLineCalct] <*> [">(n)>"]
+    a = assertArgs ["n"]
     f = getFuncDeclArgs . noLineCalct $ "fish return_n >(n)> <(n)<"
 
 twoFuncArgIsFetched = standardTimeout 3 $ testCase name assertion
@@ -209,7 +213,7 @@ twoFuncArgIsFetched = standardTimeout 3 $ testCase name assertion
     name = "A function declaration with two positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
     d = name
-    a = [noLineCalct] <*> [">(n)>", ">(m)>"]
+    a = assertArgs ["n","m"]
     f = getFuncDeclArgs . noLineCalct $ "fish return_n >(n)> >(m)> <(n)<"
 
 threeFuncArgIsFetched = standardTimeout 3 $ testCase name assertion
@@ -217,7 +221,7 @@ threeFuncArgIsFetched = standardTimeout 3 $ testCase name assertion
     name = "A function declaration with three positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
     d = name
-    a = [noLineCalct] <*> [">(n)>", ">(m)>", ">(o)>"]
+    a = assertArgs ["n","m","o"]
     f = getFuncDeclArgs . noLineCalct $ "fish return_n >(n)> >(m)> >(o)> <(n)<"
 
 allPosArgsAreFetchedOne = standardTimeout 3 $ testCase name assertion
@@ -225,7 +229,7 @@ allPosArgsAreFetchedOne = standardTimeout 3 $ testCase name assertion
     name = "A function declaration with three positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
     d = name
-    a = [noLineCalct] <*> [">(n)>", ">(m)>", ">(o)>"]
+    a = assertArgs ["n","m","o"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m)> >(o)> <(n)<"
 
 allPosArgsAreFetchedTwo = standardTimeout 3 $ testCase name assertion
@@ -233,7 +237,7 @@ allPosArgsAreFetchedTwo = standardTimeout 3 $ testCase name assertion
     name = "A function declaration with one positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
     d = name
-    a = [noLineCalct] <*> [">(n)>"]
+    a = assertArgs ["n"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> <(n)<"
 
 allPosArgsAreFetchedThree = standardTimeout 3 $ testCase name assertion
@@ -241,7 +245,7 @@ allPosArgsAreFetchedThree = standardTimeout 3 $ testCase name assertion
     name = "A function declaration with mixed positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
     d = name
-    a = [noLineCalct] <*> [">(n)>", ">(o)>"]
+    a = assertArgs ["n","o"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> <(n)<"
 
 allPosArgsAreFetchedMultipleMixesOne = standardTimeout 3 $ testCase name assertion
@@ -249,7 +253,7 @@ allPosArgsAreFetchedMultipleMixesOne = standardTimeout 3 $ testCase name asserti
     name = "A function declaration with mixed positional arg(s) is fetched appropriately"
     assertion = assertEqual d a f
     d = name
-    a = [noLineCalct] <*> [">(n)>", ">(o)>", ">(q)>"]
+    a = assertArgs ["n","o","q"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> >(p <(1)<)> >(q)> <(n)<"
 
 allPosArgsAreFetchedMultipleMixesTwo = standardTimeout 3 $ testCase name assertion
@@ -257,7 +261,7 @@ allPosArgsAreFetchedMultipleMixesTwo = standardTimeout 3 $ testCase name asserti
     name = "A function declaration with mixed positional arg(s) and a function declaration is fetched appropriately"
     assertion = assertEqual d a f
     d = name
-    a = [noLineCalct] <*> [">(n)>", ">(o)>", ">(q)>"]
+    a = assertArgs ["n","o","q"]
     f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> >(fish thing >(x)> <(x)<)> >(q)> <(n)<"
 
 -----function execution tests------------------------------------------------------------------------

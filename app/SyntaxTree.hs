@@ -95,26 +95,13 @@ type SyntaxPartition = NestedCollapsible.TriplePartition SyntaxUnit
 
 s' =
   Lexer.tokenize
-    "fish fact >(n)> >(fish sub_fact >(sub)> >(prd)> \
-    \swim\
-    \>(trout >(\"Printing something\")>)>\
-    \<(\
-    \fin >(<= >(sub)> >(0)>)>\
-    \>(\
-    \swim\
-    \>(trout >(\"prd\")>)>\
-    \<(prd)<\
-    \)>\
-    \>(sub_fact >(- >(sub)> >(1)>)> >(* >(sub)> >(prd)>)>)>\
-    \)<\
-    \)>\
-    \<(sub_fact >(30)> >(1)>)<"
+    "fish return_n >(n)> <(n)<"
 
 tokenUnitToSyntaxUnit :: Lexer.TokenUnit -> B.ScopeType -> SyntaxUnit
 tokenUnitToSyntaxUnit tu = SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu)
 
 generateSyntaxTree :: [Lexer.TokenUnit] -> SyntaxTree
-generateSyntaxTree = (fst . head . parse program)
+generateSyntaxTree = (fst . DMaybe.fromJust . Util.head' . parse program)
 
 newtype Parser a = Parser {parse :: [Lexer.TokenUnit] -> [(a, [Lexer.TokenUnit])]}
 

@@ -586,7 +586,7 @@ met' = getMainExecutionTrees pt'
 
 calct' :: String -> Tree.Tree SyntaxUnit
 calct' =
-  head . Tree.treeChildren
+  DMaybe.fromJust . Util.General.head' . Tree.treeChildren
     . SyntaxTree.generateSyntaxTree
     . Lexer.tokenize
 
