@@ -39,6 +39,46 @@ Send fish provide information to the return fish they are immediately in front o
 A return fish will execute its code and return a value. That's the most fundamental rule of fish,
 return fish always execute and return.
 
+# Grammar
+
+Below is a diagram of the grammar of Sakana as currently implemented:
+
+Some of the primitives are defined with regex though this is not how they are actually
+implemented, as such, the regex may not be totally accurate.
+
+Following these grammar rules will ensure your program can be parsed but not necessarily
+that it will behave in a predicatable way.
+
+For instance, a ```fin``` expects exactly 3 arguments, but in the parser implementation,
+it expects 1 or more. There will be a runtime bug if some number of arguments other than 3
+are provided to any given ```fin``` expression.
+
+```
+<data-double>                      ::= [0-9].?[0-9]
+<data-string>                      ::= \".*\"
+<data-boolean>                     ::= True | False
+<data-null>                        ::= 
+<data>                             ::= <data-double> | <data-string> | <data-boolean> | <data-null>
+<Id>                               ::= ([A-z]|_)*(\.([A-z]|_))*
+<operator>                         ::= + | - | / | * | ^ | == | /= | < | > | <= | >=
+<fish-send>                        ::= >( <Id> <bracket-return-expr> )>
+<statement-func-decl-arg-contents> ::= <Id> | <statement-func-decl>
+<statement-func-decl-arg>          ::= >( <statement-func-decl-arg-contents> )>
+<statement-func-decl-val>          ::= <bracket-return-expr> | <expr-swim>
+<statement-func-decl>              ::= fish <Id> <statement-func-decl-arg>* <statement-func-decl-val>
+<bracket-send-expr>                ::= >( <expr> )> | >()>
+<bracket-return-expr>              ::= <( <expr> )< | <()<
+<expr-fin>                         ::= fin <bracket-send-expr>+
+<expr-swim-procedure>              ::= <bracket-send-expr> | <fish-send>
+<expr-swim>                        ::= swim <expr-swim-procedure>* <bracket-return-expr>
+<expr-func-call>                   ::= <Id> <bracket-send-expr>*
+<expr-operator>                    ::= <operator> <bracket-send-expr>+
+<expr>                             ::= <expr-operator> | <expr-fin> | <expr-swim> | <expr-func-call> | <data>
+<statement>                        ::= <satement-func-decl>
+<sentence>                         ::= <expr> | <statement> | <bracket-return-expr>
+<program>                          ::= <sentence>*
+```
+
 # Keywords
 
 - fish
