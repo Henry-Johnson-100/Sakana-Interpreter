@@ -198,7 +198,7 @@ treeMultipleFunctionsThree = testCase name assertion
                         ]
                 ],
           (treeSU Return . Keyword) Fish -- This is the current error
-            -<= [ (treeSU Send . dataId) "two",
+            -<= [ (treeSU Send . dataId) "three",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . Operator) Add
                     -<= [ (treeSU Send . dataId) "x",

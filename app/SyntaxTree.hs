@@ -37,6 +37,7 @@ import qualified Lexer
     genericOperator,
     getTokenBracketScopeType,
     keywordTokenIsDeclarationRequiringId,
+    tokenize,
   )
 import qualified Token.Bracket as B
   ( BracketTerminal (Close, Open),
@@ -91,6 +92,23 @@ setContext st su = su {context = st}
 type SyntaxTree = Tree.Tree SyntaxUnit
 
 type SyntaxPartition = NestedCollapsible.TriplePartition SyntaxUnit
+
+s' =
+  Lexer.tokenize
+    "fish fact >(n)> >(fish sub_fact >(sub)> >(prd)> \
+    \swim\
+    \>(trout >(\"Printing something\")>)>\
+    \<(\
+    \fin >(<= >(sub)> >(0)>)>\
+    \>(\
+    \swim\
+    \>(trout >(\"prd\")>)>\
+    \<(prd)<\
+    \)>\
+    \>(sub_fact >(- >(sub)> >(1)>)> >(* >(sub)> >(prd)>)>)>\
+    \)<\
+    \)>\
+    \<(sub_fact >(30)> >(1)>)<"
 
 tokenUnitToSyntaxUnit :: Lexer.TokenUnit -> B.ScopeType -> SyntaxUnit
 tokenUnitToSyntaxUnit tu = SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu)
@@ -190,7 +208,7 @@ swimExp st = do
   swim <- keyword K.Swim
   procs <- many (bracketContainingExpr B.Send <|> fishSend)
   value <- bracketContainingExpr B.Return
-  return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) swim -<= procs -<- value)
+  return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit B.Return) swim -<= procs -<- value)
 
 fishSend :: Parser (SyntaxTree.SyntaxTree)
 fishSend = do
