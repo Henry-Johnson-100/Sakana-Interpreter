@@ -171,7 +171,7 @@ bracketContainingExpr st = do
   bracket st B.Open
   contents <- expr st
   bracket st B.Close
-  return (fmap (SyntaxTree.setContext st) contents)
+  return contents
 
 opExpr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 opExpr st = do
@@ -222,7 +222,7 @@ funcDecl st = do
   fish <- keyword K.Fish
   funcId <- isId
   args <- many (funcDeclArg)
-  value <- bracketContainingExpr B.Return
+  value <- bracketContainingExpr B.Return <|> swimExp B.Return
   return $
     (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) fish
       -<- (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit B.Send) funcId
