@@ -95,6 +95,7 @@ type SyntaxPartition = NestedCollapsible.TriplePartition SyntaxUnit
 tokenUnitToSyntaxUnit :: Lexer.TokenUnit -> B.ScopeType -> SyntaxUnit
 tokenUnitToSyntaxUnit tu = SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu)
 
+generateSyntaxTree :: [Lexer.TokenUnit] -> SyntaxTree
 generateSyntaxTree = (fst . head . parse program)
 
 newtype Parser a = Parser {parse :: [Lexer.TokenUnit] -> [(a, [Lexer.TokenUnit])]}

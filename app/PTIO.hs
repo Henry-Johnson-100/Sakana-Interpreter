@@ -1,5 +1,5 @@
 import Lexer (tokenize)
-import SyntaxTree (generateModuleTree)
+import SyntaxTree (generateSyntaxTree)
 import System.Environment (getArgs)
 import System.IO
   ( IOMode (ReadMode),
@@ -9,9 +9,9 @@ import System.IO
   )
 import Util.Tree (TreeIO (fPrintTree))
 
-printTree :: String -> String -> String
-printTree fileContents treeName =
-  fPrintTree 0 ((generateModuleTree treeName . tokenize) fileContents)
+printTree :: String -> String
+printTree fileContents =
+  fPrintTree 0 ((generateSyntaxTree . tokenize) fileContents)
 
 main :: IO ()
 main = do
@@ -21,5 +21,4 @@ main = do
   putStr $
     printTree
       contents
-      (if (not . null . tail) args then (head . tail) args else "main")
   hClose handle
