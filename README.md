@@ -15,10 +15,6 @@ and you can run an executable using:
 Any file that contains Sakana code can be executed but for posterity,
 the file extensions, .skn, or .sakana are preferred.
 
-You can also peak at the file's tree structure using:
-
-```cabal run SakanaST path/```
-
 you can also,
 
 ```cabal install```
@@ -27,7 +23,7 @@ inside the project directory to put a ```Sakana``` interpreter executable on you
 
 I apologize in advance for cabal not building properly. You can always use ghc to compile
 the executable files yourself.
-The executables are app/Main.hs and app/PTIO.hs
+The executable is: app/Main.hs
 
 # What is Sakana?
 
