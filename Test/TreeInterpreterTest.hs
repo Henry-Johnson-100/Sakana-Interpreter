@@ -246,7 +246,7 @@ allPosArgsAreFetchedThree = standardTimeout 3 $ testCase name assertion
     assertion = assertEqual d a f
     d = name
     a = assertArgs ["n","o"]
-    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> <(n)<"
+    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(fish m <(1)<)> >(o)> <(n)<"
 
 allPosArgsAreFetchedMultipleMixesOne = standardTimeout 3 $ testCase name assertion
   where
@@ -254,7 +254,7 @@ allPosArgsAreFetchedMultipleMixesOne = standardTimeout 3 $ testCase name asserti
     assertion = assertEqual d a f
     d = name
     a = assertArgs ["n","o","q"]
-    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> >(p <(1)<)> >(q)> <(n)<"
+    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(fish m <(1)<)> >(o)> >(fish p <(1)<)> >(q)> <(n)<"
 
 allPosArgsAreFetchedMultipleMixesTwo = standardTimeout 3 $ testCase name assertion
   where
@@ -262,7 +262,7 @@ allPosArgsAreFetchedMultipleMixesTwo = standardTimeout 3 $ testCase name asserti
     assertion = assertEqual d a f
     d = name
     a = assertArgs ["n","o","q"]
-    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(m <(1)<)> >(o)> >(fish thing >(x)> <(x)<)> >(q)> <(n)<"
+    f = getFunctionDeclPositionalArgs . noLineCalct $ "fish return_n >(n)> >(fish m <(1)<)> >(o)> >(fish thing >(x)> <(x)<)> >(q)> <(n)<"
 
 -----function execution tests------------------------------------------------------------------------
 

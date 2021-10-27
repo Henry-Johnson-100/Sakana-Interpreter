@@ -95,7 +95,7 @@ type SyntaxPartition = NestedCollapsible.TriplePartition SyntaxUnit
 
 s' =
   Lexer.tokenize
-    "fish return_n >(n)> <(n)<"
+    "fish x >()> <(1)< <(x >()>)<"
 
 tokenUnitToSyntaxUnit :: Lexer.TokenUnit -> B.ScopeType -> SyntaxUnit
 tokenUnitToSyntaxUnit tu = SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu)
@@ -173,10 +173,27 @@ anyOp =
 
 bracketContainingExpr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 bracketContainingExpr st = do
+  result <- bracketContainingExpr' st <|> nullBracket st
+  return result
+
+bracketContainingExpr' :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
+bracketContainingExpr' st = do
   bracket st B.Open
   contents <- expr st
   bracket st B.Close
   return contents
+
+nullBracket :: B.ScopeType -> Parser (Tree SyntaxUnit)
+nullBracket st = do
+  bracket st B.Open
+  bracket st B.Close
+  ( return
+      . Tree.tree
+      . flip SyntaxTree.tokenUnitToSyntaxUnit st
+      . flip Lexer.PacketUnit 0
+      . Lexer.Data
+    )
+    D.Null
 
 opExpr :: B.ScopeType -> Parser (SyntaxTree.SyntaxTree)
 opExpr st = do
@@ -226,7 +243,7 @@ funcDecl :: B.ScopeType -> Parser (Tree SyntaxTree.SyntaxUnit)
 funcDecl st = do
   fish <- keyword K.Fish
   funcId <- isId
-  args <- many (funcDeclArg)
+  args <- many (funcDeclArg <|> nullBracket B.Send)
   value <- bracketContainingExpr B.Return <|> swimExp B.Return
   return $
     (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st) fish
@@ -247,7 +264,7 @@ funcDecl st = do
           return . Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit st $ idToTree
 
 sentence :: B.ScopeType -> Parser SyntaxTree.SyntaxTree
-sentence st = expr st <|> statement st
+sentence st = expr st <|> statement st <|> bracketContainingExpr B.Return
 
 program :: Parser (SyntaxTree.SyntaxTree)
 program = do
