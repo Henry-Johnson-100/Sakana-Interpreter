@@ -21,9 +21,9 @@ where
 import Control.Applicative (Alternative (empty, many, some, (<|>)))
 import qualified Data.List (intercalate)
 import qualified Data.Maybe as DMaybe (Maybe (Just, Nothing), fromJust)
-import qualified Exception.Base
+import qualified Exception.Base as Exception
   ( ExceptionSeverity (Fatal, NonFatal),
-    ExceptionType (DeclarationMissingId, FreeTokensInForeignScope),
+    ExceptionType (DeclarationMissingId, FailedToParseMalformedOutputException, FailedToParseStreamException, FreeTokensInForeignScope, General),
     newException,
     raiseError,
   )
@@ -101,7 +101,7 @@ tokenUnitToSyntaxUnit :: Lexer.TokenUnit -> B.ScopeType -> SyntaxUnit
 tokenUnitToSyntaxUnit tu = SyntaxUnit (Lexer.unit tu) (Lexer.unitLine tu)
 
 generateSyntaxTree :: [Lexer.TokenUnit] -> SyntaxTree
-generateSyntaxTree = (fst . DMaybe.fromJust . Util.head' . parse program)
+generateSyntaxTree = (runParser program)
 
 newtype Parser a = Parser {parse :: [Lexer.TokenUnit] -> [(a, [Lexer.TokenUnit])]}
 
@@ -125,6 +125,30 @@ instance Monad Parser where -- lol
 instance Alternative Parser where
   empty = Parser (\x -> [])
   pa <|> pb = Parser (\x -> case parse pa x of [] -> parse pb x; other -> other)
+
+runParser :: (Show a) => Parser a -> [Lexer.TokenUnit] -> a
+runParser m s = case parse m s of
+  [(res, [])] -> res
+  [(_, rs)] ->
+    Exception.raiseError $
+      Exception.newException
+        Exception.FailedToParseStreamException
+        (map Lexer.unitLine (rs))
+        ( "Failed to consume stream of tokens\nFailed on: \n\t"
+            ++ (unwords . map (Lexer.fromToken . Lexer.unit)) (rs)
+        )
+        Exception.Fatal
+  other -> --Need to find a way to make runParser give errors that are useful
+    Exception.raiseError $
+      Exception.newException
+        Exception.FailedToParseMalformedOutputException
+        (map Lexer.unitLine (concatMap snd other))
+        ( "Malformed parser output,\nFailed on: \n\t"
+            ++ (unwords . map (Lexer.fromToken . Lexer.unit)) (concatMap snd other)
+            ++ "\nWas able to collect: "
+            ++ (unwords . map (show . fst)) other
+        )
+        Exception.Fatal
 
 fstBifunctorMap :: (a -> c) -> [(a, b)] -> [(c, b)]
 fstBifunctorMap f tupAB = [(f a', b') | (a', b') <- tupAB]

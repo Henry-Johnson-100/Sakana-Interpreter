@@ -8,6 +8,8 @@ import qualified GHC.Prim (raise#)
 
 data ExceptionType
   = General
+  | FailedToParseStreamException
+  | FailedToParseMalformedOutputException
   | InvalidBracketing
   | InvalidID
   | InvalidArgs
