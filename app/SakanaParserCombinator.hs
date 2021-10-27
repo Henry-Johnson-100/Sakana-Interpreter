@@ -50,8 +50,6 @@ instance Alternative Parser where
   empty = Parser (\x -> [])
   pa <|> pb = Parser (\x -> case parse pa x of [] -> parse pb x; other -> other)
 
-t' = Lexer.tokenize "fish add >(n)> >(m)> <(+ >(n)> >(m)>)< fish add >(n)> >(m)> <(+ >(n)> >(m)>)< swim <(1)<"
-
 fstBifunctorMap :: (a -> c) -> [(a, b)] -> [(c, b)]
 fstBifunctorMap f tupAB = [(f a', b') | (a', b') <- tupAB]
 
