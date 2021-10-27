@@ -47,7 +47,7 @@ Some of the primitives are defined with regex though this is not how they are ac
 implemented, as such, the regex may not be totally accurate.
 
 Following these grammar rules will ensure your program can be parsed but not necessarily
-that it will behave in a predicatable way.
+that it will behave in a predictable way.
 
 For instance, a ```fin``` expects exactly 3 arguments, but in the parser implementation,
 it expects 1 or more. There will be a runtime bug if some number of arguments other than 3
