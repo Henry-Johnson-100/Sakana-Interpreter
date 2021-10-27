@@ -80,7 +80,7 @@ treeSimpleFunctionOne = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [(treeSU Return . dataId) "simple", (treeSU Send . dataId) "x", (treeSU Return . dataId) "x"]
+            -<= [(treeSU Send . dataId) "simple", (treeSU Send . dataId) "x", (treeSU Return . dataId) "x"]
         ]
     f = prepareString "fish simple >(x)> <(x)<"
 
@@ -91,7 +91,7 @@ treeSimpleFunctionTwo = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Return . dataId) "simple",
+            -<= [ (treeSU Send . dataId) "simple",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . Operator) Add
                     -<= [(treeSU Send . dataId) "x", (treeSU Send . dataNum) 1.0]
@@ -106,7 +106,7 @@ treeSimpleFunctionThree = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Return . dataId) "simple",
+            -<= [ (treeSU Send . dataId) "simple",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . Operator) Add
                     -<= [ (treeSU Send . dataId) "x",
@@ -124,7 +124,7 @@ treeMultipleFunctionsOne = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Return . dataId) "simple",
+            -<= [ (treeSU Send . dataId) "simple",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . Operator) Add
                     -<= [ (treeSU Send . dataId) "x",
@@ -133,12 +133,15 @@ treeMultipleFunctionsOne = testCase name assertion
                         ]
                 ],
           (treeSU Return . Keyword) Fish -- This is the current error
-            -<= [ (treeSU Return . dataId) "two",
+            -<= [ (treeSU Send . dataId) "two",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . dataId) "x"
                 ]
         ]
-    f = prepareString "fish simple >(x)> <(+ >(x)> >(+ >(1)> >(1)>)>)< fish two >(x)> <(x)<"
+    f =
+      prepareString
+        "fish simple >(x)> <(+ >(x)> >(+ >(1)> >(1)>)>)<\
+        \ fish two >(x)> <(x)<"
 
 treeMultipleFunctionsTwo = testCase name assertion
   where
@@ -147,7 +150,7 @@ treeMultipleFunctionsTwo = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Return . dataId) "simple",
+            -<= [ (treeSU Send . dataId) "simple",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . Operator) Add
                     -<= [ (treeSU Send . dataId) "x",
@@ -156,7 +159,7 @@ treeMultipleFunctionsTwo = testCase name assertion
                         ]
                 ],
           (treeSU Return . Keyword) Fish -- This is the current error
-            -<= [ (treeSU Return . dataId) "two",
+            -<= [ (treeSU Send . dataId) "two",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . Operator) Add
                     -<= [ (treeSU Send . dataId) "x",
@@ -177,7 +180,7 @@ treeMultipleFunctionsThree = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Return . dataId) "simple",
+            -<= [ (treeSU Send . dataId) "simple",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . Operator) Add
                     -<= [ (treeSU Send . dataId) "x",
@@ -186,7 +189,7 @@ treeMultipleFunctionsThree = testCase name assertion
                         ]
                 ],
           (treeSU Return . Keyword) Fish -- This is the current error
-            -<= [ (treeSU Return . dataId) "two",
+            -<= [ (treeSU Send . dataId) "two",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . Operator) Add
                     -<= [ (treeSU Send . dataId) "x",
@@ -195,7 +198,7 @@ treeMultipleFunctionsThree = testCase name assertion
                         ]
                 ],
           (treeSU Return . Keyword) Fish -- This is the current error
-            -<= [ (treeSU Return . dataId) "two",
+            -<= [ (treeSU Send . dataId) "two",
                   (treeSU Send . dataId) "x",
                   (treeSU Return . Operator) Add
                     -<= [ (treeSU Send . dataId) "x",
@@ -217,7 +220,7 @@ treeSubFunctionsOne = testCase name assertion
     a =
       attachToMain
         [ (treeSU Return . Keyword) Fish
-            -<= [ (treeSU Return . dataId) "fact",
+            -<= [ (treeSU Send . dataId) "fact",
                   (treeSU Send . dataId) "n",
                   (treeSU Send . Keyword) Fish
                     -<= [ (treeSU Send . dataId) "sub_fact",
@@ -264,7 +267,7 @@ treeSubFunctionsTwo = testCase name assertion
     a =
       attachToMain
         [ (treeSU Return . Keyword) Fish
-            -<= [ (treeSU Return . dataId) "fact",
+            -<= [ (treeSU Send . dataId) "fact",
                   (treeSU Send . dataId) "n",
                   (treeSU Send . Keyword) Fish
                     -<= [ (treeSU Send . dataId) "sub_fact",
@@ -294,7 +297,7 @@ treeSubFunctionsTwo = testCase name assertion
                         ]
                 ],
           (treeSU Return . Keyword) Fish -- This will probably be where it fails
-            -<= [ (treeSU Return . dataId) "fact_",
+            -<= [ (treeSU Send . dataId) "fact_",
                   (treeSU Send . dataId) "n_",
                   (treeSU Send . Keyword) Fish
                     -<= [ (treeSU Send . dataId) "sub_fact_",
@@ -347,7 +350,7 @@ treeFunctionWithSwimExecutionOne = testCase name assertion
     a =
       attachToMain
         [ (treeSU Return . Keyword) Fish
-            -<= [ (treeSU Return . dataId) "fact",
+            -<= [ (treeSU Send . dataId) "fact",
                   (treeSU Send . dataId) "n",
                   (treeSU Send . Keyword) Fish
                     -<= [ (treeSU Send . dataId) "sub_fact",
@@ -402,7 +405,7 @@ treeFunctionWithSwimExecutionTwo = testCase name assertion
     a =
       attachToMain
         [ (treeSU Return . Keyword) Fish
-            -<= [ (treeSU Return . dataId) "fact",
+            -<= [ (treeSU Send . dataId) "fact",
                   (treeSU Send . dataId) "n",
                   (treeSU Send . Keyword) Fish
                     -<= [ (treeSU Send . dataId) "sub_fact",
