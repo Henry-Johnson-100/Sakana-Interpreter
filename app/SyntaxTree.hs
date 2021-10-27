@@ -23,7 +23,13 @@ import qualified Data.List (intercalate)
 import qualified Data.Maybe as DMaybe (Maybe (Just, Nothing), fromJust)
 import qualified Exception.Base as Exception
   ( ExceptionSeverity (Fatal, NonFatal),
-    ExceptionType (DeclarationMissingId, FailedToParseMalformedOutputException, FailedToParseStreamException, FreeTokensInForeignScope, General),
+    ExceptionType
+      ( DeclarationMissingId,
+        FailedToParseMalformedOutputException,
+        FailedToParseStreamException,
+        FreeTokensInForeignScope,
+        General
+      ),
     newException,
     raiseError,
   )
@@ -138,7 +144,8 @@ runParser m s = case parse m s of
             ++ (unwords . map (Lexer.fromToken . Lexer.unit)) (rs)
         )
         Exception.Fatal
-  other -> --Need to find a way to make runParser give errors that are useful
+  other ->
+    --Need to find a way to make runParser give errors that are useful
     Exception.raiseError $
       Exception.newException
         Exception.FailedToParseMalformedOutputException
@@ -236,7 +243,11 @@ swimExp st = do
   swim <- keyword K.Swim
   procs <- many (bracketContainingExpr B.Send <|> fishSend)
   value <- bracketContainingExpr B.Return
-  return ((Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit B.Return) swim -<= procs -<- value)
+  return
+    ( (Tree.tree . flip SyntaxTree.tokenUnitToSyntaxUnit B.Return) swim
+        -<= procs
+        -<- value
+    )
 
 fishSend :: Parser (SyntaxTree.SyntaxTree)
 fishSend = do

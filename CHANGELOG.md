@@ -48,3 +48,15 @@
 * Fin arguments can now be executed procedurally with a swim keyword as well.
 * Can now pass command line arguments into a Sakana program. Retrieve the arg string
 by calling the function ```_args```
+
+### 0.2.1.1 -- 2021-10-27
+
+* Rewrote the parser for converting tokens to trees using parser combinators.
+    * I am in awe with how powerful those are.
+* Adjusted the syntax of ```swim``` so that, inside a function, or in the main scope,
+it does not have to be wrapped in a return fish. This will help cut down on brackets inside
+function definitions.
+* Error checking in the parser is almost non-existant and the current error messages
+do not provide nearly enough information, but I think I will save those for a future update.
+* Created a formal grammar diagram in the README describing the current structures that the 
+parser looks for when parsing a Sakana program.
