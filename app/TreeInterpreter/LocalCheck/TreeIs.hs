@@ -106,7 +106,7 @@ standardLibCall tr =
     && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
   where
     funcIdInStdLibList =
-      flip elem ["trout", "dolphin"]
+      flip elem ["trout", "dolphin", "read"]
         . D.fromData
         . DMaybe.fromJust
         . Lexer.baseData

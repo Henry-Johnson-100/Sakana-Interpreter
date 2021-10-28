@@ -19,6 +19,7 @@ data ExceptionType
   | FreeTokensInForeignScope
   | DeclarationMissingId
   | UndefinedOperatorBehavior
+  | GeneralTypeError
   | OperatorTypeError
   | SymbolNotFound
   | MissingPositionalArguments

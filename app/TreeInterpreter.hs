@@ -66,6 +66,7 @@ import qualified Exception.Base as Exception
   ( ExceptionSeverity (Debug, Fatal),
     ExceptionType
       ( General,
+        GeneralTypeError,
         MissingPositionalArguments,
         OperatorTypeError,
         SymbolIsAlreadyBound,
@@ -105,6 +106,8 @@ import qualified Token.Data as D
     fromData,
     isNumeric,
     isPrimitive,
+    isString,
+    readData,
     unBoolean,
     unNum,
     unString,
@@ -269,6 +272,10 @@ execute env tr
           env
           ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
       "dolphin" -> dolphin
+      "read" ->
+        sakanaRead
+          env
+          ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
       _ -> return D.Null
   | Check.TreeIs.functionCall tr =
     executeFunctionCall env tr
@@ -564,6 +571,34 @@ fishSend env encTree = do
     return $
       createSymbolPairFromArgTreePair (encTree) encrustedSymbolData
   return ([encrustedSymbolPair] : env)
+
+sakanaRead :: Env.EnvironmentStack -> SyntaxTree.SyntaxTree -> IO D.Data
+sakanaRead env tr = do
+  valueResult <- execute env tr
+  let unstringedValue = D.unString valueResult
+  DMaybe.maybe
+    (sakanaReadException valueResult "Value is not a string.")
+    (return . readSakanaData)
+    (unstringedValue)
+  where
+    readSakanaData d =
+      if D.isPrimitive maybePrimData
+        then maybePrimData
+        else
+          sakanaReadException
+            d
+            ( "Value is no the correct format of a Sakana Primitive."
+                ++ "\n\tMust be a double, string or boolean."
+            )
+      where
+        maybePrimData = D.readData d
+    sakanaReadException d supplementalMessage =
+      Exception.raiseError $
+        Exception.newException
+          Exception.GeneralTypeError
+          []
+          ("Error reading string: " ++ show d ++ "\n\t" ++ supplementalMessage)
+          Exception.Fatal
 
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------

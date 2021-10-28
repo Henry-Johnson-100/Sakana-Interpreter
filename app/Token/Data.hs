@@ -5,6 +5,7 @@ module Token.Data
     fromData,
     isPrimitive,
     isNumeric,
+    isString,
     unNum,
     unString,
     unBoolean,
@@ -82,6 +83,10 @@ isPrimitive d = any (d `LikeClass.like`) [Num 0.0, String "", Boolean True, Null
 
 isNumeric :: Data -> Bool
 isNumeric d = any (d `LikeClass.like`) [Num 0.0, Null]
+
+isString :: Data -> Bool
+isString (String _) = True
+isString _ = False
 
 unNum :: Data -> Maybe Double
 unNum (Num x) = Just x

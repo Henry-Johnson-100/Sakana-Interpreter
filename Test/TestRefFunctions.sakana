@@ -1,45 +1,12 @@
-fish and
-  >(x)>
-  >(y)>
-  <(
-    fin
-    >(x)>
-    >(y)>
-    >(False)>
-  )<
-
-fish or
-  >(x)>
-  >(y)>
-  <(
-    fin
-    >(x)>
-    >(True)>
-    >(y)>
-  )<
-
-fish factorial
+fish main
   >(n)>
-  >(
-    fish fact_
-      >(n)>
-      >(prd)>
-      swim
-        >(new_n <(- >(n)> >(1)>)<)>
-        >(new_prd <(* >(prd)> >(n)>)<)>
-        <(
-          fin
-          >(<= >(n)> >(0)>)>
-          >(prd)>
-          >(fact_ >(new_n)> >(new_prd)>)>
-        )<
-  )>
-  swim
-  >(trout >("computing the factorial of: ")>)>
-  >(trout >(n)>)>
-  <(fact_ >(n)> >(1)>)<
+  <(read >(n)>)<
 
 swim
->(trout >("Running: ")>)>
->(trout >("")>)>
-<(factorial >(30)>)<
+>(trout >("gib a num")>)>
+>(a <(read >(dolphin)>)<)>
+>(trout >("gib another")>)>
+>(b <(read >(dolphin)>)<)>
+<(
+  + >(a)> >(b)>
+)<
