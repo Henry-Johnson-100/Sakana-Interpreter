@@ -61,7 +61,7 @@ do not provide nearly enough information, but I think I will save those for a fu
 * Created a formal grammar diagram in the README describing the current structures that the 
 parser looks for when parsing a Sakana program.
 
-#### 0.2.1.2 -- YYYY-MM-DD
+#### 0.2.1.2 -- 2021-10-28
 
 * Added more std_lib functions.
     * ```read```
