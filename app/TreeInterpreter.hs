@@ -276,6 +276,8 @@ execute env tr
         sakanaRead
           env
           ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
+      "floor" ->
+        sakanaFloor env ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
       _ -> return D.Null
   | Check.TreeIs.functionCall tr =
     executeFunctionCall env tr
@@ -397,12 +399,6 @@ calledFunction env =
 calledFunctionSymbol :: EnvironmentStack -> Tree.Tree SyntaxUnit -> SymbolPair
 calledFunctionSymbol env =
   lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
-
---Boolean comparison functions used primarily for function guards.------------------------
-------------------------------------------------------------------------------------------
-----On Node-------------------------------------------------------------------------------
-
-----On Tree-------------------------------------------------------------------------------
 
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -598,6 +594,23 @@ sakanaRead env tr = do
           Exception.GeneralTypeError
           []
           ("Error reading string: " ++ show d ++ "\n\t" ++ supplementalMessage)
+          Exception.Fatal
+
+sakanaFloor :: Env.EnvironmentStack -> SyntaxTree.SyntaxTree -> IO D.Data
+sakanaFloor env tr = do
+  valueResult <- execute env tr
+  let maybeNum = D.unNum valueResult
+  DMaybe.maybe
+    (sakanaFloorError valueResult)
+    ((return . D.Num . fromIntegral . floor))
+    (maybeNum)
+  where
+    sakanaFloorError n =
+      Exception.raiseError $
+        Exception.newException
+          Exception.GeneralTypeError
+          []
+          ("Error calculating floor, not a Num" ++ show n)
           Exception.Fatal
 
 ----testing-------------------------------------------------------------------------------
