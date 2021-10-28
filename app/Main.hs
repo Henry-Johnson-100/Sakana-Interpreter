@@ -32,7 +32,7 @@ usingArgs args
       \\t-h, --help\n\
       \\t\tDisplays this help."
   | argsContainAny ["-v", "--version"] =
-    putStrLn $ "Sakana Interpeter Version: " ++ (showVersion (Version [0,2,1,1] []))
+    putStrLn $ "Sakana Interpeter Version: " ++ (showVersion (Version [0,2,1,2] []))
   | otherwise = interpretFileAndReturn (head args) ((unwords . Util.General.tail') args)
   where
     argsContainAny = any (`elem` args)

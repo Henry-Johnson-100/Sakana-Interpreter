@@ -60,3 +60,9 @@ function definitions.
 do not provide nearly enough information, but I think I will save those for a future update.
 * Created a formal grammar diagram in the README describing the current structures that the 
 parser looks for when parsing a Sakana program.
+
+#### 0.2.1.2 -- YYYY-MM-DD
+
+* Added more std_lib functions.
+    * ```read```
+    * ```floor```

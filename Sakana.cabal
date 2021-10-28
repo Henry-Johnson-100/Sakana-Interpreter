@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               Sakana
-version:            0.2.1.1
+version:            0.2.1.2
 
 -- A short (one-line) description of the package.
 synopsis: A syntax-tree based interpreter for the Sakana functional language.
@@ -52,7 +52,6 @@ executable Sakana
     build-depends:    
         base >= 4.8.0.0
       , ghc-prim >= 0.5.0
-      , parsec == 3.1.14.0
       --, tasty >= 0.7 && < 1.4.1
       --, tasty-hunit ^>=0.10.0.3
     hs-source-dirs:   app
@@ -85,7 +84,6 @@ test-suite TreeInterpreter
       , ghc-prim >= 0.5.0 
       , tasty >= 0.7 && < 1.4.1
       , tasty-hunit ^>=0.10.0.3
-      , parsec == 3.1.14.0
 
 test-suite Token_Util_EagerCollapsible
     default-language:
@@ -104,7 +102,6 @@ test-suite Token_Util_EagerCollapsible
         base >= 4.8.0.0
       , tasty >= 0.7 && < 1.4.1
       , tasty-hunit ^>=0.10.0.3
-      , parsec == 3.1.14.0
 
 test-suite SyntaxTree
     default-language:
@@ -139,7 +136,6 @@ test-suite SyntaxTree
       , ghc-prim >= 0.5.0
       , tasty >= 0.7 && < 1.4.1
       , tasty-hunit ^>=0.10.0.3
-      , parsec == 3.1.14.0
 
 -- test-suite Token_Data
 --     default-language:

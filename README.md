@@ -1,4 +1,4 @@
-# Sakana - 0.2.1.1
+# Sakana - 0.2.1.2
 
 A syntax-tree based interpreter implementation for the Sakana programming language.
 
@@ -113,6 +113,15 @@ are provided to any given ```fin``` expression.
     - Usage: ```dolphin >()>```
         - Where the function call itself will be replaced with a string of whatever the user entered.
         - Analagous to ```dolphin = hGetLine stdin``` in Haskell.
+- Read
+    - Read a Sakana primitive data type from a string.
+        - Output is polymorphic so it will output either a String, Num, or Boolean depending on what the input looks like.
+        - Throws an error if the input can not be read to a type.
+    - Usage: ```read >(str)>``` 
+- Floor
+    - Calculate the floor of a Num
+    - Usage: ```floor >(n)>```
+
 
 # Basic Arithmetic
 
