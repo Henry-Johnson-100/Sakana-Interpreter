@@ -6,6 +6,6 @@ main = do
   args <- getArgs
   fileHandle <- openFile (head args) ReadMode
   fileStream <- hGetContents fileHandle
-  parseResult <- return $ runSakanaParser (head args) (fileStream)
+  parseResult <- return $ generateSyntaxTreeMain (head args) (fileStream)
   putStrLn (show parseResult)
   hClose fileHandle

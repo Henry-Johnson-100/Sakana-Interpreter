@@ -1,10 +1,12 @@
 module SakanaParser
   ( SyntaxTree (..),
     SyntaxUnit (..),
-    runSakanaParser,
+    generateSyntaxTreeMain,
+    generateSyntaxTree,
   )
 where
 
+import Data.Either as DEither
 import Data.Functor.Identity (Identity)
 import Data.List as DList
 import Data.Maybe as DMaybe
@@ -340,5 +342,11 @@ runSakanaParser :: SourceName -> [Char] -> Either ParseError [SyntaxTree]
 runSakanaParser srcName contents = do
   eitherDocTreeOrError <- Prs.runParser program () srcName contents
   return eitherDocTreeOrError
+
+generateSyntaxTreeMain :: SourceName -> [Char] -> Tree SyntaxUnit
+generateSyntaxTreeMain src = (head . DEither.fromRight [Tree.Empty] . runSakanaParser src)
+
+generateSyntaxTree :: [Char] -> Tree SyntaxUnit
+generateSyntaxTree str = head $ DEither.fromRight ([Tree.Empty]) (runSakanaParser "" str)
 
 runSimpleParse = parseTest program
