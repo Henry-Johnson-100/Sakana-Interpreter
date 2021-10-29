@@ -40,6 +40,8 @@ type SyntaxTree = Tree.Tree SyntaxUnit
 
 type SakanaTokenParser u = ParsecT [Char] u Identity Token
 
+type SakanaTreeParser u = ParsecT [Char] u Identity [SyntaxTree]
+
 genericSyntaxUnit :: Token -> SyntaxUnit
 genericSyntaxUnit t = SyntaxUnit t 0 B.Return
 
@@ -57,9 +59,12 @@ dataDecimal = do
 
 dataDouble :: SakanaTokenParser u
 dataDouble = do
+  negative <- Prs.optionMaybe (Prs.char '-')
   num <- (many1 Prs.digit)
   maybeDecimal <- Prs.optionMaybe dataDecimal
-  let justNumStr = DMaybe.maybe (num) (num ++) maybeDecimal
+  let justNumStr =
+        (DMaybe.maybe [] (\x -> id x : []) negative)
+          ++ (DMaybe.maybe (num) (num ++) maybeDecimal)
   (return . Data . Num . read) justNumStr
 
 dataString :: SakanaTokenParser u
@@ -158,3 +163,6 @@ fin = do
   Prs.string "fin"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
   return (Control C.Fin)
+
+expr :: SakanaTreeParser u
+expr = return [Tree.Empty]
