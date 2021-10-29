@@ -1,5 +1,8 @@
 module SakanaParser
-  ( SyntaxTree (..),
+  ( Token (..),
+    PacketUnit (..),
+    TokenUnit (..),
+    SyntaxTree (..),
     SyntaxUnit (..),
     generateSyntaxTreeMain,
     generateSyntaxTree,
@@ -8,13 +11,24 @@ module SakanaParser
     nthChildMeetsCondition,
     setContext,
     tokenUnitToSyntaxUnit,
+    fromToken,
+    like,
+    baseData,
+    getTokenBracketScopeType,
+    genericKeyword,
+    genericControl,
+    genericOperator,
+    genericBracket,
+    genericData,
+    dataTokenIsId,
+    keywordTokenIsDeclarationRequiringId,
   )
 where
 
 import qualified Data.Either as DEither (fromRight)
 import qualified Data.Functor.Identity as DFId (Identity)
 import qualified Data.List as DList (foldl')
-import qualified Data.Maybe as DMaybe (maybe)
+import qualified Data.Maybe as DMaybe (Maybe (Just, Nothing), maybe)
 import Text.Parsec ((<|>))
 import qualified Text.Parsec as Prs
   ( ParseError,
@@ -39,11 +53,12 @@ import qualified Text.Parsec as Prs
     string,
     try,
   )
-import qualified Token.Bracket as B (BracketTerminal (..), ScopeType (..))
-import qualified Token.Control as C (Control (..))
-import qualified Token.Data as D (Data (Id, Null, String), readData)
-import qualified Token.Keyword as K (Keyword (Fish, Swim))
-import qualified Token.Operator as O (Operator, readOp)
+import Token.Bracket as B (BracketTerminal (..), ScopeType (..), fromBracket)
+import Token.Control as C (Control (..), fromControl)
+import Token.Data as D (Data (Id, Null, Num, String), fromData, readData)
+import Token.Keyword as K (Keyword (Fish, Swim), fromKeyword, isDeclarationRequiringId)
+import Token.Operator as O (Operator (Add), fromOp, readOp)
+import Util.Like as LikeClass (Like (..))
 import Util.Tree ((-<=))
 import qualified Util.Tree as Tree
   ( Tree (Empty),
@@ -59,6 +74,56 @@ data Token
   | Keyword K.Keyword
   | Operator O.Operator
   deriving (Show, Read, Eq)
+
+fromToken :: Token -> String
+fromToken (Bracket st bt) = B.fromBracket st bt
+fromToken (Control control) = C.fromControl control
+fromToken (Data d) = D.fromData d
+fromToken (Keyword keyword) = K.fromKeyword keyword
+fromToken (Operator operator) = O.fromOp operator
+
+instance LikeClass.Like Token where
+  like (Bracket _ _) (Bracket _ _) = True
+  like (Control _) (Control _) = True
+  like (Data _) (Data _) = True
+  like (Keyword _) (Keyword _) = True
+  like (Operator _) (Operator _) = True
+  like _ _ = False
+  notLike a b = not $ like a b
+
+baseData :: Token -> DMaybe.Maybe D.Data
+baseData (Data d) = DMaybe.Just d
+baseData _ = DMaybe.Nothing
+
+getTokenBracketScopeType :: Token -> B.ScopeType
+getTokenBracketScopeType (Bracket st _) = st
+
+genericKeyword :: Token
+genericKeyword = Keyword K.Fish
+
+genericControl :: Token
+genericControl = Control C.Fin
+
+genericOperator :: Token
+genericOperator = Operator O.Add
+
+genericBracket :: Token
+genericBracket = Bracket B.Send B.Open
+
+genericData :: Token
+genericData = Data (D.Num 0)
+
+dataTokenIsId :: Token -> Bool
+dataTokenIsId (Data (D.Id _)) = True
+dataTokenIsId _ = False
+
+keywordTokenIsDeclarationRequiringId :: Token -> Bool
+keywordTokenIsDeclarationRequiringId t =
+  DMaybe.maybe False (K.isDeclarationRequiringId) (baseKeyword t)
+
+baseKeyword :: Token -> DMaybe.Maybe K.Keyword
+baseKeyword (Keyword k) = DMaybe.Just k
+baseKeyword _ = DMaybe.Nothing
 
 data PacketUnit a = PacketUnit
   { unit :: a,

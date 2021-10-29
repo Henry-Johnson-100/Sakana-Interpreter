@@ -1,6 +1,6 @@
 import Data.Version (showVersion, Version(..))
-import Lexer (tokenize)
-import SyntaxTree (generateSyntaxTree)
+-- import SyntaxTree (generateSyntaxTree)
+import SakanaParser
 import System.Environment (getArgs)
 import System.IO
   ( IOMode (ReadMode),
@@ -42,7 +42,7 @@ interpretFileAndReturn filePathToInterpret sakanaArgs = do
   fileHandle <- openFile filePathToInterpret ReadMode
   fileTree <-
     hGetContents fileHandle
-      >>= return . generateSyntaxTree . tokenize
+      >>= return . generateSyntaxTree
   executeMain
     ((return . getMainEnvironmentStack) fileTree)
     ((return . getMainExecutionTrees) fileTree)

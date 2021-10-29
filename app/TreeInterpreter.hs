@@ -1,6 +1,6 @@
 module TreeInterpreter
   ( EnvironmentStack (..),
-    calct',
+    -- calct',
     executeMain,
     execute,
     getMainExecutionTrees,
@@ -76,27 +76,11 @@ import qualified Exception.Base as Exception
     newException,
     raiseError,
   )
-import qualified Lexer
-  ( Token (Control, Data, Keyword, Operator),
-    TokenUnit,
-    baseData,
-    dataTokenIsId,
-    fromToken,
-    genericData,
-    genericOperator,
-    keywordTokenIsDeclarationRequiringId,
-    tokenize,
-  )
-import SyntaxTree (SyntaxTree, setContext)
-import SyntaxTree as SyntaxUnit (SyntaxUnit (..))
-import qualified SyntaxTree
-  ( SyntaxTree,
-    SyntaxUnit (SyntaxUnit, line, token),
-    generateSyntaxTree,
-    genericSyntaxUnit,
-    getSyntaxAttributeFromTree,
-  )
-import qualified SyntaxTree as SyntaxUnit (SyntaxUnit (context, line, token))
+import SakanaParser (SyntaxTree, setContext)
+-- import SakanaParser as SyntaxUnit (SyntaxUnit (..))
+import qualified SakanaParser
+
+import qualified SakanaParser as SyntaxUnit (SyntaxUnit (context, line, token))
 import System.Environment (getArgs)
 import System.IO
 import qualified Token.Bracket as B (ScopeType (Return, Send))
@@ -184,13 +168,13 @@ instance Truthy D.Data where
 
 --Evaluation functions used to take a tree and return some FISH value.--------------------
 ------------------------------------------------------------------------------------------
-getMainEnvironmentStack :: SyntaxTree -> EnvironmentStack
+getMainEnvironmentStack :: SakanaParser.SyntaxTree -> EnvironmentStack
 getMainEnvironmentStack = makeEnvironmentStackFrame . Tree.treeChildren
 
 -- -- | Gets the last tree in 'main' that can be executed.
 -- getMainExecutionTree :: SyntaxTree -> SyntaxTree
 -- getMainExecutionTree =
---   DMaybe.fromMaybe ((Tree.tree . SyntaxTree.genericSyntaxUnit) (Lexer.Data (D.Null)))
+--   DMaybe.fromMaybe ((Tree.tree . SyntaxTree.genericSyntaxUnit) (SakanaParser.Data (D.Null)))
 --     . last'
 --     . filter (treeIsExecutable)
 --     . Tree.treeChildren
@@ -224,17 +208,17 @@ executeMain envio trio sakanaIOArgs = do
       ( addSymbolToEnvironmentStack env . Env.makeSymbolPair
           . (Tree.-<-)
             ( ( Tree.tree
-                  . SyntaxTree.setContext B.Send
-                  . SyntaxTree.genericSyntaxUnit
-                  . Lexer.Data
+                  . SakanaParser.setContext B.Send
+                  . SakanaParser.genericSyntaxUnit
+                  . SakanaParser.Data
                   . D.Id
               )
                 "_args"
             )
           . Tree.tree
-          . SyntaxTree.setContext B.Return
-          . SyntaxTree.genericSyntaxUnit
-          . Lexer.Data
+          . SakanaParser.setContext B.Return
+          . SakanaParser.genericSyntaxUnit
+          . SakanaParser.Data
           . D.String
       )
         args
@@ -261,7 +245,7 @@ execute env tr
   | Check.TreeIs.standardLibCall tr =
     case ( D.fromData
              . DMaybe.fromJust
-             . Lexer.baseData
+             . SakanaParser.baseData
              . SyntaxUnit.token
              . DMaybe.fromJust
              . Tree.treeNode
@@ -355,7 +339,7 @@ evaluateOperator env tr = do
                   ((O.fromOp . getNodeOperator) tr)
                   (map show [argx, argy])
   where
-    getNodeOperator tr' = case getNodeToken tr' of (Lexer.Operator o) -> o; _ -> O.Eq
+    getNodeOperator tr' = case getNodeToken tr' of (SakanaParser.Operator o) -> o; _ -> O.Eq
     justUnNum = DMaybe.fromJust . D.unNum
     justUnString = DMaybe.fromJust . D.unString
     justUnBoolean = DMaybe.fromJust . D.unBoolean
@@ -363,7 +347,7 @@ evaluateOperator env tr = do
       Exception.raiseError $
         Exception.newException
           Exception.UndefinedOperatorBehavior
-          [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
+          [SakanaParser.getSyntaxAttributeFromTree SyntaxUnit.line tr]
           ( "The operator \'" ++ opString
               ++ "\' does not have defined usage for the types of: \'"
               ++ DList.intercalate "and" argStrAndType
@@ -374,7 +358,7 @@ evaluateOperator env tr = do
       Exception.raiseError $
         Exception.newException
           Exception.OperatorTypeError
-          [SyntaxTree.getSyntaxAttributeFromTree SyntaxUnit.line tr]
+          [SakanaParser.getSyntaxAttributeFromTree SyntaxUnit.line tr]
           ( "The operator \'" ++ opString
               ++ "\' cannot be aaplied to the arguments of incompatible types: "
               ++ unwords argStrAndType
@@ -396,7 +380,7 @@ calledFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree
 calledFunction env =
   symbolVal . calledFunctionSymbol env
 
-calledFunctionSymbol :: EnvironmentStack -> Tree.Tree SyntaxUnit -> SymbolPair
+calledFunctionSymbol :: EnvironmentStack -> SakanaParser.SyntaxTree -> SymbolPair
 calledFunctionSymbol env =
   lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
 
@@ -407,10 +391,10 @@ getNodeTokenBaseData :: SyntaxTree -> D.Data
 getNodeTokenBaseData =
   Tree.maybeOnTreeNode
     D.Null
-    (DMaybe.fromMaybe D.Null . (Lexer.baseData . SyntaxUnit.token))
+    (DMaybe.fromMaybe D.Null . (SakanaParser.baseData . SyntaxUnit.token))
 
-getNodeToken :: SyntaxTree -> Lexer.Token
-getNodeToken = Tree.maybeOnTreeNode (Lexer.Data D.Null) SyntaxUnit.token
+getNodeToken :: SyntaxTree -> SakanaParser.Token
+getNodeToken = Tree.maybeOnTreeNode (SakanaParser.Data D.Null) SyntaxUnit.token
 
 getOperatorArgs :: EnvironmentStack -> SyntaxTree -> (IO D.Data, IO D.Data)
 getOperatorArgs env tr =
@@ -454,7 +438,7 @@ prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration = do
 -- where
 -- getFunctionDeclarationProcTrees tr =
 --   if Tree.nodeStrictlySatisfies
---     (Lexer.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token)
+--     (SakanaParser.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token)
 --     tr
 --     then (filter (not . treeIsPositionalArg) . tail' . Tree.treeChildren) tr
 --     else (filter (not . treeIsPositionalArg) . Tree.treeChildren) tr
@@ -494,7 +478,7 @@ makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
           DMaybe.maybe table (: table) (maybeTreeToSymbolPair table dfarg)
     makeSymbolTableFromFuncCall mainExEnv (fromJustSymbolTable) cfargs dfargs
 
-missingPositionalArgumentException :: [Tree.Tree SyntaxUnit] -> a2
+missingPositionalArgumentException :: [SakanaParser.SyntaxTree ] -> a2
 missingPositionalArgumentException fdas =
   Exception.raiseError $
     Exception.newException
@@ -510,9 +494,9 @@ createSymbolPairFromArgTreePair dfarg' cfargVal' =
   makeSymbolPair $
     (Tree.tree . DMaybe.fromJust . Tree.treeNode) dfarg'
       Tree.-<- ( Tree.tree
-                   . SyntaxTree.setContext B.Return
-                   . SyntaxTree.genericSyntaxUnit
-                   . Lexer.Data
+                   . SakanaParser.setContext B.Return
+                   . SakanaParser.genericSyntaxUnit
+                   . SakanaParser.Data
                )
         cfargVal'
 
@@ -550,7 +534,7 @@ fin env cond forTrue forFalse = do
     -- or a Null value will be
     -- returned.
     recontextualizeFinChild :: SyntaxTree -> SyntaxTree
-    recontextualizeFinChild = flip Tree.mutateTreeNode (SyntaxTree.setContext B.Return)
+    recontextualizeFinChild = flip Tree.mutateTreeNode (SakanaParser.setContext B.Return)
 
 trout :: EnvironmentStack -> SyntaxTree -> IO D.Data
 trout env toPrint = (execute env toPrint >>= sakanaPrint) >> return D.Null
@@ -568,7 +552,7 @@ fishSend env encTree = do
       createSymbolPairFromArgTreePair (encTree) encrustedSymbolData
   return ([encrustedSymbolPair] : env)
 
-sakanaRead :: Env.EnvironmentStack -> SyntaxTree.SyntaxTree -> IO D.Data
+sakanaRead :: Env.EnvironmentStack -> SakanaParser.SyntaxTree -> IO D.Data
 sakanaRead env tr = do
   valueResult <- execute env tr
   let unstringedValue = D.unString valueResult
@@ -596,7 +580,7 @@ sakanaRead env tr = do
           ("Error reading string: " ++ show d ++ "\n\t" ++ supplementalMessage)
           Exception.Fatal
 
-sakanaFloor :: Env.EnvironmentStack -> SyntaxTree.SyntaxTree -> IO D.Data
+sakanaFloor :: Env.EnvironmentStack -> SakanaParser.SyntaxTree -> IO D.Data
 sakanaFloor env tr = do
   valueResult <- execute env tr
   let maybeNum = D.unNum valueResult
@@ -616,75 +600,75 @@ sakanaFloor env tr = do
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
-s' :: [Char]
-s' =
-  "fish test >(pos)> <(swim <(pos)<)< swim <(test >(10)>)<"
+-- s' :: [Char]
+-- s' =
+--   "fish test >(pos)> <(swim <(pos)<)< swim <(test >(10)>)<"
 
-t' :: [Lexer.TokenUnit]
-t' = Lexer.tokenize s'
+-- t' :: [SakanaParser.TokenUnit]
+-- t' = SakanaParser.tokenize s'
 
-pt' :: SyntaxTree
-pt' = SyntaxTree.generateSyntaxTree t'
+-- pt' :: SyntaxTree
+-- pt' = SyntaxTree.generateSyntaxTree t'
 
-pt'' = Tree.treeChildren pt'
+-- pt'' = Tree.treeChildren pt'
 
-env' = getMainEnvironmentStack pt'
+-- env' = getMainEnvironmentStack pt'
 
-met' = getMainExecutionTrees pt'
+-- met' = getMainExecutionTrees pt'
 
-calct' :: String -> Tree.Tree SyntaxUnit
-calct' =
-  DMaybe.fromJust . Util.General.head' . Tree.treeChildren
-    . SyntaxTree.generateSyntaxTree
-    . Lexer.tokenize
+-- calct' :: String -> Tree.Tree SyntaxUnit
+-- calct' =
+--   DMaybe.fromJust . Util.General.head' . Tree.treeChildren
+--     . SyntaxTree.generateSyntaxTree
+--     . SakanaParser.tokenize
 
-ex' s = do
-  let docTree = SyntaxTree.generateSyntaxTree . Lexer.tokenize $ s
-  let mainExEnv = return . getMainEnvironmentStack $ docTree
-  let mainExTr = return . getMainExecutionTrees $ docTree
-  executeMain mainExEnv mainExTr
+-- ex' s = do
+--   let docTree = SyntaxTree.generateSyntaxTree . SakanaParser.tokenize $ s
+--   let mainExEnv = return . getMainEnvironmentStack $ docTree
+--   let mainExTr = return . getMainExecutionTrees $ docTree
+--   executeMain mainExEnv mainExTr
 
--- calc' :: String -> D.Data
--- calc' = evaluateNode . calct'
+-- -- calc' :: String -> D.Data
+-- -- calc' = evaluateNode . calct'
 
-fishEnv =
-  "fish to_bool\
-  \ >(x)>\
-  \  <(\
-  \  fin\
-  \  >(x)>\
-  \  >(True)>\
-  \  >(False)>\
-  \ )<\
-  \fish and\
-  \ >(x)>\
-  \ >(y)>\
-  \  <(\
-  \   fin\
-  \  >(x)>\
-  \ >(to_bool >(y)>)>\
-  \ >(False)>\
-  \)<\
-  \fish not\
-  \ >(x)>\
-  \ <(\
-  \ fin\
-  \ >(to_bool >(x)>)>\
-  \  >(False)>\
-  \  >(True)>\
-  \ )<\
-  \fish or\
-  \ >(x)>\
-  \  >(y)>\
-  \<(\
-  \  fin\
-  \ >(x)>\
-  \ >(True)>\
-  \  >(to_bool >(y)>)>\
-  \ )<"
+-- fishEnv =
+--   "fish to_bool\
+--   \ >(x)>\
+--   \  <(\
+--   \  fin\
+--   \  >(x)>\
+--   \  >(True)>\
+--   \  >(False)>\
+--   \ )<\
+--   \fish and\
+--   \ >(x)>\
+--   \ >(y)>\
+--   \  <(\
+--   \   fin\
+--   \  >(x)>\
+--   \ >(to_bool >(y)>)>\
+--   \ >(False)>\
+--   \)<\
+--   \fish not\
+--   \ >(x)>\
+--   \ <(\
+--   \ fin\
+--   \ >(to_bool >(x)>)>\
+--   \  >(False)>\
+--   \  >(True)>\
+--   \ )<\
+--   \fish or\
+--   \ >(x)>\
+--   \  >(y)>\
+--   \<(\
+--   \  fin\
+--   \ >(x)>\
+--   \ >(True)>\
+--   \  >(to_bool >(y)>)>\
+--   \ )<"
 
-fishCall str = (fishEnv ++ " swim") ++ ("<(" ++ str ++ ")<")
+-- fishCall str = (fishEnv ++ " swim") ++ ("<(" ++ str ++ ")<")
 
-fenv' = putStrLn . fPrintEnvironmentStack
+-- fenv' = putStrLn . fPrintEnvironmentStack
 
-io' tr = (Tree.ioPrintTree tr)
+-- io' tr = (Tree.ioPrintTree tr)

@@ -15,7 +15,7 @@ where
 
 import qualified Data.Maybe as DMaybe (fromJust, maybe)
 import qualified Lexer (Token (Keyword), baseData)
-import qualified SyntaxTree (SyntaxTree, SyntaxUnit (context, token))
+import qualified SakanaParser
 import qualified Token.Bracket as B (ScopeType (Return, Send))
 import qualified Token.Data as D (fromData)
 import qualified Token.Keyword as K (Keyword (Swim))
@@ -40,13 +40,13 @@ import qualified Util.Tree as Tree
 -- | For a fish like >(some_id <(***)<)>
 -- Where some_id should then be bound to the value *** in whatever scope immediately
 -- follows.
-sendingValueBinding :: SyntaxTree.SyntaxTree -> Bool
+sendingValueBinding :: SakanaParser.SyntaxTree -> Bool
 sendingValueBinding tr =
   symbolValueBinding tr
-    && Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxTree.context) tr
+    && Tree.nodeStrictlySatisfies ((B.Send ==) . SakanaParser.context) tr
 
 -- | ditto for this, I don't like it that much
-primitiveValueBinding :: SyntaxTree.SyntaxTree -> Bool
+primitiveValueBinding :: SakanaParser.SyntaxTree -> Bool
 primitiveValueBinding =
   Util.General.foldIdApplicativeOnSingleton
     all
@@ -55,7 +55,7 @@ primitiveValueBinding =
       primitivelyEvaluable . head . Tree.treeChildren
     ]
 
-primitivelyEvaluable :: SyntaxTree.SyntaxTree -> Bool
+primitivelyEvaluable :: SakanaParser.SyntaxTree -> Bool
 primitivelyEvaluable =
   Util.General.foldIdApplicativeOnSingleton
     any
@@ -68,17 +68,17 @@ primitivelyEvaluable =
 
 -- | A tree is a function call if and only if the base node is an id
 -- and it has no return children.
-functionCall :: SyntaxTree.SyntaxTree -> Bool
+functionCall :: SakanaParser.SyntaxTree -> Bool
 functionCall tr =
   Tree.nodeStrictlySatisfies Check.NodeIs.idNode tr
     && hasNoReturnChildren tr
   where
     hasNoReturnChildren =
       null
-        . filter (Tree.maybeOnTreeNode True ((B.Return ==) . SyntaxTree.context))
+        . filter (Tree.maybeOnTreeNode True ((B.Return ==) . SakanaParser.context))
         . Tree.treeChildren
 
-simpleValueBindingCall :: SyntaxTree.SyntaxTree -> Bool
+simpleValueBindingCall :: SakanaParser.SyntaxTree -> Bool
 simpleValueBindingCall tr =
   functionCall tr
     && ( null
@@ -87,20 +87,20 @@ simpleValueBindingCall tr =
        )
       tr
 
-executable :: SyntaxTree.SyntaxTree -> Bool
+executable :: SakanaParser.SyntaxTree -> Bool
 executable Tree.Empty = False
 executable tr =
   contextIsReturn tr
     && (functionCall tr || primitivelyEvaluable tr)
   where
-    contextIsReturn = Tree.nodeStrictlySatisfies ((B.Return ==) . SyntaxTree.context)
+    contextIsReturn = Tree.nodeStrictlySatisfies ((B.Return ==) . SakanaParser.context)
 
-positionalArg :: SyntaxTree.SyntaxTree -> Bool
+positionalArg :: SakanaParser.SyntaxTree -> Bool
 positionalArg tr =
   (null . Tree.treeChildren) tr
-    && Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxTree.context) tr
+    && Tree.nodeStrictlySatisfies ((B.Send ==) . SakanaParser.context) tr
 
-standardLibCall :: SyntaxTree.SyntaxTree -> Bool
+standardLibCall :: SakanaParser.SyntaxTree -> Bool
 standardLibCall tr =
   Tree.nodeStrictlySatisfies Check.NodeIs.dataToken tr
     && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
@@ -109,12 +109,12 @@ standardLibCall tr =
       flip elem ["trout", "dolphin", "read", "floor"]
         . D.fromData
         . DMaybe.fromJust
-        . Lexer.baseData
-        . SyntaxTree.token
+        . SakanaParser.baseData
+        . SakanaParser.token
 
-swim :: SyntaxTree.SyntaxTree -> Bool
+swim :: SakanaParser.SyntaxTree -> Bool
 swim tr =
-  Tree.nodeStrictlySatisfies ((Lexer.Keyword (K.Swim) ==) . SyntaxTree.token) tr
+  Tree.nodeStrictlySatisfies ((SakanaParser.Keyword (K.Swim) ==) . SakanaParser.token) tr
 
 -- | Can be stored in a symbol table.
 --  As of right now, storeable and executable are not opposites.
@@ -122,14 +122,14 @@ swim tr =
 --  yet it is also not executable
 --  but, named lambda functions: 'x <( >(m)> <(+ >(m)> >(1)>)<' for instance,
 --  are storeable and should be stored as normal value bindings.
-storeable :: SyntaxTree.SyntaxTree -> Bool
+storeable :: SakanaParser.SyntaxTree -> Bool
 storeable = Tree.nodeStrictlySatisfies Check.NodeIs.declarationRequiringId
 
 -- | For fish code that looks like:
 -- 'some_id <(***)<'
 -- where '***' is some wildcard value
 -- I would like to not have this as a feature in the language to be honest.
-symbolValueBinding :: SyntaxTree.SyntaxTree -> Bool
+symbolValueBinding :: SakanaParser.SyntaxTree -> Bool
 symbolValueBinding tr =
   Tree.nodeStrictlySatisfies Check.NodeIs.idNode tr
     && firstChildIsReturnContext tr
@@ -137,4 +137,4 @@ symbolValueBinding tr =
     firstChildIsReturnContext tr =
       case ((Util.General.head' . Tree.treeChildren) tr) >>= Tree.treeNode of
         Nothing -> False
-        Just x -> ((B.Return ==) . SyntaxTree.context) x
+        Just x -> ((B.Return ==) . SakanaParser.context) x

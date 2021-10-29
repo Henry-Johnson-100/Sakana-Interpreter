@@ -10,44 +10,44 @@ module TreeInterpreter.LocalCheck.NodeIs
 where
 
 import qualified Data.Maybe as DMaybe (maybe)
-import qualified Lexer
-  ( Token (Control, Data),
+import qualified SakanaParser
+  ( SyntaxUnit (SyntaxUnit, token),
+    Token (Control, Data),
     baseData,
     dataTokenIsId,
     genericData,
     genericOperator,
     keywordTokenIsDeclarationRequiringId,
   )
-import qualified SyntaxTree (SyntaxUnit (SyntaxUnit, token))
 import qualified Token.Control as C (Control (Fin))
 import qualified Token.Data as D (Data (Null), isPrimitive)
 import qualified Util.General (foldIdApplicativeOnSingleton)
 import qualified Util.Like as LikeClass (Like (like))
 
-dataToken :: SyntaxTree.SyntaxUnit -> Bool
-dataToken = LikeClass.like Lexer.genericData . SyntaxTree.token
+dataToken :: SakanaParser.SyntaxUnit -> Bool
+dataToken = LikeClass.like SakanaParser.genericData . SakanaParser.token
 
-nullNode :: SyntaxTree.SyntaxUnit -> Bool
-nullNode (SyntaxTree.SyntaxUnit (Lexer.Data (D.Null)) _ _) = True
+nullNode :: SakanaParser.SyntaxUnit -> Bool
+nullNode (SakanaParser.SyntaxUnit (SakanaParser.Data (D.Null)) _ _) = True
 nullNode _ = False
 
-dataTokenAndPrimitive :: SyntaxTree.SyntaxUnit -> Bool
+dataTokenAndPrimitive :: SakanaParser.SyntaxUnit -> Bool
 dataTokenAndPrimitive =
   Util.General.foldIdApplicativeOnSingleton
     all
     [ dataToken,
-      (DMaybe.maybe False D.isPrimitive) . Lexer.baseData . SyntaxTree.token
+      (DMaybe.maybe False D.isPrimitive) . SakanaParser.baseData . SakanaParser.token
     ]
 
-operator :: SyntaxTree.SyntaxUnit -> Bool
-operator = LikeClass.like Lexer.genericOperator . SyntaxTree.token
+operator :: SakanaParser.SyntaxUnit -> Bool
+operator = LikeClass.like SakanaParser.genericOperator . SakanaParser.token
 
-fin :: SyntaxTree.SyntaxUnit -> Bool
-fin = LikeClass.like (Lexer.Control C.Fin) . SyntaxTree.token
+fin :: SakanaParser.SyntaxUnit -> Bool
+fin = LikeClass.like (SakanaParser.Control C.Fin) . SakanaParser.token
 
-idNode :: SyntaxTree.SyntaxUnit -> Bool
-idNode = Lexer.dataTokenIsId . SyntaxTree.token
+idNode :: SakanaParser.SyntaxUnit -> Bool
+idNode = SakanaParser.dataTokenIsId . SakanaParser.token
 
-declarationRequiringId :: SyntaxTree.SyntaxUnit -> Bool
+declarationRequiringId :: SakanaParser.SyntaxUnit -> Bool
 declarationRequiringId =
-  Lexer.keywordTokenIsDeclarationRequiringId . SyntaxTree.token
+  SakanaParser.keywordTokenIsDeclarationRequiringId . SakanaParser.token
