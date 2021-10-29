@@ -28,7 +28,7 @@ import qualified Data.Either as DEither (fromRight)
 import qualified Data.Functor.Identity as DFId (Identity)
 import qualified Data.List as DList (foldl')
 import qualified Data.Maybe as DMaybe (Maybe (Just, Nothing), fromMaybe, maybe)
-import Text.Parsec ((<|>))
+import Text.Parsec ((<?>), (<|>))
 import qualified Text.Parsec as Prs
   ( ParseError,
     ParsecT,
@@ -40,6 +40,7 @@ import qualified Text.Parsec as Prs
     digit,
     getPosition,
     letter,
+    lower,
     many,
     many1,
     manyTill,
@@ -52,6 +53,7 @@ import qualified Text.Parsec as Prs
     spaces,
     string,
     try,
+    upper,
   )
 import qualified Token.Bracket as B
   ( BracketTerminal (..),
@@ -227,17 +229,26 @@ dataNull = do
 dataData :: SakanaTokenParser u
 dataData = Prs.try dataDouble <|> Prs.try dataString <|> Prs.try dataBoolean
 
+reservedWords :: Prs.ParsecT [Char] u DFId.Identity [Char]
+reservedWords =
+  Prs.string "fish"
+    <|> Prs.string "swim"
+    <|> Prs.string "True"
+    <|> Prs.string "False"
+    <|> Prs.string "fin"
+
 identifier :: SakanaTokenParser u
 identifier = do
   pos <- Prs.getPosition
   let ln = Prs.sourceLine pos
+  Prs.notFollowedBy reservedWords
   idPre <- Prs.many1 validIdCharacter
   idPost <- Prs.many validIdPostId
   let combinedIdStr = idPre ++ (concat idPost)
   (return . flip PacketUnit ln . Data . D.Id) combinedIdStr
   where
     validIdCharacter :: Prs.ParsecT [Char] u DFId.Identity Char
-    validIdCharacter = Prs.letter <|> Prs.char '_' <|> Prs.char '\''
+    validIdCharacter = Prs.letter <|> Prs.char '_' <|> Prs.char '\'' <?> ""
     validIdPostId = do
       dot <- Prs.count 1 (Prs.char '.')
       idPost <- Prs.many1 validIdCharacter
@@ -424,7 +435,7 @@ funcDeclArg :: SakanaTreeParser u
 funcDeclArg = do
   bracketSendOpen
   Prs.spaces
-  argstmnt <- Prs.try(funcDecl B.Send) <|> idTree B.Send
+  argstmnt <- Prs.try (funcDecl B.Send) <|> idTree B.Send
   Prs.spaces
   bracketSendClose
   Prs.spaces
@@ -460,7 +471,7 @@ program :: SakanaTreeParser u
 program = do
   stmnts <- (Prs.many . maybeSpaced . stmnt) B.Return
   Prs.spaces
-  toExecute <- Prs.optionMaybe $ (bracketContainingExpr B.Return) <|> swimExp
+  toExecute <- Prs.optionMaybe $ (bracketContainingExpr B.Return) <|> swimExp <|> expr B.Return
   let justExecuteTree = DMaybe.fromMaybe [] toExecute
   let progTree =
         [ (tokenUnitToTree B.Return)
@@ -482,19 +493,19 @@ generateSyntaxTree str = head $ DEither.fromRight ([Tree.Empty]) (runSakanaParse
 
 s' =
   "fish fact >(n)> >(fish sub_fact >(sub)> >(prd)> \
-        \swim\
-        \>(trout >(\"Printing something\")>)>\
-        \<(\
-        \fin >(<= >(sub)> >(0)>)>\
-        \>(\
-        \swim\
-        \>(trout >(\"prd\")>)>\
-        \<(prd)<\
-        \)>\
-        \>(sub_fact >(- >(sub)> >(1)>)> >(* >(sub)> >(prd)>)>)>\
-        \)<\
-        \)>\
-        \<(sub_fact >(30)> >(1)>)<"
+  \swim\
+  \>(trout >(\"Printing something\")>)>\
+  \<(\
+  \fin >(<= >(sub)> >(0)>)>\
+  \>(\
+  \swim\
+  \>(trout >(\"prd\")>)>\
+  \<(prd)<\
+  \)>\
+  \>(sub_fact >(- >(sub)> >(1)>)> >(* >(sub)> >(prd)>)>)>\
+  \)<\
+  \)>\
+  \<(sub_fact >(30)> >(1)>)<"
 
 test = Prs.parseTest program s'
 
