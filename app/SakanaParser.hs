@@ -280,6 +280,28 @@ funcCall st = do
   let funcCallTrees = [(tokenUnitToTree st) callId `foldAppendChildren` args]
   return funcCallTrees
 
+funcDeclArg :: SakanaTreeParser u
+funcDeclArg = do
+  bracketSendOpen
+  Prs.spaces
+  argstmnt <- dataTree B.Send <|> funcDecl B.Send
+  Prs.spaces
+  bracketSendClose
+  Prs.spaces
+  return argstmnt
+
+funcDecl :: B.ScopeType -> SakanaTreeParser u
+funcDecl st = do
+  declId <- identifier
+  Prs.spaces
+  declArgs <- Prs.many funcDeclArg
+  Prs.spaces
+  funcReturn <- try (bracketContainingExpr B.Return) <|> swimExp B.Return
+  Prs.spaces
+  let funcDeclTrees =
+        [(tokenUnitToTree st) declId `foldAppendChildren` declArgs -<= funcReturn]
+  return funcDeclTrees
+
 expr :: B.ScopeType -> SakanaTreeParser u
 expr st =
   try (opExpr st)
@@ -287,3 +309,19 @@ expr st =
     <|> try (swimExp st)
     <|> try (funcCall st)
     <|> dataTree st
+
+stmnt :: B.ScopeType -> SakanaTreeParser u
+stmnt st = funcDecl st
+
+sentence :: B.ScopeType -> SakanaTreeParser u
+sentence st = try (expr st) <|> stmnt st
+
+program :: SakanaTreeParser u
+program = do
+  progSentences <- Prs.many (sentence B.Return)
+  let progTree =
+        [ (tokenUnitToTree B.Return)
+            (PacketUnit (Data (Id "main")) 0)
+            `foldAppendChildren` progSentences
+        ]
+  return progTree
