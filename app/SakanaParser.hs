@@ -78,7 +78,19 @@ dataNull = return (Data D.Null)
 dataData :: SakanaTokenParser u
 dataData = try dataDouble <|> try dataString <|> try dataBoolean
 
--- identifier :: ParsecT []
+identifier :: SakanaTokenParser u
+identifier = do
+  idPre <- Prs.many1 validIdCharacter
+  idPost <- Prs.many validIdPostId
+  let combinedIdStr = idPre ++ (concat idPost)
+  (return . Data . Id) combinedIdStr
+  where
+    validIdCharacter :: ParsecT [Char] u Identity Char
+    validIdCharacter = Prs.alphaNum <|> Prs.char '_' <|> Prs.char '\''
+    validIdPostId = do
+      dot <- Prs.count 1 (Prs.char '.')
+      idPost <- Prs.many1 validIdCharacter
+      return (dot ++ idPost)
 
 isFish :: SakanaTokenParser u
 isFish = do
