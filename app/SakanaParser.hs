@@ -92,6 +92,31 @@ identifier = do
       idPost <- Prs.many1 validIdCharacter
       return (dot ++ idPost)
 
+operator :: SakanaTokenParser u
+operator = do
+  opString <- singleCharOp <|> eq <|> nEqOrDiv <|> someThanOrEqual
+  (return . Operator . O.readOp) opString
+  where
+    singleCharOp :: ParsecT [Char] u Identity [Char]
+    singleCharOp = do
+      singleOp <- Prs.oneOf ['+', '-', '*', '^']
+      return [singleOp]
+    eq :: ParsecT [Char] u Identity [Char]
+    eq = Prs.string "=="
+    nEqOrDiv :: ParsecT [Char] u Identity [Char]
+    nEqOrDiv = do
+      div <- Prs.char '/'
+      nEq <- optionMaybe (Prs.char '=')
+      let nEqOrDiv' = div : DMaybe.maybe [] (: []) nEq
+      return nEqOrDiv'
+    someThanOrEqual :: ParsecT [Char] u Identity [Char]
+    someThanOrEqual = do
+      gtOrLt <- Prs.char '>' <|> Prs.char '<'
+      Prs.notFollowedBy (Prs.char '(')
+      eq <- optionMaybe (Prs.char '=')
+      let someThanOrEqual' = gtOrLt : DMaybe.maybe [] (: []) eq
+      return someThanOrEqual'
+
 isFish :: SakanaTokenParser u
 isFish = do
   Prs.string "fish"
