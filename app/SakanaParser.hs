@@ -3,6 +3,11 @@ module SakanaParser
     SyntaxUnit (..),
     generateSyntaxTreeMain,
     generateSyntaxTree,
+    genericSyntaxUnit,
+    getSyntaxAttributeFromTree,
+    nthChildMeetsCondition,
+    setContext,
+    tokenUnitToSyntaxUnit,
   )
 where
 
@@ -49,6 +54,16 @@ type SakanaTreeParser u = ParsecT [Char] u Identity [SyntaxTree]
 
 genericSyntaxUnit :: Token -> SyntaxUnit
 genericSyntaxUnit t = SyntaxUnit t 0 B.Return
+
+getSyntaxAttributeFromTree :: (SyntaxUnit -> b) -> Tree SyntaxUnit -> b
+getSyntaxAttributeFromTree attr =
+  Tree.maybeOnTreeNode ((attr . genericSyntaxUnit . Data) D.Null) (attr)
+
+nthChildMeetsCondition :: Int -> (SyntaxTree -> Bool) -> SyntaxTree -> Bool
+nthChildMeetsCondition n f st
+  | n < 0 = nthChildMeetsCondition ((length . Tree.treeChildren) st + n) f st
+  | n > ((length . Tree.treeChildren) st - 1) = False
+  | otherwise = (f . (!! n) . Tree.treeChildren) st
 
 setContext :: B.ScopeType -> SyntaxUnit -> SyntaxUnit
 setContext st su = su {context = st}
