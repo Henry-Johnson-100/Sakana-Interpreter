@@ -3,6 +3,7 @@ module Token.Bracket
     ScopeType (..),
     fromBracket,
     readBracket,
+    readScopeType,
     repr,
   )
 where
@@ -19,6 +20,10 @@ data ScopeType = Send | Return deriving (Show, Read, Eq, Ord)
 
 repr :: [String]
 repr = [">(", ")>", "<(", ")<"]
+
+readScopeType :: Char -> ScopeType
+readScopeType '>' = Send
+readScopeType '<' = Return
 
 readBracket :: String -> (ScopeType, BracketTerminal)
 readBracket ">(" = (Send, Open)

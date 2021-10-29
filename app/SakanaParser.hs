@@ -117,8 +117,44 @@ operator = do
       let someThanOrEqual' = gtOrLt : DMaybe.maybe [] (: []) eq
       return someThanOrEqual'
 
-isFish :: SakanaTokenParser u
-isFish = do
+bracketSendOpen :: SakanaTokenParser u
+bracketSendOpen = do
+  Prs.char '>'
+  Prs.char '('
+  return (Bracket B.Send B.Open)
+
+bracketReturnOpen :: SakanaTokenParser u
+bracketReturnOpen = do
+  Prs.char '<'
+  Prs.char '('
+  return (Bracket B.Return B.Open)
+
+bracketSendClose :: SakanaTokenParser u
+bracketSendClose = do
+  Prs.char ')'
+  Prs.char '<'
+  return (Bracket B.Send B.Close)
+
+bracketReturnClose :: SakanaTokenParser u
+bracketReturnClose = do
+  Prs.char ')'
+  Prs.char '<'
+  return (Bracket B.Return B.Close)
+
+fish :: SakanaTokenParser u
+fish = do
   Prs.string "fish"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
   return (Keyword Fish)
+
+swim :: SakanaTokenParser u
+swim = do
+  Prs.string "swim"
+  Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
+  return (Keyword Swim)
+
+fin :: SakanaTokenParser u
+fin = do
+  Prs.string "fin"
+  Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
+  return (Control C.Fin)
