@@ -1,5 +1,4 @@
-import Lexer
-import SyntaxTree
+import SakanaParser
 import Test.Tasty
 import Test.Tasty.HUnit
 import Token.Bracket
@@ -12,7 +11,7 @@ import Util.Tree
 
 standardTimeout timeS = localOption (Timeout (timeS * 1000000) (show timeS ++ "s"))
 
-prepareString = generateSyntaxTree . tokenize
+prepareString = generateSyntaxTree
 
 dataId = Data . Id
 

@@ -14,8 +14,12 @@ module TreeInterpreter.LocalCheck.TreeIs
 where
 
 import qualified Data.Maybe as DMaybe (fromJust, maybe)
-import qualified Lexer (Token (Keyword), baseData)
 import qualified SakanaParser
+  ( SyntaxTree,
+    SyntaxUnit (context, token),
+    Token (Keyword),
+    baseData,
+  )
 import qualified Token.Bracket as B (ScopeType (Return, Send))
 import qualified Token.Data as D (fromData)
 import qualified Token.Keyword as K (Keyword (Swim))

@@ -12,7 +12,6 @@ module SakanaParser
     setContext,
     tokenUnitToSyntaxUnit,
     fromToken,
-    like,
     baseData,
     getTokenBracketScopeType,
     genericKeyword,
@@ -53,12 +52,31 @@ import qualified Text.Parsec as Prs
     string,
     try,
   )
-import Token.Bracket as B (BracketTerminal (..), ScopeType (..), fromBracket)
-import Token.Control as C (Control (..), fromControl)
-import Token.Data as D (Data (Id, Null, Num, String), fromData, readData)
-import Token.Keyword as K (Keyword (Fish, Swim), fromKeyword, isDeclarationRequiringId)
-import Token.Operator as O (Operator (Add), fromOp, readOp)
-import Util.Like as LikeClass (Like (..))
+import qualified Token.Bracket as B
+  ( BracketTerminal (..),
+    ScopeType (..),
+    fromBracket,
+  )
+import qualified Token.Control as C
+  ( Control (..),
+    fromControl,
+  )
+import qualified Token.Data as D
+  ( Data (Id, Null, Num, String),
+    fromData,
+    readData,
+  )
+import qualified Token.Keyword as K
+  ( Keyword (Fish, Swim),
+    fromKeyword,
+    isDeclarationRequiringId,
+  )
+import qualified Token.Operator as O
+  ( Operator (Add),
+    fromOp,
+    readOp,
+  )
+import qualified Util.Like as LikeClass (Like (..))
 import Util.Tree ((-<=))
 import qualified Util.Tree as Tree
   ( Tree (Empty),
@@ -89,7 +107,7 @@ instance LikeClass.Like Token where
   like (Keyword _) (Keyword _) = True
   like (Operator _) (Operator _) = True
   like _ _ = False
-  notLike a b = not $ like a b
+  notLike a b = not $ LikeClass.like a b
 
 baseData :: Token -> DMaybe.Maybe D.Data
 baseData (Data d) = DMaybe.Just d

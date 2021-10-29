@@ -79,7 +79,6 @@ import qualified Exception.Base as Exception
 import SakanaParser (SyntaxTree, setContext)
 -- import SakanaParser as SyntaxUnit (SyntaxUnit (..))
 import qualified SakanaParser
-
 import qualified SakanaParser as SyntaxUnit (SyntaxUnit (context, line, token))
 import System.Environment (getArgs)
 import System.IO
@@ -478,7 +477,7 @@ makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
           DMaybe.maybe table (: table) (maybeTreeToSymbolPair table dfarg)
     makeSymbolTableFromFuncCall mainExEnv (fromJustSymbolTable) cfargs dfargs
 
-missingPositionalArgumentException :: [SakanaParser.SyntaxTree ] -> a2
+missingPositionalArgumentException :: [SakanaParser.SyntaxTree] -> a2
 missingPositionalArgumentException fdas =
   Exception.raiseError $
     Exception.newException

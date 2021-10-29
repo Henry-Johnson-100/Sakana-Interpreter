@@ -1,6 +1,5 @@
-import Data.Version (showVersion, Version(..))
--- import SyntaxTree (generateSyntaxTree)
-import SakanaParser
+import Data.Version (Version (..), showVersion)
+import SakanaParser (generateSyntaxTree)
 import System.Environment (getArgs)
 import System.IO
   ( IOMode (ReadMode),
@@ -32,7 +31,7 @@ usingArgs args
       \\t-h, --help\n\
       \\t\tDisplays this help."
   | argsContainAny ["-v", "--version"] =
-    putStrLn $ "Sakana Interpeter Version: " ++ (showVersion (Version [0,2,1,2] []))
+    putStrLn $ "Sakana Interpeter Version: " ++ (showVersion (Version [0, 2, 1, 2] []))
   | otherwise = interpretFileAndReturn (head args) ((unwords . Util.General.tail') args)
   where
     argsContainAny = any (`elem` args)
