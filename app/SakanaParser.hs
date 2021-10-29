@@ -45,16 +45,18 @@ import qualified Text.Parsec as Prs
     many,
     many1,
     manyTill,
+    noneOf,
     notFollowedBy,
     oneOf,
     optionMaybe,
     parseTest,
     runParser,
     sourceLine,
+    space,
     spaces,
     string,
     try,
-    upper, space, noneOf,
+    upper,
   )
 import qualified Token.Bracket as B
   ( BracketTerminal (..),
@@ -233,12 +235,12 @@ dataData = Prs.try dataDouble <|> Prs.try dataString <|> Prs.try dataBoolean
 stringStrict :: [Char] -> Prs.ParsecT [Char] u DFId.Identity [Char]
 stringStrict str = do
   s' <- Prs.string str
-  Prs.notFollowedBy (Prs.noneOf " \t\n\r") <?> "only whitespace characters."
+  Prs.notFollowedBy (validIdCharacter) <?> "only whitespace characters."
   return s'
 
 reservedWords :: Prs.ParsecT [Char] u DFId.Identity [Char]
 reservedWords =
-  Prs.choice (Prs.try <$> Prs.string <$> ["fish", "fin", "swim", "True", "False"])
+  Prs.choice (Prs.try <$> stringStrict <$> ["fish", "fin", "swim", "True", "False"])
 
 identifier :: SakanaTokenParser u
 identifier = do
@@ -249,16 +251,17 @@ identifier = do
   idPost <- Prs.many validIdPostId
   let combinedIdStr = idPre ++ (concat idPost)
   (return . flip PacketUnit ln . Data . D.Id) combinedIdStr
-  where
-    validIdCharacter :: Prs.ParsecT [Char] u DFId.Identity Char
-    validIdCharacter =
-      Prs.letter <|> Prs.char '_' <|> Prs.char '\''
-        <?> "an identifier consisting of \
-            \alphanumeric characters, \'_\', or \'\\'\'"
-    validIdPostId = do
-      dot <- Prs.count 1 (Prs.char '.')
-      idPost <- Prs.many1 validIdCharacter
-      return (dot ++ idPost)
+
+validIdCharacter :: Prs.ParsecT [Char] u DFId.Identity Char
+validIdCharacter =
+  Prs.letter <|> Prs.char '_' <|> Prs.char '\''
+    <?> "an identifier consisting of \
+        \alphanumeric characters, \'_\', or \'\\'\'"
+
+validIdPostId = do
+  dot <- Prs.count 1 (Prs.char '.')
+  idPost <- Prs.many1 validIdCharacter
+  return (dot ++ idPost)
 
 operator :: SakanaTokenParser u
 operator = do
