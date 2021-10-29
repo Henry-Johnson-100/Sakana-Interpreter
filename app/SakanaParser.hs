@@ -1,5 +1,7 @@
 module SakanaParser
-  (
+  ( SyntaxTree (..),
+    SyntaxUnit (..),
+    runSakanaParser,
   )
 where
 
@@ -198,21 +200,28 @@ fin = do
 foldAppendChildren :: Foldable t => Tree a -> t [Tree a] -> Tree a
 foldAppendChildren toApp toFold = DList.foldl' (-<=) toApp toFold
 
--- maybeSpaced :: SakanaTreeParser u -> SakanaTreeParser u
--- maybeSpaced p = do
---   p' <- p
---   Prs.spaces
---   return p'
+maybeSpaced :: SakanaTreeParser u -> SakanaTreeParser u
+maybeSpaced p = do
+  p' <- p
+  Prs.spaces
+  return p'
 
 tokenUnitToTree :: B.ScopeType -> TokenUnit -> SyntaxTree
 tokenUnitToTree st = Tree.tree . flip tokenUnitToSyntaxUnit st
 
 dataTree :: B.ScopeType -> SakanaTreeParser u
 dataTree st = do
-  dataToTree <- try dataData <|> dataNull
+  dataToTree <- dataData
   Prs.spaces
   let dataTrees = [(tokenUnitToTree st) dataToTree]
   return dataTrees
+
+idTree :: B.ScopeType -> SakanaTreeParser u
+idTree st = do
+  idToTree <- identifier
+  Prs.spaces
+  let idTrees = [tokenUnitToTree st idToTree]
+  return idTrees
 
 bracketContainingExpr :: B.ScopeType -> SakanaTreeParser u
 bracketContainingExpr st = do
@@ -284,7 +293,7 @@ funcDeclArg :: SakanaTreeParser u
 funcDeclArg = do
   bracketSendOpen
   Prs.spaces
-  argstmnt <- dataTree B.Send <|> funcDecl B.Send
+  argstmnt <- try (idTree B.Send) <|> funcDecl B.Send
   Prs.spaces
   bracketSendClose
   Prs.spaces
@@ -292,6 +301,8 @@ funcDeclArg = do
 
 funcDecl :: B.ScopeType -> SakanaTreeParser u
 funcDecl st = do
+  f <- fish
+  Prs.spaces
   declId <- identifier
   Prs.spaces
   declArgs <- Prs.many funcDeclArg
@@ -299,7 +310,7 @@ funcDecl st = do
   funcReturn <- try (bracketContainingExpr B.Return) <|> swimExp B.Return
   Prs.spaces
   let funcDeclTrees =
-        [(tokenUnitToTree st) declId `foldAppendChildren` declArgs -<= funcReturn]
+        [tokenUnitToTree st f -<= [(tokenUnitToTree B.Send) declId] `foldAppendChildren` declArgs -<= funcReturn]
   return funcDeclTrees
 
 expr :: B.ScopeType -> SakanaTreeParser u
@@ -313,15 +324,21 @@ expr st =
 stmnt :: B.ScopeType -> SakanaTreeParser u
 stmnt st = funcDecl st
 
-sentence :: B.ScopeType -> SakanaTreeParser u
-sentence st = try (expr st) <|> stmnt st
-
 program :: SakanaTreeParser u
 program = do
-  progSentences <- Prs.many (sentence B.Return)
+  stmnts <- (Prs.many . maybeSpaced . stmnt) B.Return
+  Prs.spaces
+  toExecute <- (bracketContainingExpr B.Return) <|> swimExp B.Return
   let progTree =
         [ (tokenUnitToTree B.Return)
             (PacketUnit (Data (Id "main")) 0)
-            `foldAppendChildren` progSentences
+            `foldAppendChildren` stmnts -<= toExecute
         ]
   return progTree
+
+runSakanaParser :: SourceName -> [Char] -> Either ParseError [SyntaxTree]
+runSakanaParser srcName contents = do
+  eitherDocTreeOrError <- Prs.runParser program () srcName contents
+  return eitherDocTreeOrError
+
+runSimpleParse = parseTest program
