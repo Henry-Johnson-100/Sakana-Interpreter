@@ -36,6 +36,7 @@ import qualified Text.Parsec as Prs
     alphaNum,
     anyChar,
     char,
+    choice,
     count,
     digit,
     getPosition,
@@ -53,7 +54,7 @@ import qualified Text.Parsec as Prs
     spaces,
     string,
     try,
-    upper,
+    upper, space, noneOf,
   )
 import qualified Token.Bracket as B
   ( BracketTerminal (..),
@@ -229,26 +230,31 @@ dataNull = do
 dataData :: SakanaTokenParser u
 dataData = Prs.try dataDouble <|> Prs.try dataString <|> Prs.try dataBoolean
 
+stringStrict :: [Char] -> Prs.ParsecT [Char] u DFId.Identity [Char]
+stringStrict str = do
+  s' <- Prs.string str
+  Prs.notFollowedBy (Prs.noneOf " \t\n\r") <?> "only whitespace characters."
+  return s'
+
 reservedWords :: Prs.ParsecT [Char] u DFId.Identity [Char]
 reservedWords =
-  Prs.string "fish"
-    <|> Prs.string "swim"
-    <|> Prs.string "True"
-    <|> Prs.string "False"
-    <|> Prs.string "fin"
+  Prs.choice (Prs.try <$> Prs.string <$> ["fish", "fin", "swim", "True", "False"])
 
 identifier :: SakanaTokenParser u
 identifier = do
   pos <- Prs.getPosition
   let ln = Prs.sourceLine pos
-  Prs.notFollowedBy reservedWords
+  Prs.notFollowedBy reservedWords <?> "non-reserved identifier."
   idPre <- Prs.many1 validIdCharacter
   idPost <- Prs.many validIdPostId
   let combinedIdStr = idPre ++ (concat idPost)
   (return . flip PacketUnit ln . Data . D.Id) combinedIdStr
   where
     validIdCharacter :: Prs.ParsecT [Char] u DFId.Identity Char
-    validIdCharacter = Prs.letter <|> Prs.char '_' <|> Prs.char '\'' <?> ""
+    validIdCharacter =
+      Prs.letter <|> Prs.char '_' <|> Prs.char '\''
+        <?> "an identifier consisting of \
+            \alphanumeric characters, \'_\', or \'\\'\'"
     validIdPostId = do
       dot <- Prs.count 1 (Prs.char '.')
       idPost <- Prs.many1 validIdCharacter
@@ -444,7 +450,7 @@ funcDeclArg = do
 funcDecl :: B.ScopeType -> SakanaTreeParser u
 funcDecl st = do
   Prs.spaces
-  f <- fish
+  f <- Prs.try fish <?> "fish to declare a function."
   Prs.spaces
   declId <- identifier
   Prs.spaces
@@ -458,18 +464,25 @@ funcDecl st = do
 
 expr :: B.ScopeType -> SakanaTreeParser u
 expr st =
-  Prs.try (opExpr st)
-    <|> Prs.try (finExpr st)
-    <|> Prs.try (swimExp)
-    <|> Prs.try (funcCall st)
-    <|> dataTree st
+  Prs.choice (Prs.try <$> [opExpr st, finExpr st, swimExp, funcCall st, dataTree st])
+    <?> "Expression, a phrase that can return a value:\
+        \ (fin, swim, a function call, or data)"
+
+-- Prs.try (opExpr st)
+--   <|> Prs.try (finExpr st)
+--   <|> Prs.try (swimExp)
+--   <|> Prs.try (funcCall st)
+--   <|> dataTree st
 
 stmnt :: B.ScopeType -> SakanaTreeParser u
-stmnt st = funcDecl st
+stmnt st =
+  funcDecl st
+    <?> "Statement, a phrase that cannot be executed to return a\
+        \ value a function declaration."
 
 program :: SakanaTreeParser u
 program = do
-  stmnts <- (Prs.many . maybeSpaced . stmnt) B.Return
+  stmnts <- (Prs.many . maybeSpaced . stmnt) B.Return <?> "Statements"
   Prs.spaces
   toExecute <- Prs.optionMaybe $ (bracketContainingExpr B.Return) <|> swimExp <|> expr B.Return
   let justExecuteTree = DMaybe.fromMaybe [] toExecute
@@ -492,20 +505,15 @@ generateSyntaxTree :: [Char] -> SyntaxTree
 generateSyntaxTree str = head $ DEither.fromRight ([Tree.Empty]) (runSakanaParser "" str)
 
 s' =
-  "fish fact >(n)> >(fish sub_fact >(sub)> >(prd)> \
-  \swim\
-  \>(trout >(\"Printing something\")>)>\
-  \<(\
-  \fin >(<= >(sub)> >(0)>)>\
-  \>(\
-  \swim\
-  \>(trout >(\"prd\")>)>\
-  \<(prd)<\
-  \)>\
-  \>(sub_fact >(- >(sub)> >(1)>)> >(* >(sub)> >(prd)>)>)>\
-  \)<\
-  \)>\
-  \<(sub_fact >(30)> >(1)>)<"
+  "fish mult_ten\
+  \ >(x)>\
+  \ <(* >(x)> >(10)>)<\
+  \ swim\
+  \ >(result <(mult_ten >(5)>)<)>\
+  \ >(result_two <(mult_ten >(10)>)<)>\
+  \ >(final <(+ >(result)> >(result_two)>)<)>\
+  \ >(trout >(result)>)>\
+  \ <(final)<"
 
 test = Prs.parseTest program s'
 
