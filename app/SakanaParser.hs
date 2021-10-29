@@ -4,6 +4,7 @@ module SakanaParser
 where
 
 import Data.Functor.Identity (Identity)
+import Data.List as DList
 import Data.Maybe as DMaybe
 import Text.Parsec as Prs
 import Token.Bracket as B
@@ -157,7 +158,7 @@ bracketSendClose = do
   pos <- Prs.getPosition
   let ln = Prs.sourceLine pos
   Prs.char ')'
-  Prs.char '<'
+  Prs.char '>'
   (return . flip PacketUnit ln . Bracket B.Send) B.Close
 
 bracketReturnClose :: SakanaTokenParser u
@@ -192,5 +193,42 @@ fin = do
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
   return (PacketUnit (Control C.Fin) (ln))
 
-expr :: SakanaTreeParser u
-expr = return [Tree.Empty]
+----Units to trees parsers----------------------------------------------------------------
+
+foldAppendChildren :: Foldable t => Tree a -> t [Tree a] -> Tree a
+foldAppendChildren toApp toFold = DList.foldl' (-<=) toApp toFold
+
+dataTree :: B.ScopeType -> SakanaTreeParser u
+dataTree st = do
+  dataToTree <- try dataData <|> dataNull
+  Prs.spaces
+  let dataTrees = [(Tree.tree . flip tokenUnitToSyntaxUnit st) dataToTree]
+  return dataTrees
+
+bracketContainingExpr :: B.ScopeType -> SakanaTreeParser u
+bracketContainingExpr st = do
+  if st == B.Send then bracketSendOpen else bracketReturnOpen
+  Prs.spaces
+  expr' <- expr B.Send
+  Prs.spaces
+  if st == B.Send then bracketSendClose else bracketReturnClose
+  return expr'
+
+maybeSpaced :: SakanaTreeParser u -> SakanaTreeParser u
+maybeSpaced p = do
+  p' <- p
+  Prs.spaces
+  return p'
+
+opExpr :: B.ScopeType -> SakanaTreeParser u
+opExpr st = do
+  opT <- operator
+  Prs.spaces
+  args <- (Prs.count 2 . maybeSpaced . bracketContainingExpr) B.Send
+  Prs.spaces
+  let opExprTrees =
+        [((Tree.tree . flip tokenUnitToSyntaxUnit st) opT `foldAppendChildren` args)]
+  return opExprTrees
+
+expr :: B.ScopeType -> SakanaTreeParser u
+expr st = dataTree st
