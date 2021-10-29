@@ -38,6 +38,8 @@ type TokenUnit = PacketUnit Token
 
 type SyntaxTree = Tree.Tree SyntaxUnit
 
+type SakanaTokenParser u = ParsecT [Char] u Identity Token
+
 genericSyntaxUnit :: Token -> SyntaxUnit
 genericSyntaxUnit t = SyntaxUnit t 0 B.Return
 
@@ -53,30 +55,32 @@ dataDecimal = do
   decimal <- many1 Prs.digit
   return (dot : decimal)
 
-dataDouble :: ParsecT [Char] u Identity Token
+dataDouble :: SakanaTokenParser u
 dataDouble = do
   num <- (many1 Prs.digit)
   maybeDecimal <- Prs.optionMaybe dataDecimal
   let justNumStr = DMaybe.maybe (num) (num ++) maybeDecimal
   (return . Data . Num . read) justNumStr
 
-dataString :: ParsecT [Char] u Identity Token
+dataString :: SakanaTokenParser u
 dataString = do
   Prs.char '"'
   string <- Prs.manyTill Prs.anyChar (Prs.char '"')
   (return . Data . String) string
 
-dataBoolean :: ParsecT [Char] u Identity Token
+dataBoolean :: SakanaTokenParser u
 dataBoolean =
   (Prs.string "True" <|> Prs.string "False") >>= (return . Data . Boolean . read)
 
-dataNull :: ParsecT [Char] u Identity Token
+dataNull :: SakanaTokenParser u
 dataNull = return (Data D.Null)
 
-dataData :: ParsecT [Char] u Identity Token
+dataData :: SakanaTokenParser u
 dataData = try dataDouble <|> try dataString <|> try dataBoolean
 
-isFish :: ParsecT [Char] u Identity Token
+-- identifier :: ParsecT []
+
+isFish :: SakanaTokenParser u
 isFish = do
   Prs.string "fish"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
