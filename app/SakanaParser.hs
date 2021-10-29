@@ -55,16 +55,15 @@ dataDecimal = do
 
 dataDouble :: ParsecT [Char] u Identity Token
 dataDouble = do
-  num <- (many Prs.digit)
+  num <- (many1 Prs.digit)
   maybeDecimal <- Prs.optionMaybe dataDecimal
   let justNumStr = DMaybe.maybe (num) (num ++) maybeDecimal
   (return . Data . Num . read) justNumStr
 
 dataString :: ParsecT [Char] u Identity Token
 dataString = do
-  Prs.char '\"'
-  string <- Prs.many Prs.anyChar
-  Prs.char '\"'
+  Prs.char '"'
+  string <- Prs.manyTill Prs.anyChar (Prs.char '"')
   (return . Data . String) string
 
 dataBoolean :: ParsecT [Char] u Identity Token
@@ -73,6 +72,9 @@ dataBoolean =
 
 dataNull :: ParsecT [Char] u Identity Token
 dataNull = return (Data D.Null)
+
+dataData :: ParsecT [Char] u Identity Token
+dataData = try dataDouble <|> try dataString <|> try dataBoolean
 
 isFish :: ParsecT [Char] u Identity Token
 isFish = do
