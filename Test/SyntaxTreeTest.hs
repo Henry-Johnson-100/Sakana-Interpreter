@@ -399,7 +399,7 @@ treeFunctionWithSwimExecutionOne = testCase name assertion
 treeFunctionWithSwimExecutionTwo :: TestTree
 treeFunctionWithSwimExecutionTwo = testCase name assertion
   where
-    name = "A function with a swim execution block(1)."
+    name = "A function with a swim execution block(2)."
     assertion = assertEqual name a f
     a =
       attachToMain

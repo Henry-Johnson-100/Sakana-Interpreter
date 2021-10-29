@@ -27,7 +27,7 @@ where
 import qualified Data.Either as DEither (fromRight)
 import qualified Data.Functor.Identity as DFId (Identity)
 import qualified Data.List as DList (foldl')
-import qualified Data.Maybe as DMaybe (Maybe (Just, Nothing), maybe)
+import qualified Data.Maybe as DMaybe (Maybe (Just, Nothing), fromMaybe, maybe)
 import Text.Parsec ((<|>))
 import qualified Text.Parsec as Prs
   ( ParseError,
@@ -39,6 +39,7 @@ import qualified Text.Parsec as Prs
     count,
     digit,
     getPosition,
+    letter,
     many,
     many1,
     manyTill,
@@ -80,6 +81,7 @@ import qualified Util.Like as LikeClass (Like (..))
 import Util.Tree ((-<=))
 import qualified Util.Tree as Tree
   ( Tree (Empty),
+    TreeIO (..),
     maybeOnTreeNode,
     tree,
     treeChildren,
@@ -235,7 +237,7 @@ identifier = do
   (return . flip PacketUnit ln . Data . D.Id) combinedIdStr
   where
     validIdCharacter :: Prs.ParsecT [Char] u DFId.Identity Char
-    validIdCharacter = Prs.alphaNum <|> Prs.char '_' <|> Prs.char '\''
+    validIdCharacter = Prs.letter <|> Prs.char '_' <|> Prs.char '\''
     validIdPostId = do
       dot <- Prs.count 1 (Prs.char '.')
       idPost <- Prs.many1 validIdCharacter
@@ -356,7 +358,7 @@ bracketContainingExpr :: B.ScopeType -> SakanaTreeParser u
 bracketContainingExpr st = do
   if st == B.Send then bracketSendOpen else bracketReturnOpen
   Prs.spaces
-  expr' <- expr B.Send
+  expr' <- expr st
   Prs.spaces
   if st == B.Send then bracketSendClose else bracketReturnClose
   Prs.spaces
@@ -398,15 +400,15 @@ fishSend = do
   let sendTrees = [(tokenUnitToTree B.Send) bindTo -<= valueToBind]
   return sendTrees
 
-swimExp :: B.ScopeType -> SakanaTreeParser u
-swimExp st = do
+swimExp :: SakanaTreeParser u
+swimExp = do
   s <- swim
   Prs.spaces
   procs <- Prs.many (Prs.try (bracketContainingExpr B.Send) <|> fishSend)
   Prs.spaces
   returnValue <- bracketContainingExpr B.Return
   Prs.spaces
-  let swimTrees = [(tokenUnitToTree st) s `foldAppendChildren` procs -<= returnValue]
+  let swimTrees = [(tokenUnitToTree B.Return) s `foldAppendChildren` procs -<= returnValue]
   return swimTrees
 
 funcCall :: B.ScopeType -> SakanaTreeParser u
@@ -422,7 +424,7 @@ funcDeclArg :: SakanaTreeParser u
 funcDeclArg = do
   bracketSendOpen
   Prs.spaces
-  argstmnt <- Prs.try (idTree B.Send) <|> funcDecl B.Send
+  argstmnt <- Prs.try(funcDecl B.Send) <|> idTree B.Send
   Prs.spaces
   bracketSendClose
   Prs.spaces
@@ -430,13 +432,14 @@ funcDeclArg = do
 
 funcDecl :: B.ScopeType -> SakanaTreeParser u
 funcDecl st = do
+  Prs.spaces
   f <- fish
   Prs.spaces
   declId <- identifier
   Prs.spaces
   declArgs <- Prs.many funcDeclArg
   Prs.spaces
-  funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp B.Return
+  funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp
   Prs.spaces
   let funcDeclTrees =
         [tokenUnitToTree st f -<= [(tokenUnitToTree B.Send) declId] `foldAppendChildren` declArgs -<= funcReturn]
@@ -446,7 +449,7 @@ expr :: B.ScopeType -> SakanaTreeParser u
 expr st =
   Prs.try (opExpr st)
     <|> Prs.try (finExpr st)
-    <|> Prs.try (swimExp st)
+    <|> Prs.try (swimExp)
     <|> Prs.try (funcCall st)
     <|> dataTree st
 
@@ -457,11 +460,12 @@ program :: SakanaTreeParser u
 program = do
   stmnts <- (Prs.many . maybeSpaced . stmnt) B.Return
   Prs.spaces
-  toExecute <- (bracketContainingExpr B.Return) <|> swimExp B.Return
+  toExecute <- Prs.optionMaybe $ (bracketContainingExpr B.Return) <|> swimExp
+  let justExecuteTree = DMaybe.fromMaybe [] toExecute
   let progTree =
         [ (tokenUnitToTree B.Return)
             (PacketUnit (Data (D.Id "main")) 0)
-            `foldAppendChildren` stmnts -<= toExecute
+            `foldAppendChildren` stmnts -<= justExecuteTree
         ]
   return progTree
 
@@ -476,4 +480,23 @@ generateSyntaxTreeMain src = (head . DEither.fromRight [Tree.Empty] . runSakanaP
 generateSyntaxTree :: [Char] -> SyntaxTree
 generateSyntaxTree str = head $ DEither.fromRight ([Tree.Empty]) (runSakanaParser "" str)
 
-runSimpleParse = Prs.parseTest program
+s' =
+  "fish fact >(n)> >(fish sub_fact >(sub)> >(prd)> \
+        \swim\
+        \>(trout >(\"Printing something\")>)>\
+        \<(\
+        \fin >(<= >(sub)> >(0)>)>\
+        \>(\
+        \swim\
+        \>(trout >(\"prd\")>)>\
+        \<(prd)<\
+        \)>\
+        \>(sub_fact >(- >(sub)> >(1)>)> >(* >(sub)> >(prd)>)>)>\
+        \)<\
+        \)>\
+        \<(sub_fact >(30)> >(1)>)<"
+
+test = Prs.parseTest program s'
+
+window :: Int -> [Char] -> [Char]
+window start = take 20 . drop (start - 9)
