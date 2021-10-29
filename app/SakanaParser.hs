@@ -38,7 +38,7 @@ type TokenUnit = PacketUnit Token
 
 type SyntaxTree = Tree.Tree SyntaxUnit
 
-type SakanaTokenParser u = ParsecT [Char] u Identity Token
+type SakanaTokenParser u = ParsecT [Char] u Identity TokenUnit
 
 type SakanaTreeParser u = ParsecT [Char] u Identity [SyntaxTree]
 
@@ -59,36 +59,48 @@ dataDecimal = do
 
 dataDouble :: SakanaTokenParser u
 dataDouble = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   negative <- Prs.optionMaybe (Prs.char '-')
   num <- (many1 Prs.digit)
   maybeDecimal <- Prs.optionMaybe dataDecimal
   let justNumStr =
         (DMaybe.maybe [] (\x -> id x : []) negative)
           ++ (DMaybe.maybe (num) (num ++) maybeDecimal)
-  (return . Data . Num . read) justNumStr
+  (return . flip PacketUnit ln . Data . D.readData) justNumStr
 
 dataString :: SakanaTokenParser u
 dataString = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   Prs.char '"'
   string <- Prs.manyTill Prs.anyChar (Prs.char '"')
-  (return . Data . String) string
+  (return . flip PacketUnit ln . Data . String) string
 
 dataBoolean :: SakanaTokenParser u
-dataBoolean =
-  (Prs.string "True" <|> Prs.string "False") >>= (return . Data . Boolean . read)
+dataBoolean = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
+  b <- Prs.string "True" <|> Prs.string "False"
+  (return . flip PacketUnit ln . Data . D.readData) b
 
 dataNull :: SakanaTokenParser u
-dataNull = return (Data D.Null)
+dataNull = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
+  (return . flip PacketUnit ln . Data) D.Null
 
 dataData :: SakanaTokenParser u
 dataData = try dataDouble <|> try dataString <|> try dataBoolean
 
 identifier :: SakanaTokenParser u
 identifier = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   idPre <- Prs.many1 validIdCharacter
   idPost <- Prs.many validIdPostId
   let combinedIdStr = idPre ++ (concat idPost)
-  (return . Data . Id) combinedIdStr
+  (return . flip PacketUnit ln . Data . Id) combinedIdStr
   where
     validIdCharacter :: ParsecT [Char] u Identity Char
     validIdCharacter = Prs.alphaNum <|> Prs.char '_' <|> Prs.char '\''
@@ -99,8 +111,10 @@ identifier = do
 
 operator :: SakanaTokenParser u
 operator = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   opString <- singleCharOp <|> eq <|> nEqOrDiv <|> someThanOrEqual
-  (return . Operator . O.readOp) opString
+  (return . flip PacketUnit ln . Operator . O.readOp) opString
   where
     singleCharOp :: ParsecT [Char] u Identity [Char]
     singleCharOp = do
@@ -124,45 +138,59 @@ operator = do
 
 bracketSendOpen :: SakanaTokenParser u
 bracketSendOpen = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   Prs.char '>'
   Prs.char '('
-  return (Bracket B.Send B.Open)
+  (return . flip PacketUnit ln . Bracket B.Send) B.Open
 
 bracketReturnOpen :: SakanaTokenParser u
 bracketReturnOpen = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   Prs.char '<'
   Prs.char '('
-  return (Bracket B.Return B.Open)
+  (return . flip PacketUnit ln . Bracket B.Return) B.Open
 
 bracketSendClose :: SakanaTokenParser u
 bracketSendClose = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   Prs.char ')'
   Prs.char '<'
-  return (Bracket B.Send B.Close)
+  (return . flip PacketUnit ln . Bracket B.Send) B.Close
 
 bracketReturnClose :: SakanaTokenParser u
 bracketReturnClose = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   Prs.char ')'
   Prs.char '<'
-  return (Bracket B.Return B.Close)
+  (return . flip PacketUnit ln . Bracket B.Return) B.Close
 
 fish :: SakanaTokenParser u
 fish = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   Prs.string "fish"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
-  return (Keyword Fish)
+  return (PacketUnit (Keyword Fish) ln)
 
 swim :: SakanaTokenParser u
 swim = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   Prs.string "swim"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
-  return (Keyword Swim)
+  return (PacketUnit (Keyword Swim) ln)
 
-fin :: SakanaTokenParser u
+fin :: ParsecT [Char] u Identity TokenUnit
 fin = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
   Prs.string "fin"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
-  return (Control C.Fin)
+  return (PacketUnit (Control C.Fin) (ln))
 
 expr :: SakanaTreeParser u
 expr = return [Tree.Empty]
