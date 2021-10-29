@@ -11,17 +11,46 @@ module SakanaParser
   )
 where
 
-import Data.Either as DEither
-import Data.Functor.Identity (Identity)
-import Data.List as DList
-import Data.Maybe as DMaybe
-import Text.Parsec as Prs
-import Token.Bracket as B
-import Token.Control as C
-import Token.Data as D
-import Token.Keyword as K
-import Token.Operator as O
-import Util.Tree as Tree
+import qualified Data.Either as DEither (fromRight)
+import qualified Data.Functor.Identity as DFId (Identity)
+import qualified Data.List as DList (foldl')
+import qualified Data.Maybe as DMaybe (maybe)
+import Text.Parsec ((<|>))
+import qualified Text.Parsec as Prs
+  ( ParseError,
+    ParsecT,
+    SourceName,
+    alphaNum,
+    anyChar,
+    char,
+    count,
+    digit,
+    getPosition,
+    many,
+    many1,
+    manyTill,
+    notFollowedBy,
+    oneOf,
+    optionMaybe,
+    parseTest,
+    runParser,
+    sourceLine,
+    spaces,
+    string,
+    try,
+  )
+import qualified Token.Bracket as B (BracketTerminal (..), ScopeType (..))
+import qualified Token.Control as C (Control (..))
+import qualified Token.Data as D (Data (Id, Null, String), readData)
+import qualified Token.Keyword as K (Keyword (Fish, Swim))
+import qualified Token.Operator as O (Operator, readOp)
+import Util.Tree ((-<=))
+import qualified Util.Tree as Tree
+  ( Tree (Empty),
+    maybeOnTreeNode,
+    tree,
+    treeChildren,
+  )
 
 data Token
   = Bracket B.ScopeType B.BracketTerminal
@@ -48,14 +77,14 @@ type TokenUnit = PacketUnit Token
 
 type SyntaxTree = Tree.Tree SyntaxUnit
 
-type SakanaTokenParser u = ParsecT [Char] u Identity TokenUnit
+type SakanaTokenParser u = Prs.ParsecT [Char] u DFId.Identity TokenUnit
 
-type SakanaTreeParser u = ParsecT [Char] u Identity [SyntaxTree]
+type SakanaTreeParser u = Prs.ParsecT [Char] u DFId.Identity [SyntaxTree]
 
 genericSyntaxUnit :: Token -> SyntaxUnit
 genericSyntaxUnit t = SyntaxUnit t 0 B.Return
 
-getSyntaxAttributeFromTree :: (SyntaxUnit -> b) -> Tree SyntaxUnit -> b
+getSyntaxAttributeFromTree :: (SyntaxUnit -> b) -> SyntaxTree -> b
 getSyntaxAttributeFromTree attr =
   Tree.maybeOnTreeNode ((attr . genericSyntaxUnit . Data) D.Null) (attr)
 
@@ -71,10 +100,10 @@ setContext st su = su {context = st}
 tokenUnitToSyntaxUnit :: TokenUnit -> B.ScopeType -> SyntaxUnit
 tokenUnitToSyntaxUnit tu = SyntaxUnit (unit tu) (unitLine tu)
 
-dataDecimal :: ParsecT [Char] u Identity [Char]
+dataDecimal :: Prs.ParsecT [Char] u DFId.Identity [Char]
 dataDecimal = do
   dot <- Prs.char '.'
-  decimal <- many1 Prs.digit
+  decimal <- Prs.many1 Prs.digit
   return (dot : decimal)
 
 dataDouble :: SakanaTokenParser u
@@ -82,7 +111,7 @@ dataDouble = do
   pos <- Prs.getPosition
   let ln = Prs.sourceLine pos
   negative <- Prs.optionMaybe (Prs.char '-')
-  num <- (many1 Prs.digit)
+  num <- (Prs.many1 Prs.digit)
   maybeDecimal <- Prs.optionMaybe dataDecimal
   let justNumStr =
         (DMaybe.maybe [] (\x -> id x : []) negative)
@@ -95,7 +124,7 @@ dataString = do
   let ln = Prs.sourceLine pos
   Prs.char '"'
   string <- Prs.manyTill Prs.anyChar (Prs.char '"')
-  (return . flip PacketUnit ln . Data . String) string
+  (return . flip PacketUnit ln . Data . D.String) string
 
 dataBoolean :: SakanaTokenParser u
 dataBoolean = do
@@ -111,7 +140,7 @@ dataNull = do
   (return . flip PacketUnit ln . Data) D.Null
 
 dataData :: SakanaTokenParser u
-dataData = try dataDouble <|> try dataString <|> try dataBoolean
+dataData = Prs.try dataDouble <|> Prs.try dataString <|> Prs.try dataBoolean
 
 identifier :: SakanaTokenParser u
 identifier = do
@@ -120,9 +149,9 @@ identifier = do
   idPre <- Prs.many1 validIdCharacter
   idPost <- Prs.many validIdPostId
   let combinedIdStr = idPre ++ (concat idPost)
-  (return . flip PacketUnit ln . Data . Id) combinedIdStr
+  (return . flip PacketUnit ln . Data . D.Id) combinedIdStr
   where
-    validIdCharacter :: ParsecT [Char] u Identity Char
+    validIdCharacter :: Prs.ParsecT [Char] u DFId.Identity Char
     validIdCharacter = Prs.alphaNum <|> Prs.char '_' <|> Prs.char '\''
     validIdPostId = do
       dot <- Prs.count 1 (Prs.char '.')
@@ -136,23 +165,23 @@ operator = do
   opString <- singleCharOp <|> eq <|> nEqOrDiv <|> someThanOrEqual
   (return . flip PacketUnit ln . Operator . O.readOp) opString
   where
-    singleCharOp :: ParsecT [Char] u Identity [Char]
+    singleCharOp :: Prs.ParsecT [Char] u DFId.Identity [Char]
     singleCharOp = do
       singleOp <- Prs.oneOf ['+', '-', '*', '^']
       return [singleOp]
-    eq :: ParsecT [Char] u Identity [Char]
+    eq :: Prs.ParsecT [Char] u DFId.Identity [Char]
     eq = Prs.string "=="
-    nEqOrDiv :: ParsecT [Char] u Identity [Char]
+    nEqOrDiv :: Prs.ParsecT [Char] u DFId.Identity [Char]
     nEqOrDiv = do
       div <- Prs.char '/'
-      nEq <- optionMaybe (Prs.char '=')
+      nEq <- Prs.optionMaybe (Prs.char '=')
       let nEqOrDiv' = div : DMaybe.maybe [] (: []) nEq
       return nEqOrDiv'
-    someThanOrEqual :: ParsecT [Char] u Identity [Char]
+    someThanOrEqual :: Prs.ParsecT [Char] u DFId.Identity [Char]
     someThanOrEqual = do
       gtOrLt <- Prs.char '>' <|> Prs.char '<'
       Prs.notFollowedBy (Prs.char '(')
-      eq <- optionMaybe (Prs.char '=')
+      eq <- Prs.optionMaybe (Prs.char '=')
       let someThanOrEqual' = gtOrLt : DMaybe.maybe [] (: []) eq
       return someThanOrEqual'
 
@@ -194,7 +223,7 @@ fish = do
   let ln = Prs.sourceLine pos
   Prs.string "fish"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
-  return (PacketUnit (Keyword Fish) ln)
+  return (PacketUnit (Keyword K.Fish) ln)
 
 swim :: SakanaTokenParser u
 swim = do
@@ -202,9 +231,9 @@ swim = do
   let ln = Prs.sourceLine pos
   Prs.string "swim"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
-  return (PacketUnit (Keyword Swim) ln)
+  return (PacketUnit (Keyword K.Swim) ln)
 
-fin :: ParsecT [Char] u Identity TokenUnit
+fin :: Prs.ParsecT [Char] u DFId.Identity TokenUnit
 fin = do
   pos <- Prs.getPosition
   let ln = Prs.sourceLine pos
@@ -214,7 +243,7 @@ fin = do
 
 ----Units to trees parsers----------------------------------------------------------------
 
-foldAppendChildren :: Foldable t => Tree a -> t [Tree a] -> Tree a
+foldAppendChildren :: Foldable t => Tree.Tree a -> t [Tree.Tree a] -> Tree.Tree a
 foldAppendChildren toApp toFold = DList.foldl' (-<=) toApp toFold
 
 maybeSpaced :: SakanaTreeParser u -> SakanaTreeParser u
@@ -290,14 +319,14 @@ swimExp :: B.ScopeType -> SakanaTreeParser u
 swimExp st = do
   s <- swim
   Prs.spaces
-  procs <- Prs.many (try (bracketContainingExpr B.Send) <|> fishSend)
+  procs <- Prs.many (Prs.try (bracketContainingExpr B.Send) <|> fishSend)
   Prs.spaces
   returnValue <- bracketContainingExpr B.Return
   Prs.spaces
   let swimTrees = [(tokenUnitToTree st) s `foldAppendChildren` procs -<= returnValue]
   return swimTrees
 
-funcCall :: ScopeType -> SakanaTreeParser u
+funcCall :: B.ScopeType -> SakanaTreeParser u
 funcCall st = do
   callId <- identifier
   Prs.spaces
@@ -310,7 +339,7 @@ funcDeclArg :: SakanaTreeParser u
 funcDeclArg = do
   bracketSendOpen
   Prs.spaces
-  argstmnt <- try (idTree B.Send) <|> funcDecl B.Send
+  argstmnt <- Prs.try (idTree B.Send) <|> funcDecl B.Send
   Prs.spaces
   bracketSendClose
   Prs.spaces
@@ -324,7 +353,7 @@ funcDecl st = do
   Prs.spaces
   declArgs <- Prs.many funcDeclArg
   Prs.spaces
-  funcReturn <- try (bracketContainingExpr B.Return) <|> swimExp B.Return
+  funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp B.Return
   Prs.spaces
   let funcDeclTrees =
         [tokenUnitToTree st f -<= [(tokenUnitToTree B.Send) declId] `foldAppendChildren` declArgs -<= funcReturn]
@@ -332,10 +361,10 @@ funcDecl st = do
 
 expr :: B.ScopeType -> SakanaTreeParser u
 expr st =
-  try (opExpr st)
-    <|> try (finExpr st)
-    <|> try (swimExp st)
-    <|> try (funcCall st)
+  Prs.try (opExpr st)
+    <|> Prs.try (finExpr st)
+    <|> Prs.try (swimExp st)
+    <|> Prs.try (funcCall st)
     <|> dataTree st
 
 stmnt :: B.ScopeType -> SakanaTreeParser u
@@ -348,20 +377,20 @@ program = do
   toExecute <- (bracketContainingExpr B.Return) <|> swimExp B.Return
   let progTree =
         [ (tokenUnitToTree B.Return)
-            (PacketUnit (Data (Id "main")) 0)
+            (PacketUnit (Data (D.Id "main")) 0)
             `foldAppendChildren` stmnts -<= toExecute
         ]
   return progTree
 
-runSakanaParser :: SourceName -> [Char] -> Either ParseError [SyntaxTree]
+runSakanaParser :: Prs.SourceName -> [Char] -> Either Prs.ParseError [SyntaxTree]
 runSakanaParser srcName contents = do
   eitherDocTreeOrError <- Prs.runParser program () srcName contents
   return eitherDocTreeOrError
 
-generateSyntaxTreeMain :: SourceName -> [Char] -> Tree SyntaxUnit
+generateSyntaxTreeMain :: Prs.SourceName -> [Char] -> SyntaxTree
 generateSyntaxTreeMain src = (head . DEither.fromRight [Tree.Empty] . runSakanaParser src)
 
-generateSyntaxTree :: [Char] -> Tree SyntaxUnit
+generateSyntaxTree :: [Char] -> SyntaxTree
 generateSyntaxTree str = head $ DEither.fromRight ([Tree.Empty]) (runSakanaParser "" str)
 
-runSimpleParse = parseTest program
+runSimpleParse = Prs.parseTest program
