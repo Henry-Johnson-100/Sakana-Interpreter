@@ -198,11 +198,20 @@ fin = do
 foldAppendChildren :: Foldable t => Tree a -> t [Tree a] -> Tree a
 foldAppendChildren toApp toFold = DList.foldl' (-<=) toApp toFold
 
+-- maybeSpaced :: SakanaTreeParser u -> SakanaTreeParser u
+-- maybeSpaced p = do
+--   p' <- p
+--   Prs.spaces
+--   return p'
+
+tokenUnitToTree :: B.ScopeType -> TokenUnit -> SyntaxTree
+tokenUnitToTree st = Tree.tree . flip tokenUnitToSyntaxUnit st
+
 dataTree :: B.ScopeType -> SakanaTreeParser u
 dataTree st = do
   dataToTree <- try dataData <|> dataNull
   Prs.spaces
-  let dataTrees = [(Tree.tree . flip tokenUnitToSyntaxUnit st) dataToTree]
+  let dataTrees = [(tokenUnitToTree st) dataToTree]
   return dataTrees
 
 bracketContainingExpr :: B.ScopeType -> SakanaTreeParser u
@@ -212,23 +221,69 @@ bracketContainingExpr st = do
   expr' <- expr B.Send
   Prs.spaces
   if st == B.Send then bracketSendClose else bracketReturnClose
-  return expr'
-
-maybeSpaced :: SakanaTreeParser u -> SakanaTreeParser u
-maybeSpaced p = do
-  p' <- p
   Prs.spaces
-  return p'
+  return expr'
 
 opExpr :: B.ScopeType -> SakanaTreeParser u
 opExpr st = do
   opT <- operator
   Prs.spaces
-  args <- (Prs.count 2 . maybeSpaced . bracketContainingExpr) B.Send
+  args <- (Prs.count 2 . bracketContainingExpr) B.Send
   Prs.spaces
   let opExprTrees =
-        [((Tree.tree . flip tokenUnitToSyntaxUnit st) opT `foldAppendChildren` args)]
+        [((tokenUnitToTree st) opT `foldAppendChildren` args)]
   return opExprTrees
 
+finExpr :: B.ScopeType -> SakanaTreeParser u
+finExpr st = do
+  f <- fin
+  Prs.spaces
+  args <- (Prs.count 3 . bracketContainingExpr) B.Send
+  Prs.spaces
+  let finTrees = [(tokenUnitToTree st) f `foldAppendChildren` args]
+  return finTrees
+
+fishSend :: SakanaTreeParser u
+fishSend = do
+  bracketSendOpen
+  Prs.spaces
+  bindTo <- identifier
+  Prs.spaces
+  bracketReturnOpen
+  Prs.spaces
+  valueToBind <- expr B.Return
+  Prs.spaces
+  bracketReturnClose
+  Prs.spaces
+  bracketSendClose
+  Prs.spaces
+  let sendTrees = [(tokenUnitToTree B.Send) bindTo -<= valueToBind]
+  return sendTrees
+
+swimExp :: B.ScopeType -> SakanaTreeParser u
+swimExp st = do
+  s <- swim
+  Prs.spaces
+  procs <- Prs.many (try (bracketContainingExpr B.Send) <|> fishSend)
+  Prs.spaces
+  returnValue <- bracketContainingExpr B.Return
+  Prs.spaces
+  let swimTrees = [(tokenUnitToTree st) s `foldAppendChildren` procs -<= returnValue]
+  return swimTrees
+
+funcCall :: ScopeType -> SakanaTreeParser u
+funcCall st = do
+  callId <- identifier
+  Prs.spaces
+  args <- Prs.many (bracketContainingExpr B.Send)
+  Prs.spaces
+  let funcCallTrees = [(tokenUnitToTree st) callId `foldAppendChildren` args]
+  return funcCallTrees
+
 expr :: B.ScopeType -> SakanaTreeParser u
-expr st = dataTree st
+expr st =
+  try (opExpr st)
+    <|> try (finExpr st)
+    <|> try (swimExp st)
+    <|> try (funcCall st)
+    <|> dataTree st
