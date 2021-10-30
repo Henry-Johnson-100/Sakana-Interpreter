@@ -435,14 +435,17 @@ swimExp = do
   Prs.spaces
   returnValue <- bracketContainingExpr B.Return
   Prs.spaces
-  let swimTrees = [(tokenUnitToTree B.Return) s `foldAppendChildren` procs -<= returnValue]
+  let swimTrees =
+        [(tokenUnitToTree B.Return) s `foldAppendChildren` procs -<= returnValue]
   return swimTrees
 
 funcCall :: B.ScopeType -> SakanaTreeParser u
 funcCall st = do
   callId <- identifier
   Prs.spaces
-  args <- Prs.many (Prs.choice (Prs.try <$> [bracketContainingExpr B.Send, nullBracket B.Send]))
+  args <-
+    Prs.many
+      (Prs.choice (Prs.try <$> [bracketContainingExpr B.Send, nullBracket B.Send]))
   Prs.spaces
   let funcCallTrees = [(tokenUnitToTree st) callId `foldAppendChildren` args]
   return funcCallTrees
@@ -464,12 +467,16 @@ funcDecl st = do
   Prs.spaces
   declId <- identifier
   Prs.spaces
-  declArgs <- Prs.many (Prs.choice (Prs.try <$> [funcDeclArg, nullBracket B.Send]))
+  -- declArgs <- Prs.many (Prs.choice (Prs.try <$> [funcDeclArg, nullBracket B.Send]))
+  declArgs <- (Prs.many . Prs.choice . (<$>) Prs.try) [funcDeclArg, nullBracket B.Send]
   Prs.spaces
   funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp
   Prs.spaces
   let funcDeclTrees =
-        [tokenUnitToTree st f -<= [(tokenUnitToTree B.Send) declId] `foldAppendChildren` declArgs -<= funcReturn]
+        [ tokenUnitToTree st f
+            -<= [(tokenUnitToTree B.Send) declId] `foldAppendChildren` declArgs
+            -<= funcReturn
+        ]
   return funcDeclTrees
 
 expr :: B.ScopeType -> SakanaTreeParser u
@@ -503,7 +510,9 @@ program = do
         ]
   return progTree
   where
-    maybeHasExecute = Prs.choice (Prs.try <$> [bracketContainingExpr B.Return, swimExp, expr B.Return])
+    maybeHasExecute =
+      Prs.choice
+        (Prs.try <$> [bracketContainingExpr B.Return, swimExp, expr B.Return])
 
 runSakanaParser :: Prs.SourceName -> [Char] -> Either Prs.ParseError [SyntaxTree]
 runSakanaParser srcName contents = do

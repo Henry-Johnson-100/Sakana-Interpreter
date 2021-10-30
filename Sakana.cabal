@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               Sakana
-version:            0.2.1.2
+version:            0.2.2.0
 
 -- A short (one-line) description of the package.
 synopsis: A syntax-tree based interpreter for the Sakana functional language.
@@ -78,6 +78,19 @@ test-suite TreeInterpreter
         Token.Data
         TreeInterpreter
         Util.Tree
+        Exception.Base
+        Token.Bracket
+        Token.Control
+        Token.Keyword
+        Token.Operator
+        TreeInterpreter.Environment
+        TreeInterpreter.LocalCheck.NodeIs
+        TreeInterpreter.LocalCheck.TreeIs
+        Util.CollapsibleTerminalCases
+        Util.EagerCollapsible
+        Util.General
+        Util.Like
+        Util.String
     build-depends:
         base >= 4.8.0.0
       , ghc-prim >= 0.5.0 
