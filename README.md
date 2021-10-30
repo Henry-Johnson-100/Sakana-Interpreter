@@ -1,4 +1,4 @@
-# Sakana - 0.2.1.2
+# Sakana - 0.2.2.0
 
 A syntax-tree based interpreter implementation for the Sakana programming language.
 
@@ -50,12 +50,12 @@ it expects 1 or more. There will be a runtime bug if some number of arguments ot
 are provided to any given ```fin``` expression.
 
 ```
-<data-double>                      ::= [0-9].?[0-9]
+<data-double>                      ::= -?\d+\.?\d*
 <data-string>                      ::= \".*\"
 <data-boolean>                     ::= True | False
 <data-null>                        ::= 
 <data>                             ::= <data-double> | <data-string> | <data-boolean> | <data-null>
-<Id>                               ::= ([A-z]|_)*(\.([A-z]|_))*
+<Id>                               ::= ([A-z]|_|\')*(\.?([A-z]|_|\'))*
 <operator>                         ::= + | - | / | * | ^ | == | /= | < | > | <= | >=
 <fish-send>                        ::= >( <Id> <bracket-return-expr> )>
 <statement-func-decl-arg-contents> ::= <Id> | <statement-func-decl>
@@ -72,7 +72,7 @@ are provided to any given ```fin``` expression.
 <expr>                             ::= <expr-operator> | <expr-fin> | <expr-swim> | <expr-func-call> | <data>
 <statement>                        ::= <satement-func-decl>
 <sentence>                         ::= <expr> | <statement> | <bracket-return-expr>
-<program>                          ::= <sentence>*
+<program>                          ::= <statement>* <bracket-return-expr> | <expr-swim> | <expr>
 ```
 
 # Keywords
