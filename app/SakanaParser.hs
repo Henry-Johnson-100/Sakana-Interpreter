@@ -230,7 +230,7 @@ dataNull = do
   (return . flip PacketUnit ln . Data) D.Null
 
 dataData :: SakanaTokenParser u
-dataData = Prs.try dataDouble <|> Prs.try dataString <|> Prs.try dataBoolean
+dataData = Prs.choice (Prs.try <$> [dataDouble, dataString, dataBoolean])
 
 stringStrict :: [Char] -> Prs.ParsecT [Char] u DFId.Identity [Char]
 stringStrict str = do
@@ -296,7 +296,7 @@ bracketSendOpen = do
   let ln = Prs.sourceLine pos
   Prs.char '>'
   Prs.char '('
-  (return . flip PacketUnit ln . Bracket B.Send) B.Open
+  (return . flip PacketUnit ln . Bracket B.Send) B.Open <?> "open send fish '>('"
 
 bracketReturnOpen :: SakanaTokenParser u
 bracketReturnOpen = do
@@ -304,7 +304,7 @@ bracketReturnOpen = do
   let ln = Prs.sourceLine pos
   Prs.char '<'
   Prs.char '('
-  (return . flip PacketUnit ln . Bracket B.Return) B.Open
+  (return . flip PacketUnit ln . Bracket B.Return) B.Open <?> "open return fish '>('"
 
 bracketSendClose :: SakanaTokenParser u
 bracketSendClose = do
@@ -312,7 +312,7 @@ bracketSendClose = do
   let ln = Prs.sourceLine pos
   Prs.char ')'
   Prs.char '>'
-  (return . flip PacketUnit ln . Bracket B.Send) B.Close
+  (return . flip PacketUnit ln . Bracket B.Send) B.Close <?> "closed send fish '>('"
 
 bracketReturnClose :: SakanaTokenParser u
 bracketReturnClose = do
@@ -320,7 +320,7 @@ bracketReturnClose = do
   let ln = Prs.sourceLine pos
   Prs.char ')'
   Prs.char '<'
-  (return . flip PacketUnit ln . Bracket B.Return) B.Close
+  (return . flip PacketUnit ln . Bracket B.Return) B.Close <?> "closed return fish '>('"
 
 fish :: SakanaTokenParser u
 fish = do
@@ -328,7 +328,7 @@ fish = do
   let ln = Prs.sourceLine pos
   Prs.string "fish"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
-  return (PacketUnit (Keyword K.Fish) ln)
+  return (PacketUnit (Keyword K.Fish) ln) <?> "the keyword 'fish'"
 
 swim :: SakanaTokenParser u
 swim = do
@@ -336,7 +336,7 @@ swim = do
   let ln = Prs.sourceLine pos
   Prs.string "swim"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
-  return (PacketUnit (Keyword K.Swim) ln)
+  return (PacketUnit (Keyword K.Swim) ln) <?> "the keyword 'swim'"
 
 fin :: Prs.ParsecT [Char] u DFId.Identity TokenUnit
 fin = do
@@ -344,7 +344,7 @@ fin = do
   let ln = Prs.sourceLine pos
   Prs.string "fin"
   Prs.notFollowedBy (Prs.alphaNum <|> Prs.char '.')
-  return (PacketUnit (Control C.Fin) (ln))
+  return (PacketUnit (Control C.Fin) (ln)) <?> "the keyword 'fin'"
 
 ----Units to trees parsers----------------------------------------------------------------
 
@@ -360,19 +360,26 @@ maybeSpaced p = do
 tokenUnitToTree :: B.ScopeType -> TokenUnit -> SyntaxTree
 tokenUnitToTree st = Tree.tree . flip tokenUnitToSyntaxUnit st
 
+nullBracket st = do
+  if st == B.Send then bracketSendOpen else bracketReturnOpen
+  Prs.spaces
+  if st == B.Send then bracketSendClose else bracketReturnClose
+  let nullTrees = [(Tree.tree . setContext st . genericSyntaxUnit . Data) D.Null]
+  return nullTrees
+
 dataTree :: B.ScopeType -> SakanaTreeParser u
 dataTree st = do
   dataToTree <- dataData
   Prs.spaces
   let dataTrees = [(tokenUnitToTree st) dataToTree]
-  return dataTrees
+  return dataTrees <?> "a primitive data type, Num, String, or Boolean."
 
 idTree :: B.ScopeType -> SakanaTreeParser u
 idTree st = do
   idToTree <- identifier
   Prs.spaces
   let idTrees = [tokenUnitToTree st idToTree]
-  return idTrees
+  return idTrees <?> "a valid identifier."
 
 bracketContainingExpr :: B.ScopeType -> SakanaTreeParser u
 bracketContainingExpr st = do
@@ -435,7 +442,7 @@ funcCall :: B.ScopeType -> SakanaTreeParser u
 funcCall st = do
   callId <- identifier
   Prs.spaces
-  args <- Prs.many (bracketContainingExpr B.Send)
+  args <- Prs.many (Prs.choice (Prs.try <$> [bracketContainingExpr B.Send, nullBracket B.Send]))
   Prs.spaces
   let funcCallTrees = [(tokenUnitToTree st) callId `foldAppendChildren` args]
   return funcCallTrees
@@ -448,7 +455,7 @@ funcDeclArg = do
   Prs.spaces
   bracketSendClose
   Prs.spaces
-  return argstmnt
+  return argstmnt <?> "a function argument in the form of a statement."
 
 funcDecl :: B.ScopeType -> SakanaTreeParser u
 funcDecl st = do
@@ -457,7 +464,7 @@ funcDecl st = do
   Prs.spaces
   declId <- identifier
   Prs.spaces
-  declArgs <- Prs.many funcDeclArg
+  declArgs <- Prs.many (Prs.choice (Prs.try <$> [funcDeclArg, nullBracket B.Send]))
   Prs.spaces
   funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp
   Prs.spaces
@@ -487,7 +494,7 @@ program :: SakanaTreeParser u
 program = do
   stmnts <- (Prs.many . maybeSpaced . stmnt) B.Return <?> "Statements"
   Prs.spaces
-  toExecute <- Prs.optionMaybe $ (bracketContainingExpr B.Return) <|> swimExp <|> expr B.Return
+  toExecute <- Prs.optionMaybe maybeHasExecute
   let justExecuteTree = DMaybe.fromMaybe [] toExecute
   let progTree =
         [ (tokenUnitToTree B.Return)
@@ -495,6 +502,8 @@ program = do
             `foldAppendChildren` stmnts -<= justExecuteTree
         ]
   return progTree
+  where
+    maybeHasExecute = Prs.choice (Prs.try <$> [bracketContainingExpr B.Return, swimExp, expr B.Return])
 
 runSakanaParser :: Prs.SourceName -> [Char] -> Either Prs.ParseError [SyntaxTree]
 runSakanaParser srcName contents = do
@@ -508,15 +517,10 @@ generateSyntaxTree :: [Char] -> SyntaxTree
 generateSyntaxTree str = head $ DEither.fromRight ([Tree.Empty]) (runSakanaParser "" str)
 
 s' =
-  "fish mult_ten\
-  \ >(x)>\
-  \ <(* >(x)> >(10)>)<\
-  \ swim\
-  \ >(result <(mult_ten >(5)>)<)>\
-  \ >(result_two <(mult_ten >(10)>)<)>\
-  \ >(final <(+ >(result)> >(result_two)>)<)>\
-  \ >(trout >(result)>)>\
-  \ <(final)<"
+  "< >(5)> >(0)>"
+
+pt :: SakanaTreeParser () -> [Char] -> IO ()
+pt p s = Prs.parseTest p s
 
 test = Prs.parseTest program s'
 
