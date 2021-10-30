@@ -66,3 +66,8 @@ parser looks for when parsing a Sakana program.
 * Added more std_lib functions.
     * ```read```
     * ```floor```
+
+### 0.2.2.0 -- YYYY-MM-DD
+
+* Rewrote the parser yet again.
+    * Using Haskell's Parsec library.

@@ -28,10 +28,17 @@ usingArgs args
       \\tFlags:\n\
       \\t-v, --version\n\
       \\t\tDisplays the version of the Sakana Interpreter.\n\
+      \\t --licenses\n\
+      \\t\tDisplays additional licenses of other software\
+      \ libraries appearing in this code. See the root/directory/LibrariesUsed.md\
+      \ for more information.\n\
       \\t-h, --help\n\
       \\t\tDisplays this help."
   | argsContainAny ["-v", "--version"] =
     putStrLn $ "Sakana Interpeter Version: " ++ (showVersion (Version [0, 2, 2, 0] []))
+  | argsContainAny ["--licenses"] = do
+    putStrLn "parsec: Monadic parser combinators v 3.1.14.0\n\
+    \\tCopyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved."
   | otherwise = interpretFileAndReturn (head args) ((unwords . Util.General.tail') args)
   where
     argsContainAny = any (`elem` args)

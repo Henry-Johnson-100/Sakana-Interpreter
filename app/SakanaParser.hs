@@ -28,6 +28,10 @@ import qualified Data.Either as DEither (fromRight)
 import qualified Data.Functor.Identity as DFId (Identity)
 import qualified Data.List as DList (foldl')
 import qualified Data.Maybe as DMaybe (Maybe (Just, Nothing), fromMaybe, maybe)
+{-
+For Text.Parsec
+Copyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved.
+-}
 import Text.Parsec ((<?>), (<|>))
 import qualified Text.Parsec as Prs
   ( ParseError,
