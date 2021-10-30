@@ -45,7 +45,8 @@ treeGenerationTests = testGroup "SyntaxTree generation tests" testList
         treeSubFunctionsOne,
         treeSubFunctionsTwo,
         treeFunctionWithSwimExecutionOne,
-        treeFunctionWithSwimExecutionTwo
+        treeFunctionWithSwimExecutionTwo,
+        commentsAreIgnoredOne
       ]
 
 {-
@@ -458,3 +459,14 @@ treeFunctionWithSwimExecutionTwo = testCase name assertion
         \)<\
         \)>\
         \<(sub_fact >(30)> >(1)>)<"
+
+commentsAreIgnoredOne = testCase name assertion
+  where
+    name = "Block comments are ignored (1)."
+    assertion = assertEqual name a f
+    a =
+      attachToMain
+        [ (tree . makeSU Return . Keyword) Fish
+            -<= [(treeSU Send . dataId) "simple", (treeSU Send . dataId) "x", (treeSU Return . dataId) "x"]
+        ]
+    f = prepareString "/* hi */ fish simple >(x)> <(x)<"
