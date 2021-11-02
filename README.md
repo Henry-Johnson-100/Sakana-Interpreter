@@ -105,17 +105,19 @@ are provided to any given ```fin``` expression.
 # Standard Library
 
 - Trout
-    - Sakana's print function.
+    - Sakana's print function, prints to stdout.
     - Usage: ```trout >(a)>```
         - Prints ```a``` and returns a null value.
+- Herring
+    - Like ```trout``` but prints to stderr
 - Dolphin
-    - Sakana's input function
+    - Sakana's input function, reads from stdin.
     - Usage: ```dolphin >()>```
         - Where the function call itself will be replaced with a string of whatever the user entered.
         - Analagous to ```dolphin = hGetLine stdin``` in Haskell.
 - Read
     - Read a Sakana primitive data type from a string.
-        - Output is polymorphic so it will output either a String, Num, or Boolean depending on what the input looks like.
+        - Will output either a String, Num, or Boolean depending on what the input looks like.
         - Throws an error if the input can not be read to a type.
     - Usage: ```read >(str)>``` 
 - Floor

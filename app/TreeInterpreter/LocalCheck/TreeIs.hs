@@ -110,7 +110,7 @@ standardLibCall tr =
     && DMaybe.maybe False funcIdInStdLibList (Tree.treeNode tr)
   where
     funcIdInStdLibList =
-      flip elem ["trout", "dolphin", "read", "floor"]
+      flip elem ["trout", "herring", "dolphin", "read", "floor"]
         . D.fromData
         . DMaybe.fromJust
         . SakanaParser.baseData

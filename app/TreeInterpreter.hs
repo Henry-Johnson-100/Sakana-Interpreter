@@ -254,6 +254,10 @@ execute env tr
         trout
           env
           ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
+      "herring" ->
+        herring
+          env
+          ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
       "dolphin" -> dolphin
       "read" ->
         sakanaRead
@@ -536,7 +540,12 @@ fin env cond forTrue forFalse = do
     recontextualizeFinChild = flip Tree.mutateTreeNode (SakanaParser.setContext B.Return)
 
 trout :: EnvironmentStack -> SyntaxTree -> IO D.Data
-trout env toPrint = (execute env toPrint >>= sakanaPrint) >> return D.Null
+trout env toPrint =
+  (execute env toPrint >>= (hPutStr stdout . D.fromData)) >> return D.Null
+
+herring :: EnvironmentStack -> SyntaxTree -> IO D.Data
+herring env toPrint =
+  (execute env toPrint >>= (hPutStr stderr . D.fromData)) >> return D.Null
 
 dolphin :: IO D.Data
 dolphin = hGetLine stdin >>= return . D.String
@@ -599,9 +608,17 @@ sakanaFloor env tr = do
 ----testing-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
--- s' :: [Char]
--- s' =
---   "fish test >(pos)> <(swim <(pos)<)< swim <(test >(10)>)<"
+s' :: [Char]
+s' =
+  "fish thing >()> swim >(trout >(\"Hello\nthere\")>)> <(0)< swim <(thing)<"
+
+pt' = SakanaParser.generateSyntaxTree s'
+
+e' = getMainEnvironmentStack pt'
+
+et' = getMainExecutionTrees pt'
+
+ex' = executeMain (return e') (return et') (return "")
 
 -- t' :: [SakanaParser.TokenUnit]
 -- t' = SakanaParser.tokenize s'

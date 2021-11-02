@@ -67,7 +67,14 @@ parser looks for when parsing a Sakana program.
     * ```read```
     * ```floor```
 
-### 0.2.2.0 -- YYYY-MM-DD
+### 0.2.2.0 -- 2021-10-30
 
 * Rewrote the parser yet again.
     * Using Haskell's Parsec library.
+
+#### 0.2.2.1 -- 2021-11-02
+
+* Fixed ```trout``` not printing escaped characters (\n,\t,\r) properly.
+* Added ```herring``` print function to print to ```stderr```.
+* both ```trout``` and ```herring``` will no longer end with a newline, so they will
+have to be placed manually.

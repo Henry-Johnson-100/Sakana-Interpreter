@@ -14,7 +14,7 @@ import TreeInterpreter (executeMain, getMainEnvironmentStack, getMainExecutionTr
 import qualified Util.General (tail')
 
 sakanaVersion :: Version
-sakanaVersion = Version [0, 2, 2, 0] []
+sakanaVersion = Version [0, 2, 2, 1] []
 
 main :: IO ()
 main = do

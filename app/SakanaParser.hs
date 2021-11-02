@@ -42,6 +42,7 @@ import qualified Text.Parsec as Prs
     char,
     choice,
     count,
+    crlf,
     digit,
     getPosition,
     letter,
@@ -49,6 +50,7 @@ import qualified Text.Parsec as Prs
     many,
     many1,
     manyTill,
+    newline,
     noneOf,
     notFollowedBy,
     oneOf,
@@ -59,6 +61,7 @@ import qualified Text.Parsec as Prs
     space,
     spaces,
     string,
+    tab,
     try,
     upper,
   )
@@ -217,8 +220,37 @@ dataString = do
   pos <- Prs.getPosition
   let ln = Prs.sourceLine pos
   Prs.char '"'
-  string <- Prs.manyTill Prs.anyChar (Prs.char '"')
-  (return . flip PacketUnit ln . Data . D.String) string
+  string <- Prs.manyTill ((Prs.choice . (<$>) Prs.try) [removeInvisibleSpacing, unescapeEscapedSpaces, anyCharAsString]) (Prs.char '"')
+  (return . flip PacketUnit ln . Data . D.String . concat) string
+
+anyCharAsString = do
+  ch <- Prs.anyChar
+  return [ch]
+
+removeInvisibleSpacing :: Prs.ParsecT [Char] u DFId.Identity [Char]
+removeInvisibleSpacing = do
+  (Prs.choice . (<$>) Prs.try) [Prs.tab, Prs.newline, Prs.crlf]
+  return ""
+
+unescapeEscapedSpaces :: Prs.ParsecT [Char] u DFId.Identity [Char]
+unescapeEscapedSpaces =
+  (Prs.choice . (<$>) Prs.try)
+    [unescapeEscapedNewline, unescapeEscapedTab, unescapeEscapedCarriageReturn]
+
+unescapeEscapedNewline :: Prs.ParsecT [Char] u DFId.Identity [Char]
+unescapeEscapedNewline = do
+  Prs.string "\\n"
+  return "\n"
+
+unescapeEscapedTab :: Prs.ParsecT [Char] u DFId.Identity [Char]
+unescapeEscapedTab = do
+  Prs.string "\\t"
+  return "\t"
+
+unescapeEscapedCarriageReturn :: Prs.ParsecT [Char] u DFId.Identity [Char]
+unescapeEscapedCarriageReturn = do
+  Prs.string "\\r"
+  return "\r"
 
 dataBoolean :: SakanaTokenParser u
 dataBoolean = do
@@ -409,7 +441,11 @@ finExpr :: B.ScopeType -> SakanaTreeParser u
 finExpr st = do
   f <- fin
   Prs.spaces
-  args <- (Prs.count 3 . bracketContainingExpr) B.Send
+  args <-
+    (Prs.count 3 . bracketContainingExpr) B.Send
+      <?> "3 required arguments for \
+          \the fin keyword. One boolean expression, one expression to return if true, \
+          \and one expression to return if false."
   Prs.spaces
   let finTrees = [(tokenUnitToTree st) f `foldAppendChildren` args]
   return finTrees
@@ -437,7 +473,10 @@ swimExp = do
   Prs.spaces
   procs <- Prs.many (Prs.try (bracketContainingExpr B.Send) <|> fishSend)
   Prs.spaces
-  returnValue <- bracketContainingExpr B.Return
+  returnValue <-
+    bracketContainingExpr B.Return
+      <?> "a return fish. A Swim expression \
+          \must return a value, even if that value is null."
   Prs.spaces
   let swimTrees =
         [(tokenUnitToTree B.Return) s `foldAppendChildren` procs -<= returnValue]
@@ -488,12 +527,6 @@ expr st =
   Prs.choice (Prs.try <$> [opExpr st, finExpr st, swimExp, funcCall st, dataTree st])
     <?> "Expression, a phrase that can return a value:\
         \ (fin, swim, a function call, or data)"
-
--- Prs.try (opExpr st)
---   <|> Prs.try (finExpr st)
---   <|> Prs.try (swimExp)
---   <|> Prs.try (funcCall st)
---   <|> dataTree st
 
 stmnt :: B.ScopeType -> SakanaTreeParser u
 stmnt st =
