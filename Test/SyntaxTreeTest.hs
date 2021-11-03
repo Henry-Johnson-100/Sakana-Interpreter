@@ -45,7 +45,9 @@ treeGenerationTests = testGroup "SyntaxTree generation tests" testList
         treeSubFunctionsOne,
         treeSubFunctionsTwo,
         treeFunctionWithSwimExecutionOne,
-        treeFunctionWithSwimExecutionTwo
+        treeFunctionWithSwimExecutionTwo,
+        partialFunctionInFunctionDeclOne,
+        partialFuncBindInSwim
       ]
 
 {-
@@ -458,3 +460,47 @@ treeFunctionWithSwimExecutionTwo = testCase name assertion
         \)<\
         \)>\
         \<(sub_fact >(30)> >(1)>)<"
+
+partialFunctionInFunctionDeclOne = testCase name assertion
+  where
+    name =
+      "A tree is properly generated for a partial function inside a\
+      \ function declaration (1)."
+    assertion = assertEqual name a f
+    a =
+      attachToMain
+        [ (tree . makeSU Return . Keyword) Fish
+            -<= [ (treeSU Send . dataId) "add",
+                  (treeSU Send . dataId) "x",
+                  (treeSU Send . dataId) "y",
+                  (treeSU Return . Operator) Add
+                    -<= [ (treeSU Send . dataId) "x",
+                          (treeSU Send . dataId) "y"
+                        ]
+                ]
+        ]
+    f =
+      prepareString
+        "fish add >(x)> <( >(y)> <(+ >(x)> >(y)> )< )<"
+
+partialFuncBindInSwim = testCase name assertion
+  where
+    name =
+      "A tree is properly generated for a partial function binding in swim. (1)."
+    assertion = assertEqual name a f
+    a =
+      attachToMain
+        [ (treeSU Return . Keyword) Swim
+            -<= [ (treeSU Send . dataId) "simple"
+                    -<= [ (treeSU Send . dataId) "x",
+                          (treeSU Return . Operator) Add
+                            -<= [ (treeSU Send . dataNum) 1.0,
+                                  (treeSU Send . dataId) "x"
+                                ]
+                        ],
+                  (treeSU Return . dataNum) 0.0
+                ]
+        ]
+    f =
+      prepareString
+        "swim >(simple <( >(x)> <(+ >(1)> >(x)>)<)< )> <(0)<"
