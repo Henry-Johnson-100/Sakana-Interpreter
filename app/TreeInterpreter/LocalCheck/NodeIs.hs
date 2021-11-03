@@ -6,6 +6,8 @@ module TreeInterpreter.LocalCheck.NodeIs
     fin,
     idNode,
     declarationRequiringId,
+    returnContext,
+    sendContext,
   )
 where
 
@@ -14,11 +16,13 @@ import qualified SakanaParser
   ( SyntaxUnit (SyntaxUnit, token),
     Token (Control, Data),
     baseData,
+    context,
     dataTokenIsId,
     genericData,
     genericOperator,
     keywordTokenIsDeclarationRequiringId,
   )
+import qualified Token.Bracket as B (ScopeType (..))
 import qualified Token.Control as C (Control (Fin))
 import qualified Token.Data as D (Data (Null), isPrimitive)
 import qualified Util.General (foldIdApplicativeOnSingleton)
@@ -51,3 +55,9 @@ idNode = SakanaParser.dataTokenIsId . SakanaParser.token
 declarationRequiringId :: SakanaParser.SyntaxUnit -> Bool
 declarationRequiringId =
   SakanaParser.keywordTokenIsDeclarationRequiringId . SakanaParser.token
+
+returnContext :: SakanaParser.SyntaxUnit -> Bool
+returnContext = ((==) B.Return . SakanaParser.context)
+
+sendContext :: SakanaParser.SyntaxUnit -> Bool
+sendContext = ((==) B.Send . SakanaParser.context)

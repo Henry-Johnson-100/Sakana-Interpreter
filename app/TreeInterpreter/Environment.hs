@@ -105,7 +105,8 @@ addTableToEnvironmentStack :: EnvironmentStack -> SymbolTable -> EnvironmentStac
 addTableToEnvironmentStack [] symTable = [symTable]
 addTableToEnvironmentStack env symTable = symTable : env
 
-lookupSymbolInEnvironmentStack :: EnvironmentStack -> SakanaParser.SyntaxUnit -> SymbolPair
+lookupSymbolInEnvironmentStack ::
+  EnvironmentStack -> SakanaParser.SyntaxUnit -> SymbolPair
 lookupSymbolInEnvironmentStack env lookupId =
   DMaybe.fromMaybe
     (symbolNotFoundError lookupId)

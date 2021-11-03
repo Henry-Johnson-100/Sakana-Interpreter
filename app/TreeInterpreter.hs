@@ -117,6 +117,7 @@ import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
     fin,
     nullNode,
     operator,
+    sendContext,
   )
 import qualified TreeInterpreter.LocalCheck.TreeIs as Check.TreeIs
   ( executable,
@@ -413,9 +414,14 @@ getOperatorArgs env tr =
 
 getFuncDeclArgs :: SyntaxTree -> [SyntaxTree]
 getFuncDeclArgs =
-  filter (Tree.nodeStrictlySatisfies (not . Check.NodeIs.nullNode))
+  filter
+    ( Util.General.foldIdApplicativeOnSingleton
+        any
+        ( Tree.nodeStrictlySatisfies
+            <$> [Check.NodeIs.sendContext, not . Check.NodeIs.nullNode]
+        )
+    )
     . Util.General.tail'
-    . Util.General.init'
     . Tree.treeChildren
 
 getFunctionDeclPositionalArgs :: SyntaxTree -> [SyntaxTree]
@@ -438,13 +444,6 @@ prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration = do
   let functionDeclarationProcTrees = getExecutableChildren functionDeclaration
   (functionIOEnvironment, return functionDeclarationProcTrees)
 
--- where
--- getFunctionDeclarationProcTrees tr =
---   if Tree.nodeStrictlySatisfies
---     (SakanaParser.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token)
---     tr
---     then (filter (not . treeIsPositionalArg) . tail' . Tree.treeChildren) tr
---     else (filter (not . treeIsPositionalArg) . Tree.treeChildren) tr
 -- This function is required to get all of the execution trees of a function
 -- declaration, which is why 'getMainExecutionTrees' is called.
 -- Ideally, a function declaration works like a miniature program.
@@ -619,72 +618,3 @@ e' = getMainEnvironmentStack pt'
 et' = getMainExecutionTrees pt'
 
 ex' = executeMain (return e') (return et') (return "")
-
--- t' :: [SakanaParser.TokenUnit]
--- t' = SakanaParser.tokenize s'
-
--- pt' :: SyntaxTree
--- pt' = SyntaxTree.generateSyntaxTree t'
-
--- pt'' = Tree.treeChildren pt'
-
--- env' = getMainEnvironmentStack pt'
-
--- met' = getMainExecutionTrees pt'
-
--- calct' :: String -> Tree.Tree SyntaxUnit
--- calct' =
---   DMaybe.fromJust . Util.General.head' . Tree.treeChildren
---     . SyntaxTree.generateSyntaxTree
---     . SakanaParser.tokenize
-
--- ex' s = do
---   let docTree = SyntaxTree.generateSyntaxTree . SakanaParser.tokenize $ s
---   let mainExEnv = return . getMainEnvironmentStack $ docTree
---   let mainExTr = return . getMainExecutionTrees $ docTree
---   executeMain mainExEnv mainExTr
-
--- -- calc' :: String -> D.Data
--- -- calc' = evaluateNode . calct'
-
--- fishEnv =
---   "fish to_bool\
---   \ >(x)>\
---   \  <(\
---   \  fin\
---   \  >(x)>\
---   \  >(True)>\
---   \  >(False)>\
---   \ )<\
---   \fish and\
---   \ >(x)>\
---   \ >(y)>\
---   \  <(\
---   \   fin\
---   \  >(x)>\
---   \ >(to_bool >(y)>)>\
---   \ >(False)>\
---   \)<\
---   \fish not\
---   \ >(x)>\
---   \ <(\
---   \ fin\
---   \ >(to_bool >(x)>)>\
---   \  >(False)>\
---   \  >(True)>\
---   \ )<\
---   \fish or\
---   \ >(x)>\
---   \  >(y)>\
---   \<(\
---   \  fin\
---   \ >(x)>\
---   \ >(True)>\
---   \  >(to_bool >(y)>)>\
---   \ )<"
-
--- fishCall str = (fishEnv ++ " swim") ++ ("<(" ++ str ++ ")<")
-
--- fenv' = putStrLn . fPrintEnvironmentStack
-
--- io' tr = (Tree.ioPrintTree tr)
