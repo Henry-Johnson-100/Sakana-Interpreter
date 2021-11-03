@@ -511,20 +511,36 @@ funcDecl st = do
   declId <- identifier
   Prs.spaces
   -- declArgs <- Prs.many (Prs.choice (Prs.try <$> [funcDeclArg, nullBracket B.Send]))
-  declArgs <- (Prs.many . Prs.choice . (<$>) Prs.try) [funcDeclArg, nullBracket B.Send]
-  Prs.spaces
-  funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp
+  partialBody <- partialFuncExpr
   Prs.spaces
   let funcDeclTrees =
         [ tokenUnitToTree st f
-            -<= [(tokenUnitToTree B.Send) declId] `foldAppendChildren` declArgs
-            -<= funcReturn
+            -<= [(tokenUnitToTree B.Send) declId] -<= partialBody
         ]
   return funcDeclTrees
 
+partialFuncExpr :: SakanaTreeParser u
+partialFuncExpr = do
+  Prs.spaces
+  args <- (Prs.many . Prs.choice . (<$>) Prs.try) [funcDeclArg, nullBracket B.Send]
+  Prs.spaces
+  funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp
+  Prs.spaces
+  let funcTrees = (concat args) ++ funcReturn
+  return funcTrees
+
 expr :: B.ScopeType -> SakanaTreeParser u
 expr st =
-  Prs.choice (Prs.try <$> [opExpr st, finExpr st, swimExp, funcCall st, dataTree st])
+  Prs.choice
+    ( Prs.try
+        <$> [ opExpr st,
+              finExpr st,
+              swimExp,
+              funcCall st,
+              dataTree st,
+              partialFuncExpr
+            ]
+    )
     <?> "Expression, a phrase that can return a value:\
         \ (fin, swim, a function call, or data)"
 

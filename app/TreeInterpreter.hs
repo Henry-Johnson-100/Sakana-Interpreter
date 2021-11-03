@@ -414,13 +414,8 @@ getOperatorArgs env tr =
 
 getFuncDeclArgs :: SyntaxTree -> [SyntaxTree]
 getFuncDeclArgs =
-  filter
-    ( Util.General.foldIdApplicativeOnSingleton
-        any
-        ( Tree.nodeStrictlySatisfies
-            <$> [Check.NodeIs.sendContext, not . Check.NodeIs.nullNode]
-        )
-    )
+  filter (Tree.nodeStrictlySatisfies (not . Check.NodeIs.nullNode))
+    . filter (Tree.nodeStrictlySatisfies Check.NodeIs.sendContext)
     . Util.General.tail'
     . Tree.treeChildren
 
