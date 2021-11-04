@@ -394,6 +394,28 @@ simplePartialFunctionApplication = standardTimeout 3 $ testCase name assertion
     a = Num 2.0
     f = prepareFunctionForTest $ "fish add >(x)> <(fish add_ >(y)> <(+ >(x)> >(y)>)< )< <(add >(1)> >(1)>)<"
 
+simpleHigherOrderFunction = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Functions can be passed into other functions."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f =
+      prepareFunctionForTest $
+        "fish apply >(f)> >(x)> <(f >(x)>)<\
+        \ fish add_one >(x)> <(+ >(x)> >(1)>)< <(apply >(add_one)> >(1)>)<"
+
+simpleHigherOrderFunctionWithPartialApplication = standardTimeout 3 $ testCase name assertion
+  where
+    name = "Partially applied functions can be passed into other functions."
+    assertion = assertEqual d a f
+    d = name
+    a = Num 2.0
+    f =
+      prepareFunctionForTest $
+        "fish apply >(f)> >(x)> <(f >(x)>)<\
+        \ fish add >(x)> <( >(y)> <(+ >(x)> >(y)>)<)< <(apply >(add >(1)>)> >(1)>)<"
+
 simpleShadowingOfId = standardTimeout 3 $ testCase name assertion
   where
     name = "A binding name can be shadowed in other scopes."
@@ -604,6 +626,8 @@ functionExecutionTests = testGroup "Function execution tests" testList
         concurrentFunctionCallsWorkTwo,
         functionsCallOtherFunctionsConcurrently,
         simplePartialFunctionApplication,
+        simpleHigherOrderFunction,
+        simpleHigherOrderFunctionWithPartialApplication,
         simpleShadowingOfId,
         metaFishCallWorks
       ]
