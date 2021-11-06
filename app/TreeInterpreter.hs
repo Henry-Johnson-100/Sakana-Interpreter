@@ -467,9 +467,13 @@ makeSymbolTableFromFuncCall _ table [] dfargs =
         dfargs
 makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
   | Check.TreeIs.positionalArg dfarg = do
-    cfargVal <- execute mainExEnv cfarg
-    argValBinding <- return $ createSymbolPairFromArgTreePair dfarg cfargVal
-    makeSymbolTableFromFuncCall mainExEnv (argValBinding : table) cfargs dfargs
+    -- cfargVal <- execute mainExEnv cfarg
+    -- argValBinding <- return $ createSymbolPairFromArgTreePair dfarg cfargVal
+    --It is necessary to store an argument symbol as a tree so that functions can
+    -- be passed as arguments into other functions.
+    -- It allows the use of higher-order functions.
+    argBinding <- (return . createSymbolPairTreeFromArgTreePair dfarg) cfarg
+    makeSymbolTableFromFuncCall mainExEnv (argBinding : table) cfargs dfargs
   | otherwise = do
     let fromJustSymbolTable =
           DMaybe.maybe table (: table) (maybeTreeToSymbolPair table dfarg)
@@ -485,6 +489,15 @@ missingPositionalArgumentException fdas =
           ++ (unlines . map (Tree.maybeOnTreeNode "N/A" (show))) fdas
       )
       Exception.Fatal
+
+createSymbolPairTreeFromArgTreePair ::
+  SakanaParser.SyntaxTree ->
+  SakanaParser.SyntaxTree ->
+  Env.SymbolPair
+createSymbolPairTreeFromArgTreePair dfarg =
+  makeSymbolPair
+    . (Tree.-<-) dfarg
+    . flip Tree.mutateTreeNode (SakanaParser.setContext B.Return)
 
 createSymbolPairFromArgTreePair :: SyntaxTree -> D.Data -> SymbolPair
 createSymbolPairFromArgTreePair dfarg' cfargVal' =
@@ -604,7 +617,8 @@ sakanaFloor env tr = do
 
 s' :: [Char]
 s' =
-  "fish thing >()> swim >(trout >(\"Hello\nthere\")>)> <(0)< swim <(thing)<"
+  "fish apply >(f)> >(x)> <(f >(x)>)<\
+  \ fish add >(x)> <( >(y)> <(+ >(x)> >(y)>)<)< <(apply >(add >(1)>)> >(1)>)<"
 
 pt' = SakanaParser.generateSyntaxTree s'
 
