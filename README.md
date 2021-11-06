@@ -3,7 +3,11 @@
 A syntax-tree based interpreter implementation for the Sakana programming language.
 
 A functional programming language, heavily inspired by Haskell and subliminally inspired by Scheme.
-Based on fish, using fishy words and fish braces >()> <()<
+Based on fish, using fishy words and fish braces `>()>` `<()<`
+
+[TOC]
+
+
 
 # Try it
 
@@ -29,7 +33,7 @@ The executable is: app/Main.hs
 
 Sakana is a functional programming language that is very (perhaps too) similar to Haskell and Scheme.
 All of the syntax is fishy and code blocks are executed and their value returned depending on what kind of fish they reside in.
-There are two types of fish, send fish ">()>", and return fish "<()<"
+There are two types of fish, send fish `>()>`, and return fish `<()<`
 
 Send fish provide information to the return fish they are immediately in front of.
 A return fish will execute its code and return a value. That's the most fundamental rule of fish,
@@ -44,10 +48,6 @@ implemented, as such, the regex may not be totally accurate.
 
 Following these grammar rules will ensure your program can be parsed but not necessarily
 that it will behave in a predictable way.
-
-For instance, a ```fin``` expects exactly 3 arguments, but in the parser implementation,
-it expects 1 or more. There will be a runtime bug if some number of arguments other than 3
-are provided to any given ```fin``` expression.
 
 ```
 <data-double>                      ::= -?\d+\.?\d*
@@ -114,7 +114,7 @@ are provided to any given ```fin``` expression.
     - Sakana's input function, reads from stdin.
     - Usage: ```dolphin >()>```
         - Where the function call itself will be replaced with a string of whatever the user entered.
-        - Analagous to ```dolphin = hGetLine stdin``` in Haskell.
+        - Analogous to ```dolphin = hGetLine stdin``` in Haskell.
 - Read
     - Read a Sakana primitive data type from a string.
         - Will output either a String, Num, or Boolean depending on what the input looks like.
@@ -123,6 +123,8 @@ are provided to any given ```fin``` expression.
 - Floor
     - Calculate the floor of a Num
     - Usage: ```floor >(n)>```
+
+------
 
 
 # Basic Arithmetic
@@ -160,7 +162,7 @@ Returns True
 
 Control flow is done using the ```fin``` keyword.
 fin is actually a function that takes three arguments:
-- A boolean value
+- A Boolean value
 - A value to return if True
 - A value to return if False
 
@@ -183,7 +185,7 @@ Functions are declared with the ```fish``` keyword.
 
 Following the keyword, a function name must be given. After the name comes a list of send fish which contain the function's positional arguments as well as any necessary sub-function or variable declarations.
 
-Here is an example for some simple boolean logic:
+Here is an example for some simple Boolean logic:
 
 ```
 fish and
@@ -252,7 +254,9 @@ so here we can see that calling factorial is essentially just a wrapper for the 
 
 It should also be noted that Sakana does not have a loop, so any looping must be defined recursively.
 
-Hope you enjoyed your quick primer on Sakana!
+
+
+------
 
 # IO
 
@@ -281,7 +285,7 @@ Or you can use Sakana's new keyword, ```swim```!.
 ## Swim
 
 This keyword allows you execute code procedurally in Sakana.
-If you have worked with Haskell's IO monad, this concept essentially the same.
+If you have worked with Haskell's IO monad, this concept is essentially the same.
 There are a few options for calculations in a swim block:
 
 * In a swim block, any value contained in a send fish will be executed 
@@ -339,3 +343,4 @@ computing the factorial of:
 The final value is:
 2.652528598121911e32
 ```
+
