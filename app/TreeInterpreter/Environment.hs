@@ -1,5 +1,7 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module TreeInterpreter.Environment
-  ( SymbolPair (..),
+  ( SymbolBinding (..),
     SymbolTable (..),
     EnvironmentStack (..),
     currentStackSymbolTable,
@@ -8,21 +10,24 @@ module TreeInterpreter.Environment
     fPrintSymbolPair',
     emptyEnvironmentStack,
     encloseEnvironmentIn,
-    addSymbolToEnvironmentStack,
+    insertSymbolToEnvironmentStack,
     addTableToEnvironmentStack,
-    lookupSymbolInEnvironmentStack,
-    maybeLookupSymbolInEnvironmentStack,
-    makeEnvironmentStackFrame,
-    makeSymbolTable,
-    makeSymbolTable',
-    maybeTreeToSymbolPair,
+    findSymbol,
+    maybeFindSymbol,
     symbolAlreadyExistsException,
     symbolNotFoundError,
-    maybeLookupSymbolInSymbolTable,
-    makeSymbolPair,
   )
 where
 
+import qualified Data.HashMap.Strict as HashMap
+  ( HashMap (..),
+    elems,
+    insert,
+    lookup,
+    singleton,
+    (!?),
+  )
+import qualified Data.Hashable as DHash (Hashable (hash))
 import qualified Data.List as DList (find, intercalate)
 import qualified Data.Maybe as DMaybe
   ( fromJust,
@@ -32,10 +37,15 @@ import qualified Data.Maybe as DMaybe
   )
 import qualified Exception.Base as Exception
   ( ExceptionSeverity (Fatal),
-    ExceptionType (SymbolIsAlreadyBound, SymbolNotFound),
+    ExceptionType
+      ( NoEnvironment,
+        SymbolIsAlreadyBound,
+        SymbolNotFound
+      ),
     newException,
     raiseError,
   )
+import qualified GHC.Generics (Generic)
 import qualified SakanaParser
   ( SyntaxTree,
     SyntaxUnit (line, token),
@@ -47,46 +57,91 @@ import qualified Token.Bracket as B (ScopeType (Return))
 import qualified Token.Data as D (Data (Null))
 import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
   ( declarationRequiringId,
+    nullNode,
   )
 import qualified TreeInterpreter.LocalCheck.TreeIs as Check.TreeIs
-  ( storeable,
+  ( executable,
+    positionalArg,
+    storeable,
+    swim,
     symbolValueBinding,
   )
-import qualified Util.General (head')
+import qualified Util.General (head', last')
 import qualified Util.Tree as Tree
   ( Tree (Empty),
     TreeIO (fPrintTree),
+    maybeOnTreeNode,
     nodeStrictlySatisfies,
     treeChildren,
     treeNode,
   )
 
-data SymbolPair = SymbolPair
+data SymbolKey = SymbolKey {symbolKeyRepresentation :: String}
+  deriving (Eq, Show, GHC.Generics.Generic)
+
+instance DHash.Hashable SymbolKey where
+  hash (SymbolKey skr) = DHash.hash skr
+
+data SymbolBinding = SymbolBinding
   { symbolId :: SakanaParser.SyntaxUnit,
+    symbolParams :: [SakanaParser.SyntaxUnit],
     symbolVal :: SakanaParser.SyntaxTree
   }
   deriving (Show, Eq)
 
-type SymbolTable = [SymbolPair]
+getSymbolBindingKey :: SymbolBinding -> SymbolKey
+getSymbolBindingKey (SymbolBinding sbId _ _) =
+  (SymbolKey . SakanaParser.fromToken . SakanaParser.token) sbId
+
+getSyntaxUnitKey :: SakanaParser.SyntaxUnit -> SymbolKey
+getSyntaxUnitKey = SymbolKey . SakanaParser.fromToken . SakanaParser.token
+
+type ReprOfSymbolPair =
+  ( SakanaParser.SyntaxUnit,
+    [SakanaParser.SyntaxUnit],
+    SakanaParser.SyntaxTree
+  )
+
+symbolKV :: SymbolBinding -> (SymbolKey, SymbolBinding)
+symbolKV sb = (getSymbolBindingKey sb, sb)
+
+type SymbolTable = HashMap.HashMap SymbolKey SymbolBinding
 
 type EnvironmentStack = [SymbolTable]
 
+fPrintEnvironmentStack :: EnvironmentStack -> [Char]
+fPrintEnvironmentStack env =
+  ( DList.intercalate "\n"
+      . map (DList.intercalate "\n" . map (fPrintSymbolPair') . HashMap.elems)
+  )
+    env
+
+fPrintSymbolPair' :: SymbolBinding -> String
+fPrintSymbolPair' (SymbolBinding sid params tr) =
+  concat
+    [ "Symbol ID: ",
+      show sid,
+      "\nParams:\n",
+      concatMap fPrintParam' params,
+      Tree.fPrintTree 0 tr
+    ]
+  where
+    fPrintParam' p = concat [show p, "\n"]
+
 currentStackSymbolTable :: EnvironmentStack -> SymbolTable
-currentStackSymbolTable [] = []
+currentStackSymbolTable [] =
+  Exception.raiseError $
+    Exception.newException
+      Exception.NoEnvironment
+      ([])
+      "There is no runtime environment!"
+      Exception.Fatal
 currentStackSymbolTable env = head env
 
 enclosingEnvironmentStack :: EnvironmentStack -> EnvironmentStack
 enclosingEnvironmentStack [] = []
 enclosingEnvironmentStack (st : []) = []
 enclosingEnvironmentStack (st : sts) = sts
-
-fPrintEnvironmentStack :: EnvironmentStack -> [Char]
-fPrintEnvironmentStack env =
-  (DList.intercalate "\n" . map (DList.intercalate "\n" . map fPrintSymbolPair')) env
-
-fPrintSymbolPair' :: SymbolPair -> String
-fPrintSymbolPair' (SymbolPair sid tr) =
-  concat ["Symbol ID: ", show sid, "\n", Tree.fPrintTree 0 tr]
 
 emptyEnvironmentStack :: EnvironmentStack
 emptyEnvironmentStack = []
@@ -96,63 +151,74 @@ emptyEnvironmentStack = []
 encloseEnvironmentIn :: EnvironmentStack -> EnvironmentStack -> EnvironmentStack
 encloseEnvironmentIn envInner envOuter = envInner ++ envOuter
 
-addSymbolToEnvironmentStack :: EnvironmentStack -> SymbolPair -> EnvironmentStack
-addSymbolToEnvironmentStack [] symPair = [[symPair]]
-addSymbolToEnvironmentStack env symPair =
-  (symPair : (currentStackSymbolTable env)) : (enclosingEnvironmentStack env)
+symbolInsert :: SymbolTable -> SymbolBinding -> SymbolTable
+symbolInsert st = uncurry2 (\k v -> HashMap.insert k v st) . symbolKV
+
+insertSymbolToEnvironmentStack :: EnvironmentStack -> SymbolBinding -> EnvironmentStack
+insertSymbolToEnvironmentStack [] = listSingleton . uncurry2 HashMap.singleton . symbolKV
+insertSymbolToEnvironmentStack (env : []) = listSingleton . symbolInsert env
+insertSymbolToEnvironmentStack (env : envFrames) = (: envFrames) . symbolInsert env
+
+listSingleton :: a -> [a]
+listSingleton x = [x]
 
 addTableToEnvironmentStack :: EnvironmentStack -> SymbolTable -> EnvironmentStack
 addTableToEnvironmentStack [] symTable = [symTable]
 addTableToEnvironmentStack env symTable = symTable : env
 
-lookupSymbolInEnvironmentStack ::
-  EnvironmentStack -> SakanaParser.SyntaxUnit -> SymbolPair
-lookupSymbolInEnvironmentStack env lookupId =
+findSymbol ::
+  EnvironmentStack -> SakanaParser.SyntaxUnit -> SymbolBinding
+findSymbol env lookupId =
   DMaybe.fromMaybe
     (symbolNotFoundError lookupId)
-    (maybeLookupSymbolInEnvironmentStack env lookupId)
+    (maybeFindSymbol env lookupId)
 
-maybeLookupSymbolInEnvironmentStack ::
-  EnvironmentStack -> SakanaParser.SyntaxUnit -> Maybe SymbolPair
-maybeLookupSymbolInEnvironmentStack [] _ = Nothing
-maybeLookupSymbolInEnvironmentStack (st : sts) lookupId =
-  if DMaybe.isNothing maybeSymbolInCurrentTable
-    then maybeLookupSymbolInEnvironmentStack sts lookupId
-    else maybeSymbolInCurrentTable
-  where
-    maybeSymbolInCurrentTable = maybeLookupSymbolInSymbolTable lookupId st
-
-makeEnvironmentStackFrame :: [SakanaParser.SyntaxTree] -> EnvironmentStack
-makeEnvironmentStackFrame = (: emptyEnvironmentStack) . makeSymbolTable
-
-makeSymbolTable :: [SakanaParser.SyntaxTree] -> SymbolTable
-makeSymbolTable = makeSymbolTable' []
-
-makeSymbolTable' :: SymbolTable -> [SakanaParser.SyntaxTree] -> SymbolTable
-makeSymbolTable' st [] = st
-makeSymbolTable' st (tr : trs) =
+maybeFindSymbol ::
+  EnvironmentStack -> SakanaParser.SyntaxUnit -> Maybe SymbolBinding
+maybeFindSymbol [] _ = Nothing
+maybeFindSymbol (st : sts) lookupId =
   DMaybe.maybe
-    (makeSymbolTable' st trs)
-    (flip makeSymbolTable' trs . (: st))
-    (maybeTreeToSymbolPair st tr)
+    (maybeFindSymbol sts lookupId)
+    (Just)
+    (((HashMap.!?) st . getSyntaxUnitKey) lookupId)
 
-maybeTreeToSymbolPair :: SymbolTable -> SakanaParser.SyntaxTree -> Maybe SymbolPair
-maybeTreeToSymbolPair st tr' =
-  if Check.TreeIs.storeable tr'
-    then (Just . checkForSameScopeAssignment st . makeSymbolPair) tr'
-    else Nothing
+-- makeEnvironmentStackFrame :: [SakanaParser.SyntaxTree] -> EnvironmentStack
+-- makeEnvironmentStackFrame = (: emptyEnvironmentStack) . makeSymbolTable
 
-checkForSameScopeAssignment :: SymbolTable -> SymbolPair -> SymbolPair
-checkForSameScopeAssignment [] sp = sp
-checkForSameScopeAssignment st sp =
-  if (DMaybe.isNothing . flip maybeLookupSymbolInSymbolTable st . symbolId) sp
-    then sp
-    else
-      symbolAlreadyExistsException
-        (symbolId sp)
-        ((DMaybe.fromJust . flip maybeLookupSymbolInSymbolTable st . symbolId) sp)
+-- makeSymbolTable :: [SakanaParser.SyntaxTree] -> SymbolTable
+-- makeSymbolTable = makeSymbolTable' []
 
-symbolAlreadyExistsException :: SakanaParser.SyntaxUnit -> SymbolPair -> a2
+-- makeSymbolTable' :: SymbolTable -> [SakanaParser.SyntaxTree] -> SymbolTable
+-- makeSymbolTable' st [] = st
+-- makeSymbolTable' st (tr : trs) =
+--   DMaybe.maybe
+--     (makeSymbolTable' st trs)
+--     (flip makeSymbolTable' trs . (: st))
+--     (maybeTreeToSymbolPair st tr)
+
+-- maybeTreeToSymbolPair :: SymbolTable -> SakanaParser.SyntaxTree -> Maybe SymbolBinding
+-- maybeTreeToSymbolPair st tr' =
+--   if Check.TreeIs.storeable tr'
+--     then (Just . checkForSameScopeAssignment st . functionTreeToSymbolPair) tr'
+--     else Nothing
+
+-- checkForSameScopeAssignment :: SymbolTable -> SymbolBinding -> SymbolBinding
+-- checkForSameScopeAssignment [] sp = sp
+-- checkForSameScopeAssignment st sp =
+--   if (DMaybe.isNothing . flip seeSymbol st . symbolId) sp
+--     then sp
+--     else
+--       symbolAlreadyExistsException
+--         (symbolId sp)
+--         ((DMaybe.fromJust . flip seeSymbol st . symbolId) sp)
+
+-- seeSymbol ::
+--   SakanaParser.SyntaxUnit ->
+--   SymbolTable ->
+--   Maybe SymbolBinding
+-- seeSymbol lookupId = HashMap.lookup (getSyntaxUnitKey lookupId)
+
+symbolAlreadyExistsException :: SakanaParser.SyntaxUnit -> SymbolBinding -> a2
 symbolAlreadyExistsException lookupId existingSymbol =
   Exception.raiseError $
     Exception.newException
@@ -177,29 +243,45 @@ symbolNotFoundError lookupId =
       )
       Exception.Fatal
 
-maybeLookupSymbolInSymbolTable ::
-  SakanaParser.SyntaxUnit ->
-  SymbolTable ->
-  Maybe SymbolPair
-maybeLookupSymbolInSymbolTable lookupId =
-  DList.find (((SakanaParser.token) lookupId ==) . SakanaParser.token . symbolId)
+uncurry2 :: (t1 -> t2 -> t3) -> (t1, t2) -> t3
+uncurry2 f (a, b) = f a b
 
--- | Take a syntax tree and create a symbol pair.
--- Is NOT agnostic, should only be called on trees where it would make sense to create a
--- symbol pair.
-makeSymbolPair :: SakanaParser.SyntaxTree -> SymbolPair
-makeSymbolPair Tree.Empty =
-  SymbolPair
-    (SakanaParser.genericSyntaxUnit (SakanaParser.Data D.Null))
-    Tree.Empty
-makeSymbolPair tr
-  | Tree.nodeStrictlySatisfies
-      Check.NodeIs.declarationRequiringId
-      tr =
-    SymbolPair (declId tr) tr
-  | Check.TreeIs.symbolValueBinding tr = SymbolPair ((DMaybe.fromJust . Tree.treeNode) tr) tr
+uncurry3 :: (t1 -> t2 -> t3 -> t4) -> (t1, t2, t3) -> t4
+uncurry3 f (a, b, c) = f a b c
+
+functionTreeToSymbolPair :: SakanaParser.SyntaxTree -> SymbolBinding
+functionTreeToSymbolPair = uncurry3 SymbolBinding . functionTreeToReprOfSymbolPair
+
+findExecutableChild ::
+  SakanaParser.SyntaxTree ->
+  SakanaParser.SyntaxTree
+findExecutableChild tr =
+  DMaybe.maybe
+    (getLastExecutionTree tr)
+    id
+    ((DList.find Check.TreeIs.swim . Tree.treeChildren) tr)
   where
-    declId tr =
-      DMaybe.fromMaybe
-        (SakanaParser.genericSyntaxUnit (SakanaParser.Data D.Null))
-        ((Util.General.head' . Tree.treeChildren) tr >>= Tree.treeNode)
+    getLastExecutionTree =
+      DMaybe.fromMaybe Tree.Empty
+        . Util.General.last'
+        . filter (Check.TreeIs.executable)
+        . Tree.treeChildren
+
+functionTreeToReprOfSymbolPair :: SakanaParser.SyntaxTree -> ReprOfSymbolPair
+functionTreeToReprOfSymbolPair tr =
+  let sId =
+        ( DMaybe.fromJust
+            . (=<<) Tree.treeNode
+            . Util.General.head'
+            . Tree.treeChildren
+        )
+          tr
+      params =
+        ( map (DMaybe.fromJust . Tree.treeNode)
+            . filter (not . Tree.maybeOnTreeNode True Check.NodeIs.nullNode)
+            . filter Check.TreeIs.positionalArg
+            . Tree.treeChildren
+        )
+          tr
+      val = (findExecutableChild) tr
+   in (sId, params, val)

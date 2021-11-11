@@ -24,6 +24,7 @@ data ExceptionType
   | SymbolNotFound
   | MissingPositionalArguments
   | SymbolIsAlreadyBound
+  | NoEnvironment
   deriving (Show, Eq)
 
 data ExceptionSeverity

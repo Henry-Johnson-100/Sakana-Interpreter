@@ -121,11 +121,7 @@ swim tr =
   Tree.nodeStrictlySatisfies ((SakanaParser.Keyword (K.Swim) ==) . SakanaParser.token) tr
 
 -- | Can be stored in a symbol table.
---  As of right now, storeable and executable are not opposites.
---  because an anonymous function definition is not storeable
---  yet it is also not executable
---  but, named lambda functions: 'x <( >(m)> <(+ >(m)> >(1)>)<' for instance,
---  are storeable and should be stored as normal value bindings.
+--  As of right now, this function just checks Check.NodeIs.declarationRequiringId
 storeable :: SakanaParser.SyntaxTree -> Bool
 storeable = Tree.nodeStrictlySatisfies Check.NodeIs.declarationRequiringId
 
