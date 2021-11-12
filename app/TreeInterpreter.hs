@@ -58,6 +58,7 @@ where
 --                                      █████
 
 import qualified Data.Char as DChar (isSpace)
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as DList (find, foldl', intercalate, intersperse, takeWhile)
 import Data.Maybe (Maybe (..))
 import qualified Data.Maybe as DMaybe (fromJust, fromMaybe, isJust, isNothing, maybe)
@@ -101,17 +102,6 @@ import qualified Token.Operator as O
     fromOp,
   )
 import TreeInterpreter.Environment as Env
-  ( EnvironmentStack,
-    SymbolPair (symbolVal),
-    SymbolTable,
-    addSymbolToEnvironmentStack,
-    emptyEnvironmentStack,
-    fPrintEnvironmentStack,
-    lookupSymbolInEnvironmentStack,
-    makeEnvironmentStackFrame,
-    makeSymbolPair,
-    maybeTreeToSymbolPair,
-  )
 import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
   ( dataTokenAndPrimitive,
     fin,
@@ -125,6 +115,7 @@ import qualified TreeInterpreter.LocalCheck.TreeIs as Check.TreeIs
     positionalArg,
     sendingValueBinding,
     standardLibCall,
+    storeable,
     swim,
   )
 import qualified Util.General
@@ -169,7 +160,11 @@ instance Truthy D.Data where
 --Evaluation functions used to take a tree and return some FISH value.--------------------
 ------------------------------------------------------------------------------------------
 getMainEnvironmentStack :: SakanaParser.SyntaxTree -> EnvironmentStack
-getMainEnvironmentStack = makeEnvironmentStackFrame . Tree.treeChildren
+getMainEnvironmentStack =
+  DList.foldl' (Env.insertSymbolToEnvironmentStack) Env.emptyEnvironmentStack
+    . map Env.functionTreeToSymbolPair
+    . filter Check.TreeIs.storeable
+    . Tree.treeChildren
 
 -- -- | Gets the last tree in 'main' that can be executed.
 -- getMainExecutionTree :: SyntaxTree -> SyntaxTree
@@ -200,28 +195,21 @@ executeMain envio trio sakanaIOArgs = do
   tr <- trio
   env <- envio
   sakanaArgs <- sakanaIOArgs
-  let argsBoundToEnv = bindSakanaArgsToArgs env sakanaArgs
+  let argsBoundToEnv = bindSakanaArgsTo_args env sakanaArgs
   procExecute (argsBoundToEnv) (tr)
   where
-    bindSakanaArgsToArgs :: Env.EnvironmentStack -> String -> Env.EnvironmentStack
-    bindSakanaArgsToArgs env args =
-      ( addSymbolToEnvironmentStack env . Env.makeSymbolPair
-          . (Tree.-<-)
-            ( ( Tree.tree
-                  . SakanaParser.setContext B.Send
-                  . SakanaParser.genericSyntaxUnit
-                  . SakanaParser.Data
-                  . D.Id
-              )
-                "_args"
-            )
-          . Tree.tree
-          . SakanaParser.setContext B.Return
-          . SakanaParser.genericSyntaxUnit
-          . SakanaParser.Data
-          . D.String
-      )
-        args
+    bindSakanaArgsTo_args :: Env.EnvironmentStack -> String -> Env.EnvironmentStack
+    bindSakanaArgsTo_args env =
+      Env.insertSymbolToEnvironmentStack env
+        . Env.SymbolBinding (suContextOf B.Send "_args") []
+        . Tree.tree
+        . suContextOf B.Return
+    suContextOf :: B.ScopeType -> String -> SakanaParser.SyntaxUnit
+    suContextOf st =
+      SakanaParser.setContext st
+        . SakanaParser.genericSyntaxUnit
+        . SakanaParser.Data
+        . D.Id
 
 -- Will cease execution and return at the first return context it sees
 procExecute :: EnvironmentStack -> [SyntaxTree] -> IO D.Data
@@ -384,9 +372,9 @@ calledFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree
 calledFunction env =
   symbolVal . calledFunctionSymbol env
 
-calledFunctionSymbol :: EnvironmentStack -> SakanaParser.SyntaxTree -> SymbolPair
+calledFunctionSymbol :: EnvironmentStack -> SakanaParser.SyntaxTree -> Env.SymbolBinding
 calledFunctionSymbol env =
-  lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
+  Env.findSymbol env . DMaybe.fromJust . Tree.treeNode
 
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -457,27 +445,34 @@ makeSymbolTableFromFuncCall _ table _ [] = return table
 makeSymbolTableFromFuncCall _ table [] dfargs =
   if any Check.TreeIs.positionalArg dfargs
     then missingPositionalArgumentException dfargs
-    else
+    else {-Called when positional arg:param pairs are exhausted, inserts any
+         remaining supplementary sub-function definitions, which have been declared
+         as parameters to the function, into the same table.-}
+
       ( return
-          . flip (++) table
-          . map DMaybe.fromJust
-          . filter (not . DMaybe.isNothing)
-          . map (maybeTreeToSymbolPair table)
+          . DList.foldl' (Env.symbolInsert) table
+          . map Env.functionTreeToSymbolPair
+          . filter Check.TreeIs.storeable
       )
         dfargs
 makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
   | Check.TreeIs.positionalArg dfarg = do
-    -- cfargVal <- execute mainExEnv cfarg
-    -- argValBinding <- return $ createSymbolPairFromArgTreePair dfarg cfargVal
-    --It is necessary to store an argument symbol as a tree so that functions can
-    -- be passed as arguments into other functions.
-    -- It allows the use of higher-order functions.
+    {-It is necessary to store an argument symbol as a tree so that functions can
+    be passed as arguments into other functions.
+    It allows the use of higher-order functions. PENDING-}
     argBinding <- (return . createSymbolPairTreeFromArgTreePair dfarg) cfarg
-    makeSymbolTableFromFuncCall mainExEnv (argBinding : table) cfargs dfargs
-  | otherwise = do
-    let fromJustSymbolTable =
-          DMaybe.maybe table (: table) (maybeTreeToSymbolPair table dfarg)
-    makeSymbolTableFromFuncCall mainExEnv (fromJustSymbolTable) cfargs dfargs
+    makeSymbolTableFromFuncCall mainExEnv (Env.symbolInsert table argBinding) cfargs dfargs
+  | otherwise =
+    makeSymbolTableFromFuncCall
+      mainExEnv
+      (getTableOnTreeMaybeFunction dfarg table)
+      cfargs
+      dfargs
+  where
+    getTableOnTreeMaybeFunction tr tb =
+      if Check.TreeIs.storeable tr
+        then (Env.symbolInsert tb . Env.functionTreeToSymbolPair) tr
+        else tb
 
 missingPositionalArgumentException :: [SakanaParser.SyntaxTree] -> a2
 missingPositionalArgumentException fdas =
@@ -493,22 +488,23 @@ missingPositionalArgumentException fdas =
 createSymbolPairTreeFromArgTreePair ::
   SakanaParser.SyntaxTree ->
   SakanaParser.SyntaxTree ->
-  Env.SymbolPair
+  Env.SymbolBinding
 createSymbolPairTreeFromArgTreePair dfarg =
-  makeSymbolPair
-    . (Tree.-<-) dfarg
+  Env.SymbolBinding
+    ((DMaybe.fromJust . Tree.treeNode) dfarg)
+    []
     . flip Tree.mutateTreeNode (SakanaParser.setContext B.Return)
 
-createSymbolPairFromArgTreePair :: SyntaxTree -> D.Data -> SymbolPair
+createSymbolPairFromArgTreePair :: SyntaxTree -> D.Data -> Env.SymbolBinding
 createSymbolPairFromArgTreePair dfarg' cfargVal' =
-  makeSymbolPair $
-    (Tree.tree . DMaybe.fromJust . Tree.treeNode) dfarg'
-      Tree.-<- ( Tree.tree
-                   . SakanaParser.setContext B.Return
-                   . SakanaParser.genericSyntaxUnit
-                   . SakanaParser.Data
-               )
-        cfargVal'
+  Env.SymbolBinding
+    ((DMaybe.fromJust . Tree.treeNode) dfarg')
+    []
+    ((Tree.tree . suContextOf B.Return) cfargVal')
+  where
+    suContextOf :: B.ScopeType -> D.Data -> SakanaParser.SyntaxUnit
+    suContextOf st =
+      SakanaParser.setContext st . SakanaParser.genericSyntaxUnit . SakanaParser.Data
 
 makeIOEnvFromFuncCall ::
   EnvironmentStack ->
@@ -516,7 +512,7 @@ makeIOEnvFromFuncCall ::
   [SyntaxTree] ->
   IO EnvironmentStack
 makeIOEnvFromFuncCall mainExEnv cfargs dfargs = do
-  newSubScope <- makeSymbolTableFromFuncCall mainExEnv [] cfargs dfargs
+  newSubScope <- makeSymbolTableFromFuncCall mainExEnv Env.emptyTable cfargs dfargs
   return (newSubScope : mainExEnv)
 
 ----Standard Library Functions------------------------------------------------------------
@@ -565,7 +561,7 @@ fishSend env encTree = do
   encrustedSymbolPair <-
     return $
       createSymbolPairFromArgTreePair (encTree) encrustedSymbolData
-  return ([encrustedSymbolPair] : env)
+  return (Env.insertSymbolToEnvironmentStack env encrustedSymbolPair)
 
 sakanaRead :: Env.EnvironmentStack -> SakanaParser.SyntaxTree -> IO D.Data
 sakanaRead env tr = do

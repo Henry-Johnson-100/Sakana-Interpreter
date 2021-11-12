@@ -24,12 +24,15 @@ module TreeInterpreter.Environment
     findExecutableChild,
     getSymbolBindingKey,
     getSyntaxUnitKey,
+    symbolInsert,
+    emptyTable,
   )
 where
 
 import qualified Data.HashMap.Strict as HashMap
   ( HashMap (..),
     elems,
+    empty,
     insert,
     lookup,
     singleton,
@@ -114,6 +117,9 @@ symbolKV :: SymbolBinding -> (SymbolKey, SymbolBinding)
 symbolKV sb = (getSymbolBindingKey sb, sb)
 
 type SymbolTable = HashMap.HashMap SymbolKey SymbolBinding
+
+emptyTable :: HashMap.HashMap SymbolKey SymbolBinding
+emptyTable = HashMap.empty
 
 type EnvironmentStack = [SymbolTable]
 
@@ -284,6 +290,8 @@ uncurry2 f (a, b) = f a b
 uncurry3 :: (t1 -> t2 -> t3 -> t4) -> (t1, t2, t3) -> t4
 uncurry3 f (a, b, c) = f a b c
 
+-- | Will bind a tree of shape 'function definition' to a new SymbolBinding
+-- Accepts null or zero function parameters in the tree.
 functionTreeToSymbolPair :: SakanaParser.SyntaxTree -> SymbolBinding
 functionTreeToSymbolPair = uncurry3 SymbolBinding . functionTreeToReprOfSymbolPair
 
