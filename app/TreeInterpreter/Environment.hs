@@ -4,6 +4,7 @@ module TreeInterpreter.Environment
   ( SymbolBinding (..),
     SymbolTable (..),
     EnvironmentStack (..),
+    SymbolKey (..),
     currentStackSymbolTable,
     enclosingEnvironmentStack,
     fPrintEnvironmentStack,
@@ -16,6 +17,13 @@ module TreeInterpreter.Environment
     maybeFindSymbol,
     symbolAlreadyExistsException,
     symbolNotFoundError,
+    checkForSameScopeAssignment,
+    functionTreeToSymbolPair,
+    maybeLookupStrInEnv,
+    maybeLookupKeyInEnv,
+    findExecutableChild,
+    getSymbolBindingKey,
+    getSyntaxUnitKey,
   )
 where
 
@@ -139,9 +147,8 @@ currentStackSymbolTable [] =
 currentStackSymbolTable env = head env
 
 enclosingEnvironmentStack :: EnvironmentStack -> EnvironmentStack
-enclosingEnvironmentStack [] = []
-enclosingEnvironmentStack (st : []) = []
 enclosingEnvironmentStack (st : sts) = sts
+enclosingEnvironmentStack _ = []
 
 emptyEnvironmentStack :: EnvironmentStack
 emptyEnvironmentStack = []
@@ -180,7 +187,35 @@ maybeFindSymbol (st : sts) lookupId =
   DMaybe.maybe
     (maybeFindSymbol sts lookupId)
     (Just)
-    (((HashMap.!?) st . getSyntaxUnitKey) lookupId)
+    (maybeSeeSymbol st lookupId)
+
+maybeSeeSymbol :: SymbolTable -> SakanaParser.SyntaxUnit -> Maybe SymbolBinding
+maybeSeeSymbol st = (HashMap.!?) st . getSyntaxUnitKey
+
+maybeFindSymbolWithArgs ::
+  EnvironmentStack -> [SakanaParser.SyntaxUnit] -> Maybe SymbolBinding
+maybeFindSymbolWithArgs env sb = maybeLookupKeyInEnv env (mapSBToKey sb)
+  where
+    mapSBToKey :: [SakanaParser.SyntaxUnit] -> SymbolKey
+    mapSBToKey = SymbolKey . concatMap (SakanaParser.fromToken . SakanaParser.token)
+
+maybeLookupStrInEnv :: EnvironmentStack -> String -> Maybe SymbolBinding
+maybeLookupStrInEnv env str = maybeLookupKeyInEnv env (SymbolKey str)
+
+maybeLookupKeyInEnv :: EnvironmentStack -> SymbolKey -> Maybe SymbolBinding
+maybeLookupKeyInEnv [] _ = Nothing
+maybeLookupKeyInEnv (st : sts) k =
+  DMaybe.maybe
+    (maybeLookupKeyInEnv sts k)
+    (Just)
+    (HashMap.lookup k st)
+
+checkForSameScopeAssignment :: SymbolTable -> SymbolBinding -> SymbolBinding
+checkForSameScopeAssignment st sb =
+  DMaybe.maybe
+    sb
+    (symbolAlreadyExistsException (symbolId sb) sb)
+    (maybeSeeSymbol st (symbolId sb))
 
 -- makeEnvironmentStackFrame :: [SakanaParser.SyntaxTree] -> EnvironmentStack
 -- makeEnvironmentStackFrame = (: emptyEnvironmentStack) . makeSymbolTable
