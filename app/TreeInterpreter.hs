@@ -1,12 +1,12 @@
 module TreeInterpreter
-  ( EnvironmentStack (..),
+  ( Env.EnvironmentStack (..),
     -- calct',
     executeMain,
     execute,
     getMainExecutionTrees,
     getMainEnvironmentStack,
     --Anything below this is a temporary export
-    emptyEnvironmentStack,
+    Env.emptyEnvironmentStack,
     getFuncDeclArgs,
     getFunctionDeclPositionalArgs,
   )
@@ -101,7 +101,7 @@ import qualified Token.Operator as O
   ( Operator (Add, Div, Eq, Gt, GtEq, Lt, LtEq, Mult, NEq, Pow, Sub),
     fromOp,
   )
-import TreeInterpreter.Environment as Env
+import qualified TreeInterpreter.Environment as Env
 import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
   ( dataTokenAndPrimitive,
     fin,
@@ -159,7 +159,7 @@ instance Truthy D.Data where
 
 --Evaluation functions used to take a tree and return some FISH value.--------------------
 ------------------------------------------------------------------------------------------
-getMainEnvironmentStack :: SakanaParser.SyntaxTree -> EnvironmentStack
+getMainEnvironmentStack :: SakanaParser.SyntaxTree -> Env.EnvironmentStack
 getMainEnvironmentStack =
   DList.foldl' (Env.insertSymbolToEnvironmentStack) Env.emptyEnvironmentStack
     . map Env.functionTreeToSymbolPair
@@ -190,7 +190,7 @@ getMainExecutionTrees docTree =
 -- | This will be our new main entry point for a fish program
 -- If no execution tree can be found in 'main' then a single tree containing a null value
 -- will be returned.
-executeMain :: IO EnvironmentStack -> IO [SyntaxTree] -> IO String -> IO D.Data
+executeMain :: IO Env.EnvironmentStack -> IO [SyntaxTree] -> IO String -> IO D.Data
 executeMain envio trio sakanaIOArgs = do
   tr <- trio
   env <- envio
@@ -212,7 +212,7 @@ executeMain envio trio sakanaIOArgs = do
         . D.Id
 
 -- Will cease execution and return at the first return context it sees
-procExecute :: EnvironmentStack -> [SyntaxTree] -> IO D.Data
+procExecute :: Env.EnvironmentStack -> [SyntaxTree] -> IO D.Data
 procExecute _ [] = return D.Null
 procExecute env (tr : trs)
   | Check.TreeIs.sendingValueBinding tr = do
@@ -224,7 +224,7 @@ procExecute env (tr : trs)
     execute env tr
   | otherwise = return D.Null
 
-execute :: EnvironmentStack -> SyntaxTree -> IO D.Data
+execute :: Env.EnvironmentStack -> SyntaxTree -> IO D.Data
 execute env tr
   | Tree.nodeStrictlySatisfies Check.NodeIs.dataTokenAndPrimitive tr =
     evaluatePrimitiveData tr
@@ -262,7 +262,7 @@ execute env tr
 evaluatePrimitiveData :: SyntaxTree -> IO D.Data
 evaluatePrimitiveData = return . getNodeTokenBaseData
 
-evaluateFin :: EnvironmentStack -> SyntaxTree -> IO D.Data
+evaluateFin :: Env.EnvironmentStack -> SyntaxTree -> IO D.Data
 evaluateFin env tr = fin env (fstArg tr) (sndArg tr) (thdArg tr)
   where
     fromMaybeFinArg tr' xs =
@@ -276,7 +276,7 @@ evaluateFin env tr = fin env (fstArg tr) (sndArg tr) (thdArg tr)
         tr'
         ((Util.General.tail' . Util.General.tail' . Tree.treeChildren) tr')
 
-evaluateOperator :: EnvironmentStack -> SyntaxTree -> IO D.Data
+evaluateOperator :: Env.EnvironmentStack -> SyntaxTree -> IO D.Data
 evaluateOperator env tr = do
   let ioOperatorArguments = getOperatorArgs env tr
   argx <- fst ioOperatorArguments
@@ -331,7 +331,8 @@ evaluateOperator env tr = do
                   ((O.fromOp . getNodeOperator) tr)
                   (map show [argx, argy])
   where
-    getNodeOperator tr' = case getNodeToken tr' of (SakanaParser.Operator o) -> o; _ -> O.Eq
+    getNodeOperator tr' =
+      case getNodeToken tr' of (SakanaParser.Operator o) -> o; _ -> O.Eq
     justUnNum = DMaybe.fromJust . D.unNum
     justUnString = DMaybe.fromJust . D.unString
     justUnBoolean = DMaybe.fromJust . D.unBoolean
@@ -358,7 +359,7 @@ evaluateOperator env tr = do
           )
           Exception.Fatal
 
-executeFunctionCall :: EnvironmentStack -> SyntaxTree -> IO D.Data
+executeFunctionCall :: Env.EnvironmentStack -> SyntaxTree -> IO D.Data
 executeFunctionCall mainExEnv functionCall = do
   let preparedStateIO =
         prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration
@@ -368,11 +369,12 @@ executeFunctionCall mainExEnv functionCall = do
   where
     functionDeclaration = calledFunction mainExEnv functionCall
 
-calledFunction :: EnvironmentStack -> SyntaxTree -> SyntaxTree
+calledFunction :: Env.EnvironmentStack -> SyntaxTree -> SyntaxTree
 calledFunction env =
-  symbolVal . calledFunctionSymbol env
+  Env.symbolVal . calledFunctionSymbol env
 
-calledFunctionSymbol :: EnvironmentStack -> SakanaParser.SyntaxTree -> Env.SymbolBinding
+calledFunctionSymbol ::
+  Env.EnvironmentStack -> SakanaParser.SyntaxTree -> Env.SymbolBinding
 calledFunctionSymbol env =
   Env.findSymbol env . DMaybe.fromJust . Tree.treeNode
 
@@ -388,7 +390,7 @@ getNodeTokenBaseData =
 getNodeToken :: SyntaxTree -> SakanaParser.Token
 getNodeToken = Tree.maybeOnTreeNode (SakanaParser.Data D.Null) SyntaxUnit.token
 
-getOperatorArgs :: EnvironmentStack -> SyntaxTree -> (IO D.Data, IO D.Data)
+getOperatorArgs :: Env.EnvironmentStack -> SyntaxTree -> (IO D.Data, IO D.Data)
 getOperatorArgs env tr =
   ( (execute env . DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr,
     ( execute env
@@ -417,7 +419,10 @@ getFunctionDeclPositionalArgs =
 -- | This function serves to create the new stack frame
 -- and execution trees when a function is called.
 prepareFunctionCallForExecution ::
-  EnvironmentStack -> SyntaxTree -> SyntaxTree -> (IO EnvironmentStack, IO [SyntaxTree])
+  Env.EnvironmentStack ->
+  SyntaxTree ->
+  SyntaxTree ->
+  (IO Env.EnvironmentStack, IO [SyntaxTree])
 prepareFunctionCallForExecution mainExEnv functionCall functionDeclaration = do
   let functionIOEnvironment =
         makeIOEnvFromFuncCall
@@ -440,7 +445,11 @@ getBindableArgs :: SyntaxTree -> [SyntaxTree]
 getBindableArgs = DList.takeWhile (not . Check.TreeIs.swim) . getFuncDeclArgs
 
 makeSymbolTableFromFuncCall ::
-  EnvironmentStack -> SymbolTable -> [SyntaxTree] -> [SyntaxTree] -> IO SymbolTable
+  Env.EnvironmentStack ->
+  Env.SymbolTable ->
+  [SyntaxTree] ->
+  [SyntaxTree] ->
+  IO Env.SymbolTable
 makeSymbolTableFromFuncCall _ table _ [] = return table
 makeSymbolTableFromFuncCall _ table [] dfargs =
   if any Check.TreeIs.positionalArg dfargs
@@ -461,7 +470,11 @@ makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
     be passed as arguments into other functions.
     It allows the use of higher-order functions. PENDING-}
     argBinding <- (return . createSymbolPairTreeFromArgTreePair dfarg) cfarg
-    makeSymbolTableFromFuncCall mainExEnv (Env.symbolInsert table argBinding) cfargs dfargs
+    makeSymbolTableFromFuncCall
+      mainExEnv
+      (Env.symbolInsert table argBinding)
+      cfargs
+      dfargs
   | otherwise =
     makeSymbolTableFromFuncCall
       mainExEnv
@@ -507,10 +520,10 @@ createSymbolPairFromArgTreePair dfarg' cfargVal' =
       SakanaParser.setContext st . SakanaParser.genericSyntaxUnit . SakanaParser.Data
 
 makeIOEnvFromFuncCall ::
-  EnvironmentStack ->
+  Env.EnvironmentStack ->
   [SyntaxTree] ->
   [SyntaxTree] ->
-  IO EnvironmentStack
+  IO Env.EnvironmentStack
 makeIOEnvFromFuncCall mainExEnv cfargs dfargs = do
   newSubScope <- makeSymbolTableFromFuncCall mainExEnv Env.emptyTable cfargs dfargs
   return (newSubScope : mainExEnv)
@@ -523,7 +536,7 @@ sakanaStandardLibrary = ["trout", "dolphin"]
 sakanaPrint :: D.Data -> IO ()
 sakanaPrint = hPutStrLn stdout . D.fromData
 
-fin :: EnvironmentStack -> SyntaxTree -> SyntaxTree -> SyntaxTree -> IO D.Data
+fin :: Env.EnvironmentStack -> SyntaxTree -> SyntaxTree -> SyntaxTree -> IO D.Data
 fin env cond forTrue forFalse = do
   condValue <- (procExecute env . getExecutableChildrenOrNode) cond
   if truthy condValue
@@ -542,18 +555,18 @@ fin env cond forTrue forFalse = do
     recontextualizeFinChild :: SyntaxTree -> SyntaxTree
     recontextualizeFinChild = flip Tree.mutateTreeNode (SakanaParser.setContext B.Return)
 
-trout :: EnvironmentStack -> SyntaxTree -> IO D.Data
+trout :: Env.EnvironmentStack -> SyntaxTree -> IO D.Data
 trout env toPrint =
   (execute env toPrint >>= (hPutStr stdout . D.fromData)) >> return D.Null
 
-herring :: EnvironmentStack -> SyntaxTree -> IO D.Data
+herring :: Env.EnvironmentStack -> SyntaxTree -> IO D.Data
 herring env toPrint =
   (execute env toPrint >>= (hPutStr stderr . D.fromData)) >> return D.Null
 
 dolphin :: IO D.Data
 dolphin = hGetLine stdin >>= return . D.String
 
-fishSend :: EnvironmentStack -> SyntaxTree -> IO EnvironmentStack
+fishSend :: Env.EnvironmentStack -> SyntaxTree -> IO Env.EnvironmentStack
 fishSend env encTree = do
   let encrustedSymbolDataIO =
         (execute env . DMaybe.fromJust . Util.General.head' . Tree.treeChildren) encTree
