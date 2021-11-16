@@ -26,6 +26,7 @@ module TreeInterpreter.Environment
     getSyntaxUnitKey,
     symbolInsert,
     emptyTable,
+    makeSymbolBinding,
   )
 where
 
@@ -53,6 +54,7 @@ import qualified Exception.Base as Exception
         SymbolIsAlreadyBound,
         SymbolNotFound
       ),
+    generalException,
     newException,
     raiseError,
   )
@@ -61,10 +63,12 @@ import qualified SakanaParser
   ( SyntaxTree,
     SyntaxUnit (line, token),
     Token (Data),
+    context,
     fromToken,
     genericSyntaxUnit,
+    getSyntaxAttributeFromTree,
   )
-import qualified Token.Bracket as B (ScopeType (Return))
+import qualified Token.Bracket as B (ScopeType (Return, Send))
 import qualified Token.Data as D (Data (Null))
 import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
   ( declarationRequiringId,
@@ -328,3 +332,46 @@ functionTreeToReprOfSymbolPair tr =
           tr
       val = (findExecutableChild) tr
    in (sId, params, val)
+
+-- | Called on storeable structures: function declarations or Anonymous functions.
+-- If called on a function declaration (fish declaration), the provided SyntaxUnit
+-- is ignored and a normal function declaration SymbolBinding is created.
+-- If called on an anonymous function, a SymbolBinding is constructed from the provided
+-- id, the send parameters of the anonymous function, and
+-- the return tree of the anonymous function.
+makeSymbolBinding ::
+  SakanaParser.SyntaxUnit -> [SakanaParser.SyntaxTree] -> SymbolBinding
+makeSymbolBinding sId [] =
+  Exception.raiseError
+    ( Exception.generalException
+        "Error in makeSymbolBinding:\
+        \ No trees were passed to create a symbol"
+    )
+makeSymbolBinding sId trs
+  | (Check.TreeIs.storeable . head) trs = (functionTreeToSymbolPair . head) trs
+  -- should hopefully smartly bind send context fishes and return context fishes
+  --as a function to the id sID
+  | otherwise =
+    SymbolBinding
+      sId
+      ( ( takeWhile ((==) B.Send . SakanaParser.context)
+            . map (DMaybe.fromJust . Tree.treeNode)
+        )
+          trs
+      )
+      ( DMaybe.fromMaybe
+          ( Exception.raiseError
+              ( Exception.generalException
+                  "Expected return expression but got Nothing\
+                  \ in Environment.makeSymbolBinding"
+              )
+          )
+          ( ( Util.General.head'
+                . dropWhile
+                  ( (==) B.Return
+                      . SakanaParser.getSyntaxAttributeFromTree SakanaParser.context
+                  )
+            )
+              trs
+          )
+      )

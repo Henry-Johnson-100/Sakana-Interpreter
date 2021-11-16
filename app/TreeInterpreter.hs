@@ -131,6 +131,7 @@ import qualified Util.Like as LikeClass (Like (like))
 import qualified Util.Tree as Tree
   ( Tree (Empty, (:-<-:)),
     TreeIO (fPrintTree, ioPrintTree),
+    flattenTree,
     maybeOnTreeNode,
     mutateTreeNode,
     nodeStrictlySatisfies,
@@ -530,11 +531,9 @@ makeIOEnvFromFuncCall mainExEnv cfargs dfargs = do
 
 ----Standard Library Functions------------------------------------------------------------
 ------------------------------------------------------------------------------------------
-sakanaStandardLibrary :: [String]
-sakanaStandardLibrary = ["trout", "dolphin"]
 
-sakanaPrint :: D.Data -> IO ()
-sakanaPrint = hPutStrLn stdout . D.fromData
+sakanaPrint :: Handle -> D.Data -> IO ()
+sakanaPrint h = hPutStrLn h . D.fromData
 
 fin :: Env.EnvironmentStack -> SyntaxTree -> SyntaxTree -> SyntaxTree -> IO D.Data
 fin env cond forTrue forFalse = do
@@ -551,17 +550,17 @@ fin env cond forTrue forFalse = do
     -- This function is required because fin's arguments have a send context,
     -- but if a value is required after procExecution, they must have a return type,
     -- or a Null value will be
-    -- returned.
+    -- returned from procExecute.
     recontextualizeFinChild :: SyntaxTree -> SyntaxTree
     recontextualizeFinChild = flip Tree.mutateTreeNode (SakanaParser.setContext B.Return)
 
 trout :: Env.EnvironmentStack -> SyntaxTree -> IO D.Data
 trout env toPrint =
-  (execute env toPrint >>= (hPutStr stdout . D.fromData)) >> return D.Null
+  (execute env toPrint >>= (sakanaPrint stdout)) >> return D.Null
 
 herring :: Env.EnvironmentStack -> SyntaxTree -> IO D.Data
 herring env toPrint =
-  (execute env toPrint >>= (hPutStr stderr . D.fromData)) >> return D.Null
+  (execute env toPrint >>= (sakanaPrint stderr)) >> return D.Null
 
 dolphin :: IO D.Data
 dolphin = hGetLine stdin >>= return . D.String
@@ -591,7 +590,7 @@ sakanaRead env tr = do
         else
           sakanaReadException
             d
-            ( "Value is no the correct format of a Sakana Primitive."
+            ( "Value is not the correct format of a Sakana Primitive."
                 ++ "\n\tMust be a double, string or boolean."
             )
       where

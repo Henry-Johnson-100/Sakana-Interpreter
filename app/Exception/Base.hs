@@ -23,6 +23,7 @@ data ExceptionType
   | OperatorTypeError
   | SymbolNotFound
   | MissingPositionalArguments
+  | ExcessPositionalArguments
   | SymbolIsAlreadyBound
   | NoEnvironment
   deriving (Show, Eq)
@@ -114,6 +115,9 @@ newException et ln s es =
             severity = es
           }
     }
+
+generalException :: String -> Exception
+generalException msg = newException General [] msg Fatal
 
 raiseError :: Show a1 => a1 -> a2
 raiseError exc = GHC.Prim.raise# (GHC.Exception.errorCallException (show exc))

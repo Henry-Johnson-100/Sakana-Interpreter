@@ -17,6 +17,7 @@ module Util.Tree
     treeMap,
     maybeOnTreeNode,
     nodeStrictlySatisfies,
+    flattenTree,
   )
 where
 
@@ -106,3 +107,7 @@ maybeOnTreeNode defaultVal f st = maybe defaultVal f (treeNode st)
 
 nodeStrictlySatisfies :: (a -> Bool) -> Tree a -> Bool
 nodeStrictlySatisfies = maybeOnTreeNode False
+
+flattenTree :: Tree a -> [a]
+flattenTree Empty = []
+flattenTree (n :-<-: cs) = n : (concatMap flattenTree cs)
