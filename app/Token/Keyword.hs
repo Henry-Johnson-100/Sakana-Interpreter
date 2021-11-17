@@ -14,15 +14,14 @@ data Keyword
   | Shoal
   | Migrate
   | Swim
+  | Lamprey
   deriving (Show, Read, Eq, Ord) --idk if Ord is really necessary
 
 repr :: [String]
-repr = ["route", "fish", "school", "shoal", "migrate", "swim"]
+repr = ["route", "fish", "lamprey", "school", "shoal", "migrate", "swim"]
 
 isDeclarationRequiringId :: Keyword -> Bool
-isDeclarationRequiringId Migrate = False
-isDeclarationRequiringId Swim = False
-isDeclarationRequiringId _ = True
+isDeclarationRequiringId k = if elem k [Swim, Migrate, Lamprey] then False else True
 
 readKeyword :: String -> Keyword
 readKeyword "fish" = Fish
@@ -31,6 +30,7 @@ readKeyword "school" = School
 readKeyword "shoal" = Shoal
 readKeyword "migrate" = Migrate
 readKeyword "swim" = Swim
+readKeyword "lamprey" = Lamprey
 
 fromKeyword :: Keyword -> String
 fromKeyword Fish = "fish"
@@ -39,3 +39,4 @@ fromKeyword School = "school"
 fromKeyword Shoal = "shoal"
 fromKeyword Migrate = "migrate"
 fromKeyword Swim = "swim"
+fromKeyword Lamprey = "lamprey"

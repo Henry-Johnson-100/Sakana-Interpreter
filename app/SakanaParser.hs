@@ -80,7 +80,7 @@ import qualified Token.Data as D
     readData,
   )
 import qualified Token.Keyword as K
-  ( Keyword (Fish, Swim),
+  ( Keyword (Fish, Lamprey, Swim),
     fromKeyword,
     isDeclarationRequiringId,
   )
@@ -276,7 +276,7 @@ stringStrict str = do
 
 reservedWords :: Prs.ParsecT [Char] u DFId.Identity [Char]
 reservedWords =
-  Prs.choice (Prs.try <$> stringStrict <$> ["fish", "fin", "swim", "True", "False"])
+  Prs.choice (Prs.try <$> stringStrict <$> ["fish", "fin", "swim", "True", "False", "lamprey"])
 
 identifier :: SakanaTokenParser u
 identifier = do
@@ -511,22 +511,26 @@ funcDecl st = do
   declId <- identifier
   Prs.spaces
   -- declArgs <- Prs.many (Prs.choice (Prs.try <$> [funcDeclArg, nullBracket B.Send]))
-  partialBody <- partialFuncExpr
+  partialBody <- lampreyExpr
   Prs.spaces
   let funcDeclTrees =
         [ tokenUnitToTree st f
-            -<= [(tokenUnitToTree B.Send) declId] -<= partialBody
+            -<= [(tokenUnitToTree B.Send) declId]
+            -<= partialBody
         ]
   return funcDeclTrees
 
-partialFuncExpr :: SakanaTreeParser u
-partialFuncExpr = do
+lampreyExpr :: SakanaTreeParser u
+lampreyExpr = do
   Prs.spaces
   args <- (Prs.many . Prs.choice . (<$>) Prs.try) [funcDeclArg, nullBracket B.Send]
   Prs.spaces
   funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp
   Prs.spaces
-  let funcTrees = (concat args) ++ funcReturn
+  let funcTrees =
+        [ ((tokenUnitToTree B.Return) (PacketUnit (Keyword (K.Lamprey)) 0))
+            -<= ((concat args) ++ funcReturn)
+        ]
   return funcTrees
 
 expr :: B.ScopeType -> SakanaTreeParser u
@@ -538,7 +542,7 @@ expr st =
               swimExp,
               funcCall st,
               dataTree st,
-              partialFuncExpr
+              lampreyExpr
             ]
     )
     <?> "Expression, a phrase that can return a value:\
