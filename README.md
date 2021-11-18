@@ -1,5 +1,7 @@
 # Sakana - 0.3.0.0
 
+# 0.3.0.0 is a non-functional build. Use it to preview up-coming changes.
+
 A syntax-tree based interpreter implementation for the Sakana programming language.
 
 A functional programming language, heavily inspired by Haskell and subliminally inspired by Scheme.
