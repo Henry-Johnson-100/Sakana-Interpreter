@@ -58,6 +58,7 @@ where
 --                                      █████
 
 import qualified Data.Char as DChar
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as DList
 import Data.Maybe (Maybe (..))
 import qualified Data.Maybe as DMaybe
@@ -75,12 +76,12 @@ import qualified Token.Data as D
 import qualified Token.Keyword as K
 import qualified Token.Operator as O
 import TreeInterpreter.Environment as Env
-  ( EnvironmentStack,
+  ( EnvironmentStack (EnvironmentStack, envSymbolTable),
     SymbolPair (symbolVal),
     SymbolTable,
+    addSymbolPairToTable,
     addSymbolToEnvironmentStack,
     emptyEnvironmentStack,
-    fPrintEnvironmentStack,
     lookupSymbolInEnvironmentStack,
     makeEnvironmentStackFrame,
     makeSymbolPair,
@@ -407,7 +408,7 @@ makeSymbolTableFromFuncCall _ table [] dfargs =
     then missingPositionalArgumentException dfargs
     else
       ( return
-          . flip (++) table
+          . DList.foldr Env.addSymbolPairToTable table
           . map DMaybe.fromJust
           . filter (not . DMaybe.isNothing)
           . map (maybeTreeToSymbolPair table)
@@ -417,10 +418,10 @@ makeSymbolTableFromFuncCall mainExEnv table (cfarg : cfargs) (dfarg : dfargs)
   | Check.TreeIs.positionalArg dfarg = do
     cfargVal <- execute mainExEnv cfarg
     argValBinding <- return $ createSymbolPairFromArgTreePair dfarg cfargVal
-    makeSymbolTableFromFuncCall mainExEnv (argValBinding : table) cfargs dfargs
+    makeSymbolTableFromFuncCall mainExEnv (Env.addSymbolPairToTable argValBinding table) cfargs dfargs
   | otherwise = do
     let fromJustSymbolTable =
-          DMaybe.maybe table (: table) (maybeTreeToSymbolPair table dfarg)
+          DMaybe.maybe table (flip Env.addSymbolPairToTable table) (maybeTreeToSymbolPair table dfarg)
     makeSymbolTableFromFuncCall mainExEnv (fromJustSymbolTable) cfargs dfargs
 
 missingPositionalArgumentException :: [SakanaParser.SyntaxTree] -> a2
@@ -451,8 +452,10 @@ makeIOEnvFromFuncCall ::
   [SyntaxTree] ->
   IO EnvironmentStack
 makeIOEnvFromFuncCall mainExEnv cfargs dfargs = do
-  newSubScope <- makeSymbolTableFromFuncCall mainExEnv [] cfargs dfargs
-  return (newSubScope : mainExEnv)
+  newSubScope <- makeSymbolTableFromFuncCall mainExEnv HashMap.empty cfargs dfargs
+  return (Env.EnvironmentStack (HashMap.union newSubScope (Env.envSymbolTable mainExEnv)))
+
+-- return (newSubScope : mainExEnv)
 
 ----Standard Library Functions------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -500,7 +503,8 @@ fishSend env encTree = do
   encrustedSymbolPair <-
     return $
       createSymbolPairFromArgTreePair (encTree) encrustedSymbolData
-  return ([encrustedSymbolPair] : env)
+  -- return ([encrustedSymbolPair] : env)
+  return (env {envSymbolTable = Env.addSymbolPairToTable encrustedSymbolPair (envSymbolTable env)})
 
 sakanaRead :: Env.EnvironmentStack -> SakanaParser.SyntaxTree -> IO D.Data
 sakanaRead env tr = do
