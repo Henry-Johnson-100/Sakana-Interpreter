@@ -78,3 +78,5 @@ parser looks for when parsing a Sakana program.
 * Added ```herring``` print function to print to ```stderr```.
 * both ```trout``` and ```herring``` will no longer end with a newline, so they will
 have to be placed manually.
+
+#### 0.2.2.2 -- YYYY-MM-DD HashMaps

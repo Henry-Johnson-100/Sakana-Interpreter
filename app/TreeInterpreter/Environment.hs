@@ -23,43 +23,16 @@ module TreeInterpreter.Environment
   )
 where
 
-import qualified Data.List as DList (find, intercalate)
+import qualified Data.List as DList
 import qualified Data.Maybe as DMaybe
-  ( fromJust,
-    fromMaybe,
-    isNothing,
-    maybe,
-  )
 import qualified Exception.Base as Exception
-  ( ExceptionSeverity (Fatal),
-    ExceptionType (SymbolIsAlreadyBound, SymbolNotFound),
-    newException,
-    raiseError,
-  )
 import qualified SakanaParser
-  ( SyntaxTree,
-    SyntaxUnit (line, token),
-    Token (Data),
-    fromToken,
-    genericSyntaxUnit,
-  )
-import qualified Token.Bracket as B (ScopeType (Return))
-import qualified Token.Data as D (Data (Null))
+import qualified Token.Bracket as B
+import qualified Token.Data as D
 import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
-  ( declarationRequiringId,
-  )
 import qualified TreeInterpreter.LocalCheck.TreeIs as Check.TreeIs
-  ( storeable,
-    symbolValueBinding,
-  )
-import qualified Util.General (head')
+import qualified Util.General
 import qualified Util.Tree as Tree
-  ( Tree (Empty),
-    TreeIO (fPrintTree),
-    nodeStrictlySatisfies,
-    treeChildren,
-    treeNode,
-  )
 
 data SymbolPair = SymbolPair
   { symbolId :: SakanaParser.SyntaxUnit,

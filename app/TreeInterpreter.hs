@@ -57,49 +57,23 @@ where
 --                                     █▒▒▒▒▒█
 --                                      █████
 
-import qualified Data.Char as DChar (isSpace)
-import qualified Data.List as DList (find, foldl', intercalate, intersperse, takeWhile)
+import qualified Data.Char as DChar
+import qualified Data.List as DList
 import Data.Maybe (Maybe (..))
-import qualified Data.Maybe as DMaybe (fromJust, fromMaybe, isJust, isNothing, maybe)
-import qualified Data.Tuple as DTuple (uncurry)
+import qualified Data.Maybe as DMaybe
+import qualified Data.Tuple as DTuple
 import qualified Exception.Base as Exception
-  ( ExceptionSeverity (Debug, Fatal),
-    ExceptionType
-      ( General,
-        GeneralTypeError,
-        MissingPositionalArguments,
-        OperatorTypeError,
-        SymbolIsAlreadyBound,
-        SymbolNotFound,
-        UndefinedOperatorBehavior
-      ),
-    newException,
-    raiseError,
-  )
 import SakanaParser (SyntaxTree, setContext)
 -- import SakanaParser as SyntaxUnit (SyntaxUnit (..))
 import qualified SakanaParser
 import qualified SakanaParser as SyntaxUnit (SyntaxUnit (context, line, token))
 import System.Environment (getArgs)
 import System.IO
-import qualified Token.Bracket as B (ScopeType (Return, Send))
-import qualified Token.Control as C (Control (Fin))
+import qualified Token.Bracket as B
+import qualified Token.Control as C
 import qualified Token.Data as D
-  ( Data (Boolean, Id, Null, Num, String),
-    fromData,
-    isNumeric,
-    isPrimitive,
-    isString,
-    readData,
-    unBoolean,
-    unNum,
-    unString,
-  )
 import qualified Token.Keyword as K
 import qualified Token.Operator as O
-  ( Operator (Add, Div, Eq, Gt, GtEq, Lt, LtEq, Mult, NEq, Pow, Sub),
-    fromOp,
-  )
 import TreeInterpreter.Environment as Env
   ( EnvironmentStack,
     SymbolPair (symbolVal),
@@ -113,42 +87,10 @@ import TreeInterpreter.Environment as Env
     maybeTreeToSymbolPair,
   )
 import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
-  ( dataTokenAndPrimitive,
-    fin,
-    nullNode,
-    operator,
-  )
 import qualified TreeInterpreter.LocalCheck.TreeIs as Check.TreeIs
-  ( executable,
-    functionCall,
-    positionalArg,
-    sendingValueBinding,
-    standardLibCall,
-    swim,
-  )
 import qualified Util.General
-  ( both,
-    foldIdApplicativeOnSingleton,
-    head',
-    init',
-    last',
-    listSingleton,
-    tail',
-  )
-import qualified Util.Like as LikeClass (Like (like))
+import qualified Util.Like as LikeClass
 import qualified Util.Tree as Tree
-  ( Tree (Empty, (:-<-:)),
-    TreeIO (fPrintTree, ioPrintTree),
-    maybeOnTreeNode,
-    mutateTreeNode,
-    nodeStrictlySatisfies,
-    reTree,
-    tree,
-    treeChildren,
-    treeNode,
-    (-<-),
-    (-<=),
-  )
 
 -- | Unsure if this should be an instance but I will keep it for now
 class Truthy a where
