@@ -23,9 +23,12 @@ module TreeInterpreter.Environment
   )
 where
 
+import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Hashable
 import qualified Data.List as DList
 import qualified Data.Maybe as DMaybe
 import qualified Exception.Base as Exception
+import qualified GHC.Generics
 import qualified SakanaParser
 import qualified Token.Bracket as B
 import qualified Token.Data as D

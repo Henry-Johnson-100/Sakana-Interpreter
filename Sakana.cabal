@@ -52,6 +52,8 @@ executable Sakana
         base >= 4.8.0.0
       , ghc-prim >= 0.5.0
       , parsec == 3.1.14.0
+      , hashable == 1.3.3.0
+      , unordered-containers == 0.2.14.0
     hs-source-dirs:   app
                       app/Exception
                       app/TreeInterpreter
@@ -95,25 +97,8 @@ test-suite TreeInterpreter
       , tasty >= 0.7 && < 1.4.1
       , tasty-hunit ^>=0.10.0.3
       , parsec == 3.1.14.0
-
-test-suite Token_Util_EagerCollapsible
-    default-language:
-        Haskell2010
-    type:
-        exitcode-stdio-1.0
-    hs-source-dirs:
-        Test
-        app
-    main-is:
-        EagerCollapsibleTest.hs
-    other-modules:
-        Util.EagerCollapsible,
-        Util.CollapsibleTerminalCases
-    build-depends:
-        base >= 4.8.0.0
-      , tasty >= 0.7 && < 1.4.1
-      , tasty-hunit ^>=0.10.0.3
-      , parsec == 3.1.14.0
+      , hashable == 1.3.3.0
+      , unordered-containers == 0.2.14.0
 
 test-suite SakanaParser
     default-language:
@@ -148,41 +133,6 @@ test-suite SakanaParser
       , tasty >= 0.7 && < 1.4.1
       , tasty-hunit ^>=0.10.0.3
       , parsec == 3.1.14.0
-
--- test-suite Token_Data
---     default-language:
---         Haskell2010
---     type:
---         exitcode-stdio-1.0
---     hs-source-dirs:
---         Test
---         app
---     main-is:
---         TokenDataTest.hs
---     other-modules:
---         Token.Data,
---         Token.Util.EagerCollapsible,
---         Token.Util.Like,
---         Token.Util.String
---     build-depends:
---         base >= 4.8.0.0
---       , tasty >= 0.7 && < 1.4.1
---       , tasty-hunit ^>=0.10.0.3
-
--- test-suite Token_Util_NestedCollapsible
---     default-language:
---         Haskell2010
---     type:
---         exitcode-stdio-1.0
---     hs-source-dirs:
---         Test
---         app
---     main-is:
---         NestedCollapsibleTest.hs
---     other-modules:
---         Token.Util.NestedCollapsible,
---         Token.Util.EagerCollapsible
---     build-depends:
---         base >= 4.8.0.0
---       , tasty >= 0.7 && < 1.4.1
---       , tasty-hunit ^>=0.10.0.3
+      , hashable == 1.3.3.0
+      , unordered-containers == 0.2.14.0
+      
