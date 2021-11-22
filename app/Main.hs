@@ -16,6 +16,32 @@ import qualified Util.General (tail')
 sakanaVersion :: Version
 sakanaVersion = Version [0, 2, 2, 2] []
 
+data LicenseStr = LS String String
+
+instance Show LicenseStr where
+  show (LS title copyright) = title ++ "\n\t" ++ copyright
+
+-- | Yes I know this is silly
+licensesUsed :: [LicenseStr]
+licensesUsed =
+  [ LS
+      "tasty: Modern and extensible testing framework vs. 0.7 - 1.4.1"
+      "Copyright (c) 2013 Roman Cheplyaka",
+    LS
+      "tasty-hunit: HUnit support for the Tasty test framework ^>=0.10.0.3"
+      "Copyright (c) 2013 Roman Cheplyaka\
+      \\n\tHUnit is Copyright (c) Dean Herington, 2002, all rights reserved",
+    LS
+      "parsec: Monadic parser combinators v 3.1.14.0"
+      "Copyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved.",
+    LS
+      "unordered-containers: Efficient hashing-based container types v 0.2.14.0"
+      "Copyright (c) 2010, Johan Tibell",
+    LS
+      "hashable: A class for types that can be converted to a hash value v 1.3.3.0"
+      "Copyright Milan Straka 2010"
+  ]
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -40,9 +66,7 @@ usingArgs args
   | argsContainAny ["-v", "--version"] =
     putStrLn $ "Sakana Interpeter Version: " ++ (showVersion sakanaVersion)
   | argsContainAny ["--licenses"] = do
-    putStrLn
-      "parsec: Monadic parser combinators v 3.1.14.0\n\
-      \\tCopyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved."
+    mapM_ print licensesUsed
   | otherwise = interpretFileAndReturn (head args) ((unwords . Util.General.tail') args)
   where
     argsContainAny = any (`elem` args)

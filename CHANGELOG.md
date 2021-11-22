@@ -80,3 +80,6 @@ parser looks for when parsing a Sakana program.
 have to be placed manually.
 
 #### 0.2.2.2 -- YYYY-MM-DD HashMaps
+
+* Changed the environment symbol table from a list of lists of `SymbolPairs` to
+a `HashMap` from Data.HashMap.Strict.
