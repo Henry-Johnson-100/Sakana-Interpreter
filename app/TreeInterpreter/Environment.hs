@@ -141,8 +141,8 @@ maybeTreeToSymbolPair st tr' =
 checkForSameScopeAssignment :: SymbolTable -> SymbolPair -> SymbolPair
 checkForSameScopeAssignment st sp =
   DMaybe.maybe
+    sp
     (symbolAlreadyExistsException (symbolId sp) ((DMaybe.fromJust . flip maybeLookupSymbolInSymbolTable st . symbolId) sp))
-    (\x -> sp)
     (HashMap.lookup (getKeyFromSymbolPair sp) (st))
 
 symbolAlreadyExistsException :: SakanaParser.SyntaxUnit -> SymbolPair -> a2
