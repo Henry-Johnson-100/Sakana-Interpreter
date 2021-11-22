@@ -79,7 +79,7 @@ parser looks for when parsing a Sakana program.
 * both ```trout``` and ```herring``` will no longer end with a newline, so they will
 have to be placed manually.
 
-#### 0.2.2.2 -- YYYY-MM-DD HashMaps
+#### 0.2.2.2 -- 2021-11-22
 
 * Changed the environment symbol table from a list of lists of `SymbolPairs` to
 a `HashMap` from Data.HashMap.Strict.
