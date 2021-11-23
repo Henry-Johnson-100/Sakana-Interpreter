@@ -55,7 +55,43 @@ instance Data.Hashable.Hashable SymbolKey where
 
 type SymbolTable = HashMap.HashMap SymbolKey SymbolPair
 
-data EnvironmentStack = EnvironmentStack {envSymbolTable :: SymbolTable} deriving (Show, Eq)
+data EnvironmentStack = EnvironmentStack {envSymbolTable :: SymbolTable}
+  deriving (Show, Eq)
+
+data SakanaRuntime a = SakanaRuntime
+  { sakanaEnv :: SymbolTable,
+    sakanaVal :: a
+  }
+
+instance Functor SakanaRuntime where
+  fmap f ss = ss {sakanaVal = (f . sakanaVal) ss}
+
+{-
+The order of unions can be confusing since the first operand in <*>
+is the key operand in union, but the second operand's resultant monad
+in >>= is the key operand in union.
+
+I believe these both behave in the same way since the function application
+is applied in reverse direction for either instance:
+
+In Applicative, the first is applied to the second,
+in Monad, the second is applied to the first.
+
+In either case, the key union operand is associated with the function
+being applied and not the value it is being applied to.
+-}
+
+instance Applicative SakanaRuntime where
+  pure = SakanaRuntime HashMap.empty
+  (SakanaRuntime e1 f) <*> (SakanaRuntime e2 x) =
+    SakanaRuntime (HashMap.union e1 e2) (f x)
+
+instance Monad SakanaRuntime where
+  return = pure
+  (SakanaRuntime e1 x) >>= f = newRuntime {sakanaEnv = newEnv}
+    where
+      newRuntime = f x
+      newEnv = HashMap.union (sakanaEnv newRuntime) e1
 
 -- currentStackSymbolTable :: EnvironmentStack -> SymbolTable
 -- currentStackSymbolTable [] = []
