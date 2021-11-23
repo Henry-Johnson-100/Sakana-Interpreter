@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TreeInterpreter.Environment
   ( SymbolPair (..),
@@ -26,6 +27,7 @@ module TreeInterpreter.Environment
   )
 where
 
+import qualified Control.Monad as CMonad
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Hashable
 import qualified Data.List as DList
@@ -93,18 +95,27 @@ instance Monad SakanaRuntime where
       newRuntime = f x
       newEnv = HashMap.union (sakanaEnv newRuntime) e1
 
--- currentStackSymbolTable :: EnvironmentStack -> SymbolTable
--- currentStackSymbolTable [] = []
--- currentStackSymbolTable env = head env
+-- | A monad transformer using SakanaRuntime
+newtype SakanaRuntimeT m a = SakanaRuntimeT {runSakanaRuntime :: m (SakanaRuntime a)}
 
--- enclosingEnvironmentStack :: EnvironmentStack -> EnvironmentStack
--- enclosingEnvironmentStack [] = []
--- enclosingEnvironmentStack (st : []) = []
--- enclosingEnvironmentStack (st : sts) = sts
+instance Monad m => Functor (SakanaRuntimeT m) where
+  fmap = CMonad.liftM
 
--- fPrintEnvironmentStack :: EnvironmentStack -> [Char]
--- fPrintEnvironmentStack env =
---   (DList.intercalate "\n" . map (DList.intercalate "\n" . map fPrintSymbolPair')) env
+instance Monad m => Applicative (SakanaRuntimeT m) where
+  pure = return
+  (<*>) = CMonad.ap
+
+-- This one was pretty frustrating to make desu, have to check the implementation
+-- details later.
+--
+-- Seems kind of odd to me that you have to copy the implementation of a monad
+-- for a transformer instead of being able to use that implementation programmatically
+instance Monad m => Monad (SakanaRuntimeT m) where
+  return = SakanaRuntimeT . return . SakanaRuntime HashMap.empty
+  x >>= f = SakanaRuntimeT $ do
+    t <- runSakanaRuntime x
+    h <- runSakanaRuntime $ (f . sakanaVal) t
+    return h {sakanaEnv = HashMap.union (sakanaEnv h) (sakanaEnv t)}
 
 fPrintSymbolPair' :: SymbolPair -> String
 fPrintSymbolPair' (SymbolPair sid tr) =
@@ -113,6 +124,7 @@ fPrintSymbolPair' (SymbolPair sid tr) =
 getKeyFromSymbolPair :: SymbolPair -> SymbolKey
 getKeyFromSymbolPair = getSymbolKeyFromSyntaxUnit . symbolId
 
+getSymbolKeyFromSyntaxUnit :: SakanaParser.SyntaxUnit -> SymbolKey
 getSymbolKeyFromSyntaxUnit = SymbolKey . SakanaParser.fromToken . SakanaParser.token
 
 emptySymbolTable :: SymbolTable
@@ -121,10 +133,16 @@ emptySymbolTable = HashMap.empty
 emptyEnvironmentStack :: EnvironmentStack
 emptyEnvironmentStack = EnvironmentStack emptySymbolTable
 
--- -- | The first environment is prepended to the second,
--- -- meaning it is enclosed in the second.
--- encloseEnvironmentIn :: EnvironmentStack -> EnvironmentStack -> EnvironmentStack
--- encloseEnvironmentIn envInner envOuter = envInner ++ envOuter
+-- | Taking two runtimes, will union the two, with the first as the key.
+-- Discard the second.
+unionRuntime :: SakanaRuntime a -> SakanaRuntime b -> SakanaRuntime a
+unionRuntime sra = (=<<) (\x -> sra)
+
+-- | Taking a symbol table and runtime, unions the symbol table with the runtime
+-- with the symbol table as the key.
+-- return the updated runtime.
+updateRuntime :: SymbolTable -> SakanaRuntime a -> SakanaRuntime a
+updateRuntime st = (<*>) (SakanaRuntime st id)
 
 addSymbolToEnvironmentStack :: EnvironmentStack -> SymbolPair -> EnvironmentStack
 addSymbolToEnvironmentStack env sb =
@@ -136,11 +154,8 @@ addSymbolPairToTable ::
   SymbolTable
 addSymbolPairToTable sp = HashMap.insert (getKeyFromSymbolPair sp) sp
 
--- addTableToEnvironmentStack :: EnvironmentStack -> SymbolTable -> EnvironmentStack
--- addTableToEnvironmentStack [] symTable = [symTable]
--- addTableToEnvironmentStack env symTable = symTable : env
-
-lookupSymbolInEnvironmentStack :: EnvironmentStack -> SakanaParser.SyntaxUnit -> SymbolPair
+lookupSymbolInEnvironmentStack ::
+  EnvironmentStack -> SakanaParser.SyntaxUnit -> SymbolPair
 lookupSymbolInEnvironmentStack env lookupId =
   DMaybe.fromMaybe
     (symbolNotFoundError lookupId)
@@ -178,7 +193,10 @@ checkForSameScopeAssignment :: SymbolTable -> SymbolPair -> SymbolPair
 checkForSameScopeAssignment st sp =
   DMaybe.maybe
     sp
-    (symbolAlreadyExistsException (symbolId sp) ((DMaybe.fromJust . flip maybeLookupSymbolInSymbolTable st . symbolId) sp))
+    ( symbolAlreadyExistsException
+        (symbolId sp)
+        ((DMaybe.fromJust . flip maybeLookupSymbolInSymbolTable st . symbolId) sp)
+    )
     (HashMap.lookup (getKeyFromSymbolPair sp) (st))
 
 symbolAlreadyExistsException :: SakanaParser.SyntaxUnit -> SymbolPair -> a2
