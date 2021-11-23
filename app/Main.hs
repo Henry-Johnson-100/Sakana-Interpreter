@@ -14,7 +14,7 @@ import TreeInterpreter (executeMain, getMainEnvironmentStack, getMainExecutionTr
 import qualified Util.General (tail')
 
 sakanaVersion :: Version
-sakanaVersion = Version [0, 2, 2, 2] []
+sakanaVersion = Version [0, 2, 2, 3] []
 
 data LicenseStr = LS String String
 
