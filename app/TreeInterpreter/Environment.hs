@@ -6,7 +6,6 @@ module TreeInterpreter.Environment
     SymbolTable (..),
     -- EnvironmentStack (..),
     SakanaRuntime (..),
-    SakanaRuntimeT (..),
     -- emptyEnvironmentStack,
     emptyRuntimeEmptyTree,
     -- addSymbolToEnvironmentStack,
@@ -25,7 +24,7 @@ module TreeInterpreter.Environment
     makeSymbolPair,
     unionRuntime,
     updateRuntime,
-    liftRuntime,
+    runtimeUnit,
   )
 where
 
@@ -70,63 +69,6 @@ data SakanaRuntime a = SakanaRuntime
     sakanaVal :: a
   }
 
-instance Functor SakanaRuntime where
-  fmap f ss = ss {sakanaVal = (f . sakanaVal) ss}
-
-{-
-The order of unions can be confusing since the first operand in <*>
-is the key operand in union, but the second operand's resultant monad
-in >>= is the key operand in union.
-
-I believe these both behave in the same way since the function application
-is applied in reverse direction for either instance:
-
-In Applicative, the first is applied to the second,
-in Monad, the second is applied to the first.
-
-In either case, the key union operand is associated with the function
-being applied and not the value it is being applied to.
--}
-
-instance Applicative SakanaRuntime where
-  pure = SakanaRuntime HashMap.empty
-  (SakanaRuntime e1 f) <*> (SakanaRuntime e2 x) =
-    SakanaRuntime (HashMap.union e1 e2) (f x)
-
-instance Monad SakanaRuntime where
-  return = pure
-  (SakanaRuntime e1 x) >>= f = newRuntime {sakanaEnv = newEnv}
-    where
-      newRuntime = f x
-      newEnv = HashMap.union (sakanaEnv newRuntime) e1
-
--- | A monad transformer using SakanaRuntime
-newtype SakanaRuntimeT m a = SakanaRuntimeT {runSakanaRuntime :: m (SakanaRuntime a)}
-
-instance Monad m => Functor (SakanaRuntimeT m) where
-  fmap = CMonad.liftM
-
-instance Monad m => Applicative (SakanaRuntimeT m) where
-  pure = return
-  (<*>) = CMonad.ap
-
--- This one was pretty frustrating to make desu, have to check the implementation
--- details later.
---
--- Seems kind of odd to me that you have to copy the implementation of a monad
--- for a transformer instead of being able to use that implementation programmatically
-instance Monad m => Monad (SakanaRuntimeT m) where
-  return = SakanaRuntimeT . return . SakanaRuntime HashMap.empty
-  x >>= f = SakanaRuntimeT $ do
-    t <- runSakanaRuntime x
-    h <- runSakanaRuntime $ (f . sakanaVal) t
-    return h {sakanaEnv = HashMap.union (sakanaEnv h) (sakanaEnv t)}
-
-liftRuntime :: Monad m => SakanaRuntime a -> SakanaRuntimeT m a
-liftRuntime srt = do
-  let lifted = return srt
-  SakanaRuntimeT lifted
-
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -152,34 +94,25 @@ emptySymbolTable = HashMap.empty
 singletonSymbolTable :: SymbolPair -> SymbolTable
 singletonSymbolTable sp = HashMap.insert (getKeyFromSymbolPair sp) sp HashMap.empty
 
+runtimeUnit :: a -> SakanaRuntime a
+runtimeUnit = SakanaRuntime HashMap.empty
+
 -- | Taking two runtimes, will union the two, with the first as the key.
 -- Discard the second.
 unionRuntime :: SakanaRuntime a -> SakanaRuntime b -> SakanaRuntime a
-unionRuntime sra = (=<<) (\x -> sra)
+unionRuntime sra srb = sra {sakanaEnv = HashMap.union (sakanaEnv sra) (sakanaEnv srb)}
 
 -- | Taking a symbol table and runtime, unions the symbol table with the runtime
 -- with the symbol table as the key.
 -- return the updated runtime.
 updateRuntime :: SymbolTable -> SakanaRuntime a -> SakanaRuntime a
-updateRuntime st = (<*>) (SakanaRuntime st id)
+updateRuntime st srt = srt {sakanaEnv = HashMap.union st (sakanaEnv srt)}
 
 injectValueToRuntime :: b -> SakanaRuntime a -> SakanaRuntime b
 injectValueToRuntime x srt = srt {sakanaVal = x}
 
--- | Operates identically to >>= but the union occurs in the opposite order:
--- The table of (SakanaRuntime a) is used as the key rather than the table produced
--- by the function (a -> SakanaRuntime b)
-mixedBind :: SakanaRuntime a -> (a -> SakanaRuntime b) -> SakanaRuntime b
-mixedBind srt f = do
-  x <- srt
-  let product = f x
-  product {sakanaEnv = HashMap.union (sakanaEnv srt) (sakanaEnv product)}
-
--- injectRuntimeValPreserveEnv :: SakanaRuntime b -> SakanaRuntime a -> SakanaRuntime b
--- injectRuntimeValPreserveEnv toInjectVal toPreserveEnv = 
-
 emptyRuntimeEmptyTree :: SakanaRuntime SakanaParser.SyntaxTree
-emptyRuntimeEmptyTree = pure Tree.Empty
+emptyRuntimeEmptyTree = runtimeUnit Tree.Empty
 
 addSymbolToRuntime :: SakanaRuntime a -> SymbolPair -> SakanaRuntime a
 addSymbolToRuntime sr sp = updateRuntime (singletonSymbolTable sp) sr
