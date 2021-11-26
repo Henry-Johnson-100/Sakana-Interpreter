@@ -1,17 +1,10 @@
-import Data.Version (Version (..), showVersion)
-import SakanaParser (generateSyntaxTree)
-import System.Environment (getArgs)
+import Data.Version
+import SakanaParser
+import System.Environment
 import System.IO
-  ( IOMode (ReadMode),
-    hClose,
-    hGetContents,
-    hPutStrLn,
-    openFile,
-    stdout,
-  )
-import qualified Token.Data as D (fromData)
-import TreeInterpreter (executeMain, getMainEnvironmentStack, getMainExecutionTrees)
-import qualified Util.General (tail')
+import qualified Token.Data as D
+import TreeInterpreter
+import qualified Util.General
 
 sakanaVersion :: Version
 sakanaVersion = Version [0, 2, 2, 3] []

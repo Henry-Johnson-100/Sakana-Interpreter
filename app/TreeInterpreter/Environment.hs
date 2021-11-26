@@ -25,6 +25,7 @@ module TreeInterpreter.Environment
     makeSymbolPair,
     unionRuntime,
     updateRuntime,
+    liftRuntime,
   )
 where
 
@@ -121,6 +122,11 @@ instance Monad m => Monad (SakanaRuntimeT m) where
     h <- runSakanaRuntime $ (f . sakanaVal) t
     return h {sakanaEnv = HashMap.union (sakanaEnv h) (sakanaEnv t)}
 
+liftRuntime :: Monad m => SakanaRuntime a -> SakanaRuntimeT m a
+liftRuntime srt = do
+  let lifted = return srt
+  SakanaRuntimeT lifted
+
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -156,6 +162,21 @@ unionRuntime sra = (=<<) (\x -> sra)
 -- return the updated runtime.
 updateRuntime :: SymbolTable -> SakanaRuntime a -> SakanaRuntime a
 updateRuntime st = (<*>) (SakanaRuntime st id)
+
+injectValueToRuntime :: b -> SakanaRuntime a -> SakanaRuntime b
+injectValueToRuntime x srt = srt {sakanaVal = x}
+
+-- | Operates identically to >>= but the union occurs in the opposite order:
+-- The table of (SakanaRuntime a) is used as the key rather than the table produced
+-- by the function (a -> SakanaRuntime b)
+mixedBind :: SakanaRuntime a -> (a -> SakanaRuntime b) -> SakanaRuntime b
+mixedBind srt f = do
+  x <- srt
+  let product = f x
+  product {sakanaEnv = HashMap.union (sakanaEnv srt) (sakanaEnv product)}
+
+-- injectRuntimeValPreserveEnv :: SakanaRuntime b -> SakanaRuntime a -> SakanaRuntime b
+-- injectRuntimeValPreserveEnv toInjectVal toPreserveEnv = 
 
 emptyRuntimeEmptyTree :: SakanaRuntime SakanaParser.SyntaxTree
 emptyRuntimeEmptyTree = pure Tree.Empty
