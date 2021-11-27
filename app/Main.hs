@@ -7,7 +7,7 @@ import TreeInterpreter
 import qualified Util.General
 
 sakanaVersion :: Version
-sakanaVersion = Version [0, 2, 2, 3] []
+sakanaVersion = Version [0, 2, 3, 0] []
 
 data LicenseStr = LS String String
 
