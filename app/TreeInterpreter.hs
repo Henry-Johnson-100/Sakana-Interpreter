@@ -94,9 +94,6 @@ instance Truthy D.Data where
   truthy _ = False
   falsy = not . truthy
 
---Functions to manage scope and environments----------------------------------------------
-------------------------------------------------------------------------------------------
-
 --Evaluation functions used to take a tree and return some FISH value.--------------------
 ------------------------------------------------------------------------------------------
 getMainEnvironmentStack ::
@@ -284,7 +281,8 @@ evaluateOperator (Env.SakanaRuntime env tr) = do
                   ((O.fromOp . getNodeOperator) tr)
                   (map show [argx, argy])
   where
-    getNodeOperator tr' = case getNodeToken tr' of (SakanaParser.Operator o) -> o; _ -> O.Eq
+    getNodeOperator tr' =
+      case getNodeToken tr' of (SakanaParser.Operator o) -> o; _ -> O.Eq
     justUnNum = DMaybe.fromJust . D.unNum
     justUnString = DMaybe.fromJust . D.unString
     justUnBoolean = DMaybe.fromJust . D.unBoolean
@@ -320,23 +318,6 @@ executeFunctionCall sr = do
     functionDeclaration =
       Env.symbolVal
         (Env.lookupSymbol (sr) ((DMaybe.fromJust . Tree.treeNode . Env.sakanaVal) sr))
-
--- executeFunctionCall mainExEnv functionCall = do
---   let preparedStateIO =
---         newClosureRuntime mainExEnv functionCall functionDeclaration
---   newFuncEnv <- fst preparedStateIO
---   newFuncProcTrees <- snd preparedStateIO
---   procExecute newFuncEnv newFuncProcTrees
---   where
---     functionDeclaration = calledFunction mainExEnv functionCall
-
--- calledFunction :: Env.SakanaRuntime SakanaParser.SyntaxTree -> SyntaxTree
--- calledFunction env =
---   symbolVal . calledFunctionSymbol env
-
--- calledFunctionSymbol :: Env.SakanaRuntime SakanaParser.SyntaxTree -> Env.SymbolPair
--- calledFunctionSymbol env =
---   lookupSymbolInEnvironmentStack env . DMaybe.fromJust . Tree.treeNode
 
 ----get information from a tree-----------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -411,28 +392,6 @@ newClosureRuntime sr functionDeclaration = do
 -- information in a function declaration, like extra sub-function declarations.
 getBindableArgs :: SyntaxTree -> [SyntaxTree]
 getBindableArgs = DList.takeWhile (not . Check.TreeIs.swim) . getFuncDeclArgs
-
--- let functionIOEnvironment =
---       makeIOEnvFromFuncCall
---         mainExEnv
---         (Tree.treeChildren functionCall)
---         (getBindableArgs functionDeclaration)
--- let functionDeclarationProcTrees = getExecutableChildren functionDeclaration
--- (functionIOEnvironment, return functionDeclarationProcTrees)
-
--- where
--- getFunctionDeclarationProcTrees tr =
---   if Tree.nodeStrictlySatisfies
---     (SakanaParser.keywordTokenIsDeclarationRequiringId . SyntaxUnit.token)
---     tr
---     then (filter (not . treeIsPositionalArg) . tail' . Tree.treeChildren) tr
---     else (filter (not . treeIsPositionalArg) . Tree.treeChildren) tr
--- This function is required to get all of the execution trees of a function
--- declaration, which is why 'getMainExecutionTrees' is called.
--- Ideally, a function declaration works like a miniature program.
--- So it is only natural that it's execution trees are denoted by the 'swim' keyword.
--- getExecutableChildren :: SakanaParser.SyntaxTree -> Env.SakanaRuntime [SakanaParser.SyntaxTree]
--- getExecutableChildren tr = getMainExecutionTrees tr
 
 -- | By far the messiest function in this module, I definitely want to put in the effort
 -- to refactor this one to make it actually legible.
@@ -516,23 +475,11 @@ makeIOEnvFromFuncCall runtimeAtCall declarationArgs = do
   let newSubScopeIO =
         makeSymbolTableFromFuncCall runtimeAtCall HashMap.empty declarationArgs
   newSubScope <- newSubScopeIO
-  (return . Env.unionRuntime runtimeAtCall) newSubScope
-
--- return (Env.EnvironmentStack (HashMap.union newSubScope (Env.envSymbolTable mainExEnv)))
-
--- return (newSubScope : mainExEnv)
-
--- -- | This appears to work but it's kind of hacky.
--- -- Env.SakanaRuntimeT $ iod >>=
--- --  return . Tree.tree . SakanaParser.genericSyntaxUnit . SakanaParser.Data >>=
--- --  return . pure
--- ioDataToNewRuntime ::
---   IO D.Data ->
---   IO (Env.SakanaRuntime SakanaParser.SyntaxTree)
--- -- Env.SakanaRuntimeT IO SakanaParser.SyntaxTree
--- ioDataToNewRuntime =
---   (=<<) (return . pure)
---     . (=<<) (return . Tree.tree . SakanaParser.genericSyntaxUnit . SakanaParser.Data)
+  return
+    runtimeAtCall
+      { Env.sakanaEnv =
+          HashMap.union (Env.sakanaEnv newSubScope) (Env.sakanaEnv runtimeAtCall)
+      }
 
 ----Standard Library Functions------------------------------------------------------------
 ------------------------------------------------------------------------------------------
