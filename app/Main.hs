@@ -70,9 +70,6 @@ interpretFileAndReturn filePathToInterpret sakanaArgs = do
   fileTree <-
     hGetContents fileHandle
       >>= return . generateSyntaxTree
-  executeMain
-    ((return . getMainEnvironmentStack) fileTree)
-    ((return . getMainExecutionTrees) fileTree)
-    (return sakanaArgs)
+  executeMain (getMainRuntime fileTree) (return sakanaArgs)
     >>= hPutStrLn stdout . D.fromData
   hClose fileHandle

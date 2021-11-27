@@ -9,13 +9,15 @@ import Test.Tasty.HUnit
 import Token.Bracket
 import Token.Data
 import TreeInterpreter
+import TreeInterpreter.Environment
 import Util.General
 import Util.Tree
 
 executeFirstChild :: String -> Data
 executeFirstChild =
   unsafePerformIO
-    . TreeInterpreter.execute emptyEnvironmentStack
+    . TreeInterpreter.execute
+    . runtimeUnit
     . fromJust
     . Util.General.head'
     . treeChildren
@@ -24,11 +26,11 @@ executeFirstChild =
 getMainTree :: String -> IO SyntaxTree
 getMainTree = return . generateSyntaxTree
 
-prepareFunctionForTest str = unsafePerformIO $ executeMain (exEnv str) (exTr str) (return "")
+prepareFunctionForTest :: [Char] -> Data
+prepareFunctionForTest str = unsafePerformIO $ executeMain (exRT str) (return "")
   where
     docTree = SakanaParser.generateSyntaxTree
-    exEnv = return . getMainEnvironmentStack . docTree
-    exTr = return . getMainExecutionTrees . docTree
+    exRT = getMainRuntime . docTree
 
 agnosticizeLines tr = fmap (setLineToZero) tr
   where
