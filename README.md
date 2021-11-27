@@ -1,4 +1,4 @@
-# Sakana - 0.2.2.2
+# Sakana - 0.2.2.3
 
 A syntax-tree based interpreter implementation for the Sakana programming language.
 

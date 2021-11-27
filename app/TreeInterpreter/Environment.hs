@@ -4,20 +4,13 @@
 module TreeInterpreter.Environment
   ( SymbolPair (..),
     SymbolTable (..),
-    -- EnvironmentStack (..),
     SakanaRuntime (..),
-    -- emptyEnvironmentStack,
     emptyRuntimeEmptyTree,
-    -- addSymbolToEnvironmentStack,
     addSymbolToRuntime,
     addSymbolPairToTable,
-    -- lookupSymbolInEnvironmentStack,
     lookupSymbol,
-    -- maybeLookupSymbolInEnvironmentStack,
     maybeLookupSymbol,
-    -- makeEnvironmentStackFrame,
     makeNewRuntime,
-    -- maybeTreeToSymbolPair,
     treeToSymbolPairIfNotAssigned,
     symbolNotFoundError,
     maybeLookupSymbolInSymbolTable,
@@ -61,9 +54,6 @@ instance Data.Hashable.Hashable SymbolKey where
 
 type SymbolTable = HashMap.HashMap SymbolKey SymbolPair
 
--- data EnvironmentStack = EnvironmentStack {envSymbolTable :: SymbolTable}
---   deriving (Show, Eq)
-
 data SakanaRuntime a = SakanaRuntime
   { sakanaEnv :: SymbolTable,
     sakanaVal :: a
@@ -84,9 +74,6 @@ getSymbolKeyFromSyntaxUnit = SymbolKey . SakanaParser.fromToken . SakanaParser.t
 
 emptySymbolTable :: SymbolTable
 emptySymbolTable = HashMap.empty
-
--- emptyEnvironmentStack :: EnvironmentStack
--- emptyEnvironmentStack = EnvironmentStack emptySymbolTable
 
 ----Runtime functions, as reimplemented EnvironmentStack functions------------------------
 ------------------------------------------------------------------------------------------
@@ -188,7 +175,6 @@ makeSymbolTable' st [] = st
 makeSymbolTable' st (tr : trs) =
   DMaybe.maybe
     (makeSymbolTable' st trs)
-    -- (\x -> makeSymbolTable' (addSymbolPairToTable x st) trs)
     (flip makeSymbolTable' trs . flip addSymbolPairToTable st)
     (treeToSymbolPairIfNotAssigned tr st)
 
@@ -215,35 +201,3 @@ makeSymbolPair tr
       DMaybe.fromMaybe
         (SakanaParser.genericSyntaxUnit (SakanaParser.Data D.Null))
         ((Util.General.head' . Tree.treeChildren) tr >>= Tree.treeNode)
-
-------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------
-
--- addSymbolToEnvironmentStack :: EnvironmentStack -> SymbolPair -> EnvironmentStack
--- addSymbolToEnvironmentStack env sb =
---   env {envSymbolTable = HashMap.insert (getKeyFromSymbolPair sb) sb (envSymbolTable env)}
-
--- lookupSymbolInEnvironmentStack ::
---   EnvironmentStack -> SakanaParser.SyntaxUnit -> SymbolPair
--- lookupSymbolInEnvironmentStack env lookupId =
---   DMaybe.fromMaybe
---     (symbolNotFoundError lookupId)
---     (maybeLookupSymbolInEnvironmentStack env lookupId)
-
--- maybeLookupSymbolInEnvironmentStack ::
---   EnvironmentStack -> SakanaParser.SyntaxUnit -> Maybe SymbolPair
--- maybeLookupSymbolInEnvironmentStack env su =
---   HashMap.lookup (getSymbolKeyFromSyntaxUnit su) (envSymbolTable env)
-
--- --these will require a little bit of effort to get working again
--- -------------------------------------
--- makeEnvironmentStackFrame :: [SakanaParser.SyntaxTree] -> EnvironmentStack
--- makeEnvironmentStackFrame = EnvironmentStack . makeSymbolTable
-
--- maybeTreeToSymbolPair :: SymbolTable -> SakanaParser.SyntaxTree -> Maybe SymbolPair
--- maybeTreeToSymbolPair st tr' =
---   if Check.TreeIs.storeable tr'
---     then (Just . checkForSameScopeAssignment st . makeSymbolPair) tr'
---     else Nothing
-
-----------------------------------------

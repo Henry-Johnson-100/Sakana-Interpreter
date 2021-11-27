@@ -84,4 +84,7 @@ have to be placed manually.
 * Changed the environment symbol table from a list of lists of `SymbolPairs` to
 a `HashMap` from Data.HashMap.Strict.
 
-#### 0.2.2.3 -- YYYY-MM-DD
+#### 0.2.2.3 -- 2021-11-27
+
+* Created a ```SakanaRuntime``` 
+Struct to simplify passing state around inside the interpreter.
