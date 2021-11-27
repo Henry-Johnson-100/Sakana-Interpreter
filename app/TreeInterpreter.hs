@@ -188,35 +188,28 @@ execute sr
   | (Tree.nodeStrictlySatisfies Check.NodeIs.fin . Env.sakanaVal) sr = evaluateFin sr
   | (Tree.nodeStrictlySatisfies Check.NodeIs.operator . Env.sakanaVal) sr =
     evaluateOperator sr
-  -- (Check.TreeIs.standardLibCall . Env.sakanaVal) sr =
-  --  case ( D.fromData
-  --           . DMaybe.fromJust
-  --           . SakanaParser.baseData
-  --           . SyntaxUnit.token
-  --           . DMaybe.fromJust
-  --           . Tree.treeNode
-  --           . Env.sakanaVal
-  --       )
-  --    sr of
-  --    "trout" ->
-  --      trout
-  --        env
-  --        ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
-  --    "herring" ->
-  --      herring
-  --        env
-  --        ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
-  --    "dolphin" -> dolphin
-  --    "read" ->
-  --      sakanaRead
-  --        env
-  --        ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
-  --    "floor" ->
-  --      sakanaFloor env ((DMaybe.fromJust . Util.General.head' . Tree.treeChildren) tr)
-  --    _ -> return D.Null
+  | (Check.TreeIs.standardLibCall . Env.sakanaVal) sr =
+    case ( D.fromData
+             . DMaybe.fromJust
+             . SakanaParser.baseData
+             . SyntaxUnit.token
+             . DMaybe.fromJust
+             . Tree.treeNode
+             . Env.sakanaVal
+         )
+      sr of
+      "trout" -> trout sr {Env.sakanaVal = getStdLibArg sr}
+      "herring" -> herring sr {Env.sakanaVal = getStdLibArg sr}
+      "dolphin" -> dolphin
+      "read" -> sakanaRead sr {Env.sakanaVal = getStdLibArg sr}
+      "floor" -> sakanaFloor sr {Env.sakanaVal = getStdLibArg sr}
+      _ -> return D.Null
   | (Check.TreeIs.functionCall . Env.sakanaVal) sr =
     executeFunctionCall sr
   | otherwise = return D.Null
+  where
+    getStdLibArg =
+      DMaybe.fromJust . Util.General.head' . Tree.treeChildren . Env.sakanaVal
 
 evaluatePrimitiveData :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
 evaluatePrimitiveData = return . getNodeTokenBaseData . Env.sakanaVal
