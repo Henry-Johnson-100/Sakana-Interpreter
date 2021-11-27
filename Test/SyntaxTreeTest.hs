@@ -25,6 +25,8 @@ treeSU c t = (tree . makeSU c) t
 
 attachToMain trs = (tree . genericSyntaxUnit) (Data (Id "main")) -<= trs
 
+attachToLamprey trs = (tree . genericSyntaxUnit) (Keyword (Lamprey)) -<= trs
+
 main = do
   defaultMain tests
 
@@ -45,7 +47,10 @@ treeGenerationTests = testGroup "SyntaxTree generation tests" testList
         treeSubFunctionsOne,
         treeSubFunctionsTwo,
         treeFunctionWithSwimExecutionOne,
-        treeFunctionWithSwimExecutionTwo
+        treeFunctionWithSwimExecutionTwo,
+        partialFunctionInFunctionDeclOne,
+        partialFuncBindInSwim,
+        partialFuncExplicitLamprey
       ]
 
 {-
@@ -79,7 +84,8 @@ treeSimpleFunctionOne = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [(treeSU Send . dataId) "simple", (treeSU Send . dataId) "x", (treeSU Return . dataId) "x"]
+            -<- ((treeSU Send . dataId) "simple")
+            -<- attachToLamprey [(treeSU Send . dataId) "x", (treeSU Return . dataId) "x"]
         ]
     f = prepareString "fish simple >(x)> <(x)<"
 
@@ -90,11 +96,12 @@ treeSimpleFunctionTwo = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Send . dataId) "simple",
-                  (treeSU Send . dataId) "x",
-                  (treeSU Return . Operator) Add
-                    -<= [(treeSU Send . dataId) "x", (treeSU Send . dataNum) 1.0]
-                ]
+            -<- (treeSU Send . dataId) "simple"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                (treeSU Return . Operator) Add
+                  -<= [(treeSU Send . dataId) "x", (treeSU Send . dataNum) 1.0]
+              ]
         ]
     f = prepareString "fish simple >(x)> <(+ >(x)> >(1)>)<"
 
@@ -105,14 +112,15 @@ treeSimpleFunctionThree = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Send . dataId) "simple",
-                  (treeSU Send . dataId) "x",
-                  (treeSU Return . Operator) Add
-                    -<= [ (treeSU Send . dataId) "x",
-                          (treeSU Send . Operator) Add
-                            -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
-                        ]
-                ]
+            -<- (treeSU Send . dataId) "simple"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                (treeSU Return . Operator) Add
+                  -<= [ (treeSU Send . dataId) "x",
+                        (treeSU Send . Operator) Add
+                          -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
+                      ]
+              ]
         ]
     f = prepareString "fish simple >(x)> <(+ >(x)> >(+ >(1)> >(1)>)>)<"
 
@@ -123,19 +131,21 @@ treeMultipleFunctionsOne = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Send . dataId) "simple",
-                  (treeSU Send . dataId) "x",
-                  (treeSU Return . Operator) Add
-                    -<= [ (treeSU Send . dataId) "x",
-                          (treeSU Send . Operator) Add
-                            -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
-                        ]
-                ],
+            -<- (treeSU Send . dataId) "simple"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                (treeSU Return . Operator) Add
+                  -<= [ (treeSU Send . dataId) "x",
+                        (treeSU Send . Operator) Add
+                          -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
+                      ]
+              ],
           (treeSU Return . Keyword) Fish -- This is the current error
-            -<= [ (treeSU Send . dataId) "two",
-                  (treeSU Send . dataId) "x",
-                  (treeSU Return . dataId) "x"
-                ]
+            -<- (treeSU Send . dataId) "two"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                (treeSU Return . dataId) "x"
+              ]
         ]
     f =
       prepareString
@@ -149,23 +159,25 @@ treeMultipleFunctionsTwo = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Send . dataId) "simple",
-                  (treeSU Send . dataId) "x",
-                  (treeSU Return . Operator) Add
-                    -<= [ (treeSU Send . dataId) "x",
-                          (treeSU Send . Operator) Add
-                            -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
-                        ]
-                ],
+            -<- (treeSU Send . dataId) "simple"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                (treeSU Return . Operator) Add
+                  -<= [ (treeSU Send . dataId) "x",
+                        (treeSU Send . Operator) Add
+                          -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
+                      ]
+              ],
           (treeSU Return . Keyword) Fish -- This is the current error
-            -<= [ (treeSU Send . dataId) "two",
-                  (treeSU Send . dataId) "x",
-                  (treeSU Return . Operator) Add
-                    -<= [ (treeSU Send . dataId) "x",
-                          (treeSU Send . Operator) Add
-                            -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
-                        ]
-                ]
+            -<- (treeSU Send . dataId) "two"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                (treeSU Return . Operator) Add
+                  -<= [ (treeSU Send . dataId) "x",
+                        (treeSU Send . Operator) Add
+                          -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
+                      ]
+              ]
         ]
     f =
       prepareString
@@ -179,32 +191,35 @@ treeMultipleFunctionsThree = testCase name assertion
     a =
       attachToMain
         [ (tree . makeSU Return . Keyword) Fish
-            -<= [ (treeSU Send . dataId) "simple",
-                  (treeSU Send . dataId) "x",
-                  (treeSU Return . Operator) Add
-                    -<= [ (treeSU Send . dataId) "x",
-                          (treeSU Send . Operator) Add
-                            -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
-                        ]
-                ],
+            -<- (treeSU Send . dataId) "simple"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                (treeSU Return . Operator) Add
+                  -<= [ (treeSU Send . dataId) "x",
+                        (treeSU Send . Operator) Add
+                          -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
+                      ]
+              ],
           (treeSU Return . Keyword) Fish -- This is the current error
-            -<= [ (treeSU Send . dataId) "two",
-                  (treeSU Send . dataId) "x",
-                  (treeSU Return . Operator) Add
-                    -<= [ (treeSU Send . dataId) "x",
-                          (treeSU Send . Operator) Add
-                            -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
-                        ]
-                ],
+            -<- (treeSU Send . dataId) "two"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                (treeSU Return . Operator) Add
+                  -<= [ (treeSU Send . dataId) "x",
+                        (treeSU Send . Operator) Add
+                          -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
+                      ]
+              ],
           (treeSU Return . Keyword) Fish -- This is the current error
-            -<= [ (treeSU Send . dataId) "three",
-                  (treeSU Send . dataId) "x",
-                  (treeSU Return . Operator) Add
-                    -<= [ (treeSU Send . dataId) "x",
-                          (treeSU Send . Operator) Add
-                            -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
-                        ]
-                ]
+            -<- (treeSU Send . dataId) "three"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                (treeSU Return . Operator) Add
+                  -<= [ (treeSU Send . dataId) "x",
+                        (treeSU Send . Operator) Add
+                          -<= [(treeSU Send . dataNum) 1.0, (treeSU Send . dataNum) 1.0]
+                      ]
+              ]
         ]
     f =
       prepareString
@@ -219,35 +234,37 @@ treeSubFunctionsOne = testCase name assertion
     a =
       attachToMain
         [ (treeSU Return . Keyword) Fish
-            -<= [ (treeSU Send . dataId) "fact",
-                  (treeSU Send . dataId) "n",
-                  (treeSU Send . Keyword) Fish
-                    -<= [ (treeSU Send . dataId) "sub_fact",
-                          (treeSU Send . dataId) "sub",
-                          (treeSU Send . dataId) "prd",
-                          (treeSU Return . Control) Fin
-                            -<= [ (treeSU Send . Operator) LtEq
-                                    -<= [ (treeSU Send . dataId) "sub",
-                                          (treeSU Send . dataNum) 0.0
-                                        ],
-                                  (treeSU Send . dataId) "prd",
-                                  (treeSU Send . dataId) "sub_fact"
-                                    -<= [ (treeSU Send . Operator) Sub
-                                            -<= [ (treeSU Send . dataId) "sub",
-                                                  (treeSU Send . dataNum) 1.0
-                                                ],
-                                          (treeSU Send . Operator) Mult
-                                            -<= [ (treeSU Send . dataId) "sub",
-                                                  (treeSU Send . dataId) "prd"
-                                                ]
-                                        ]
-                                ]
-                        ],
-                  (treeSU Return . dataId) "sub_fact"
-                    -<= [ (treeSU Send . dataNum) 30.0,
-                          (treeSU Send . dataNum) 1.0
-                        ]
-                ]
+            -<- (treeSU Send . dataId) "fact"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "n",
+                (treeSU Send . Keyword) Fish
+                  -<- (treeSU Send . dataId) "sub_fact"
+                  -<- attachToLamprey
+                    [ (treeSU Send . dataId) "sub",
+                      (treeSU Send . dataId) "prd",
+                      (treeSU Return . Control) Fin
+                        -<= [ (treeSU Send . Operator) LtEq
+                                -<= [ (treeSU Send . dataId) "sub",
+                                      (treeSU Send . dataNum) 0.0
+                                    ],
+                              (treeSU Send . dataId) "prd",
+                              (treeSU Send . dataId) "sub_fact"
+                                -<= [ (treeSU Send . Operator) Sub
+                                        -<= [ (treeSU Send . dataId) "sub",
+                                              (treeSU Send . dataNum) 1.0
+                                            ],
+                                      (treeSU Send . Operator) Mult
+                                        -<= [ (treeSU Send . dataId) "sub",
+                                              (treeSU Send . dataId) "prd"
+                                            ]
+                                    ]
+                            ]
+                    ],
+                (treeSU Return . dataId) "sub_fact"
+                  -<= [ (treeSU Send . dataNum) 30.0,
+                        (treeSU Send . dataNum) 1.0
+                      ]
+              ]
         ]
     f =
       prepareString
@@ -266,65 +283,69 @@ treeSubFunctionsTwo = testCase name assertion
     a =
       attachToMain
         [ (treeSU Return . Keyword) Fish
-            -<= [ (treeSU Send . dataId) "fact",
-                  (treeSU Send . dataId) "n",
-                  (treeSU Send . Keyword) Fish
-                    -<= [ (treeSU Send . dataId) "sub_fact",
-                          (treeSU Send . dataId) "sub",
-                          (treeSU Send . dataId) "prd",
-                          (treeSU Return . Control) Fin
-                            -<= [ (treeSU Send . Operator) LtEq
-                                    -<= [ (treeSU Send . dataId) "sub",
-                                          (treeSU Send . dataNum) 0.0
-                                        ],
-                                  (treeSU Send . dataId) "prd",
-                                  (treeSU Send . dataId) "sub_fact"
-                                    -<= [ (treeSU Send . Operator) Sub
-                                            -<= [ (treeSU Send . dataId) "sub",
-                                                  (treeSU Send . dataNum) 1.0
-                                                ],
-                                          (treeSU Send . Operator) Mult
-                                            -<= [ (treeSU Send . dataId) "sub",
-                                                  (treeSU Send . dataId) "prd"
-                                                ]
-                                        ]
-                                ]
-                        ],
-                  (treeSU Return . dataId) "sub_fact"
-                    -<= [ (treeSU Send . dataNum) 30.0,
-                          (treeSU Send . dataNum) 1.0
-                        ]
-                ],
+            -<- (treeSU Send . dataId) "fact"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "n",
+                (treeSU Send . Keyword) Fish
+                  -<- (treeSU Send . dataId) "sub_fact"
+                  -<- attachToLamprey
+                    [ (treeSU Send . dataId) "sub",
+                      (treeSU Send . dataId) "prd",
+                      (treeSU Return . Control) Fin
+                        -<= [ (treeSU Send . Operator) LtEq
+                                -<= [ (treeSU Send . dataId) "sub",
+                                      (treeSU Send . dataNum) 0.0
+                                    ],
+                              (treeSU Send . dataId) "prd",
+                              (treeSU Send . dataId) "sub_fact"
+                                -<= [ (treeSU Send . Operator) Sub
+                                        -<= [ (treeSU Send . dataId) "sub",
+                                              (treeSU Send . dataNum) 1.0
+                                            ],
+                                      (treeSU Send . Operator) Mult
+                                        -<= [ (treeSU Send . dataId) "sub",
+                                              (treeSU Send . dataId) "prd"
+                                            ]
+                                    ]
+                            ]
+                    ],
+                (treeSU Return . dataId) "sub_fact"
+                  -<= [ (treeSU Send . dataNum) 30.0,
+                        (treeSU Send . dataNum) 1.0
+                      ]
+              ],
           (treeSU Return . Keyword) Fish -- This will probably be where it fails
-            -<= [ (treeSU Send . dataId) "fact_",
-                  (treeSU Send . dataId) "n_",
-                  (treeSU Send . Keyword) Fish
-                    -<= [ (treeSU Send . dataId) "sub_fact_",
-                          (treeSU Send . dataId) "sub_",
-                          (treeSU Send . dataId) "prd_",
-                          (treeSU Return . Control) Fin
-                            -<= [ (treeSU Send . Operator) LtEq
-                                    -<= [ (treeSU Send . dataId) "sub_",
-                                          (treeSU Send . dataNum) 0.0
-                                        ],
-                                  (treeSU Send . dataId) "prd_",
-                                  (treeSU Send . dataId) "sub_fact_"
-                                    -<= [ (treeSU Send . Operator) Sub
-                                            -<= [ (treeSU Send . dataId) "sub_",
-                                                  (treeSU Send . dataNum) 1.0
-                                                ],
-                                          (treeSU Send . Operator) Mult
-                                            -<= [ (treeSU Send . dataId) "sub_",
-                                                  (treeSU Send . dataId) "prd_"
-                                                ]
-                                        ]
-                                ]
-                        ],
-                  (treeSU Return . dataId) "sub_fact_"
-                    -<= [ (treeSU Send . dataNum) 30.0,
-                          (treeSU Send . dataNum) 1.0
-                        ]
-                ]
+            -<- (treeSU Send . dataId) "fact_"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "n_",
+                (treeSU Send . Keyword) Fish
+                  -<- (treeSU Send . dataId) "sub_fact_"
+                  -<- attachToLamprey
+                    [ (treeSU Send . dataId) "sub_",
+                      (treeSU Send . dataId) "prd_",
+                      (treeSU Return . Control) Fin
+                        -<= [ (treeSU Send . Operator) LtEq
+                                -<= [ (treeSU Send . dataId) "sub_",
+                                      (treeSU Send . dataNum) 0.0
+                                    ],
+                              (treeSU Send . dataId) "prd_",
+                              (treeSU Send . dataId) "sub_fact_"
+                                -<= [ (treeSU Send . Operator) Sub
+                                        -<= [ (treeSU Send . dataId) "sub_",
+                                              (treeSU Send . dataNum) 1.0
+                                            ],
+                                      (treeSU Send . Operator) Mult
+                                        -<= [ (treeSU Send . dataId) "sub_",
+                                              (treeSU Send . dataId) "prd_"
+                                            ]
+                                    ]
+                            ]
+                    ],
+                (treeSU Return . dataId) "sub_fact_"
+                  -<= [ (treeSU Send . dataNum) 30.0,
+                        (treeSU Send . dataNum) 1.0
+                      ]
+              ]
         ]
     f =
       prepareString
@@ -349,39 +370,41 @@ treeFunctionWithSwimExecutionOne = testCase name assertion
     a =
       attachToMain
         [ (treeSU Return . Keyword) Fish
-            -<= [ (treeSU Send . dataId) "fact",
-                  (treeSU Send . dataId) "n",
-                  (treeSU Send . Keyword) Fish
-                    -<= [ (treeSU Send . dataId) "sub_fact",
-                          (treeSU Send . dataId) "sub",
-                          (treeSU Send . dataId) "prd",
-                          (treeSU Return . Keyword) Swim --This will throw an error now
-                            -<= [ (treeSU Send . dataId) "trout"
-                                    -<= [(treeSU Send . dataString) "Printing something"],
-                                  (treeSU Return . Control) Fin
-                                    -<= [ (treeSU Send . Operator) LtEq
-                                            -<= [ (treeSU Send . dataId) "sub",
-                                                  (treeSU Send . dataNum) 0.0
-                                                ],
-                                          (treeSU Send . dataId) "prd",
-                                          (treeSU Send . dataId) "sub_fact"
-                                            -<= [ (treeSU Send . Operator) Sub
-                                                    -<= [ (treeSU Send . dataId) "sub",
-                                                          (treeSU Send . dataNum) 1.0
-                                                        ],
-                                                  (treeSU Send . Operator) Mult
-                                                    -<= [ (treeSU Send . dataId) "sub",
-                                                          (treeSU Send . dataId) "prd"
-                                                        ]
-                                                ]
-                                        ]
-                                ]
-                        ],
-                  (treeSU Return . dataId) "sub_fact"
-                    -<= [ (treeSU Send . dataNum) 30.0,
-                          (treeSU Send . dataNum) 1.0
-                        ]
-                ]
+            -<- (treeSU Send . dataId) "fact"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "n",
+                (treeSU Send . Keyword) Fish
+                  -<- (treeSU Send . dataId) "sub_fact"
+                  -<- attachToLamprey
+                    [ (treeSU Send . dataId) "sub",
+                      (treeSU Send . dataId) "prd",
+                      (treeSU Return . Keyword) Swim --This will throw an error now
+                        -<= [ (treeSU Send . dataId) "trout"
+                                -<= [(treeSU Send . dataString) "Printing something"],
+                              (treeSU Return . Control) Fin
+                                -<= [ (treeSU Send . Operator) LtEq
+                                        -<= [ (treeSU Send . dataId) "sub",
+                                              (treeSU Send . dataNum) 0.0
+                                            ],
+                                      (treeSU Send . dataId) "prd",
+                                      (treeSU Send . dataId) "sub_fact"
+                                        -<= [ (treeSU Send . Operator) Sub
+                                                -<= [ (treeSU Send . dataId) "sub",
+                                                      (treeSU Send . dataNum) 1.0
+                                                    ],
+                                              (treeSU Send . Operator) Mult
+                                                -<= [ (treeSU Send . dataId) "sub",
+                                                      (treeSU Send . dataId) "prd"
+                                                    ]
+                                            ]
+                                    ]
+                            ]
+                    ],
+                (treeSU Return . dataId) "sub_fact"
+                  -<= [ (treeSU Send . dataNum) 30.0,
+                        (treeSU Send . dataNum) 1.0
+                      ]
+              ]
         ]
     f =
       prepareString
@@ -404,43 +427,45 @@ treeFunctionWithSwimExecutionTwo = testCase name assertion
     a =
       attachToMain
         [ (treeSU Return . Keyword) Fish
-            -<= [ (treeSU Send . dataId) "fact",
-                  (treeSU Send . dataId) "n",
-                  (treeSU Send . Keyword) Fish
-                    -<= [ (treeSU Send . dataId) "sub_fact",
-                          (treeSU Send . dataId) "sub",
-                          (treeSU Send . dataId) "prd",
-                          (treeSU Return . Keyword) Swim --This will throw an error now
-                            -<= [ (treeSU Send . dataId) "trout"
-                                    -<= [(treeSU Send . dataString) "Printing something"],
-                                  (treeSU Return . Control) Fin
-                                    -<= [ (treeSU Send . Operator) LtEq
-                                            -<= [ (treeSU Send . dataId) "sub",
-                                                  (treeSU Send . dataNum) 0.0
-                                                ],
-                                          (treeSU Return . Keyword) Swim
-                                            -<= [ (treeSU Send . dataId) "trout"
-                                                    -<= [(treeSU Send . dataString) "prd"],
-                                                  (treeSU Return . dataId) "prd"
-                                                ],
-                                          (treeSU Send . dataId) "sub_fact"
-                                            -<= [ (treeSU Send . Operator) Sub
-                                                    -<= [ (treeSU Send . dataId) "sub",
-                                                          (treeSU Send . dataNum) 1.0
-                                                        ],
-                                                  (treeSU Send . Operator) Mult
-                                                    -<= [ (treeSU Send . dataId) "sub",
-                                                          (treeSU Send . dataId) "prd"
-                                                        ]
-                                                ]
-                                        ]
-                                ]
-                        ],
-                  (treeSU Return . dataId) "sub_fact"
-                    -<= [ (treeSU Send . dataNum) 30.0,
-                          (treeSU Send . dataNum) 1.0
-                        ]
-                ]
+            -<- (treeSU Send . dataId) "fact"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "n",
+                (treeSU Send . Keyword) Fish
+                  -<- (treeSU Send . dataId) "sub_fact"
+                  -<- attachToLamprey
+                    [ (treeSU Send . dataId) "sub",
+                      (treeSU Send . dataId) "prd",
+                      (treeSU Return . Keyword) Swim --This will throw an error now
+                        -<= [ (treeSU Send . dataId) "trout"
+                                -<= [(treeSU Send . dataString) "Printing something"],
+                              (treeSU Return . Control) Fin
+                                -<= [ (treeSU Send . Operator) LtEq
+                                        -<= [ (treeSU Send . dataId) "sub",
+                                              (treeSU Send . dataNum) 0.0
+                                            ],
+                                      (treeSU Return . Keyword) Swim
+                                        -<= [ (treeSU Send . dataId) "trout"
+                                                -<= [(treeSU Send . dataString) "prd"],
+                                              (treeSU Return . dataId) "prd"
+                                            ],
+                                      (treeSU Send . dataId) "sub_fact"
+                                        -<= [ (treeSU Send . Operator) Sub
+                                                -<= [ (treeSU Send . dataId) "sub",
+                                                      (treeSU Send . dataNum) 1.0
+                                                    ],
+                                              (treeSU Send . Operator) Mult
+                                                -<= [ (treeSU Send . dataId) "sub",
+                                                      (treeSU Send . dataId) "prd"
+                                                    ]
+                                            ]
+                                    ]
+                            ]
+                    ],
+                (treeSU Return . dataId) "sub_fact"
+                  -<= [ (treeSU Send . dataNum) 30.0,
+                        (treeSU Send . dataNum) 1.0
+                      ]
+              ]
         ]
     f =
       prepareString
@@ -458,3 +483,75 @@ treeFunctionWithSwimExecutionTwo = testCase name assertion
         \)<\
         \)>\
         \<(sub_fact >(30)> >(1)>)<"
+
+partialFunctionInFunctionDeclOne = testCase name assertion
+  where
+    name =
+      "A tree is properly generated for a partial function inside a\
+      \ function declaration (1)."
+    assertion = assertEqual name a f
+    a =
+      attachToMain
+        [ (treeSU Return . Keyword) Fish
+            -<- (treeSU Send . dataId) "add"
+            -<- attachToLamprey
+              [ (treeSU Send . dataId) "x",
+                attachToLamprey
+                  [ (treeSU Send . dataId) "y",
+                    (treeSU Return . Operator) Add
+                      -<= [ (treeSU Send . dataId) "x",
+                            (treeSU Send . dataId) "y"
+                          ]
+                  ]
+              ]
+        ]
+    f =
+      prepareString
+        "fish add >(x)> <( >(y)> <(+ >(x)> >(y)> )< )<"
+
+partialFuncBindInSwim = testCase name assertion
+  where
+    name =
+      "A tree is properly generated for a partial function binding in swim. (1)."
+    assertion = assertEqual name a f
+    a =
+      attachToMain
+        [ (treeSU Return . Keyword) Swim
+            -<= [ (treeSU Send . dataId) "simple"
+                    -<- attachToLamprey
+                      [ (treeSU Send . dataId) "x",
+                        (treeSU Return . Operator) Add
+                          -<= [ (treeSU Send . dataNum) 1,
+                                (treeSU Send . dataId) "x"
+                              ]
+                      ],
+                  (treeSU Return . dataNum) 0
+                ]
+        ]
+    f =
+      prepareString
+        "swim >(simple <( >(x)> <(+ >(1)> >(x)>)<)< )> <(0)<"
+
+partialFuncExplicitLamprey = testCase name assertion
+  where
+    name =
+      "A tree is properly generated for a partial function using an explicit \'lamprey\' \
+      \ keyword. (1)."
+    assertion = assertEqual name a f
+    a =
+      attachToMain
+        [ (treeSU Return . Keyword) Swim
+            -<= [ (treeSU Send . dataId) "simple"
+                    -<- attachToLamprey
+                      [ (treeSU Send . dataId) "x",
+                        (treeSU Return . Operator) Add
+                          -<= [ (treeSU Send . dataNum) 1,
+                                (treeSU Send . dataId) "x"
+                              ]
+                      ],
+                  (treeSU Return . dataNum) 0
+                ]
+        ]
+    f =
+      prepareString
+        "swim >(simple <( lamprey >(x)> <(+ >(1)> >(x)>)<)< )> <(0)<"

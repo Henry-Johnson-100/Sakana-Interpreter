@@ -34,37 +34,6 @@ Copyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved.
 -}
 import Text.Parsec ((<?>), (<|>))
 import qualified Text.Parsec as Prs
-  ( ParseError,
-    ParsecT,
-    SourceName,
-    alphaNum,
-    anyChar,
-    char,
-    choice,
-    count,
-    crlf,
-    digit,
-    getPosition,
-    letter,
-    lower,
-    many,
-    many1,
-    manyTill,
-    newline,
-    noneOf,
-    notFollowedBy,
-    oneOf,
-    optionMaybe,
-    parseTest,
-    runParser,
-    sourceLine,
-    space,
-    spaces,
-    string,
-    tab,
-    try,
-    upper,
-  )
 import qualified Token.Bracket as B
   ( BracketTerminal (..),
     ScopeType (..),
@@ -80,7 +49,7 @@ import qualified Token.Data as D
     readData,
   )
 import qualified Token.Keyword as K
-  ( Keyword (Fish, Swim),
+  ( Keyword (Fish, Lamprey, Swim),
     fromKeyword,
     isDeclarationRequiringId,
   )
@@ -276,7 +245,7 @@ stringStrict str = do
 
 reservedWords :: Prs.ParsecT [Char] u DFId.Identity [Char]
 reservedWords =
-  Prs.choice (Prs.try <$> stringStrict <$> ["fish", "fin", "swim", "True", "False"])
+  Prs.choice (Prs.try <$> stringStrict <$> ["fish", "fin", "swim", "True", "False", "lamprey"])
 
 identifier :: SakanaTokenParser u
 identifier = do
@@ -511,20 +480,42 @@ funcDecl st = do
   declId <- identifier
   Prs.spaces
   -- declArgs <- Prs.many (Prs.choice (Prs.try <$> [funcDeclArg, nullBracket B.Send]))
-  declArgs <- (Prs.many . Prs.choice . (<$>) Prs.try) [funcDeclArg, nullBracket B.Send]
-  Prs.spaces
-  funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp
+  partialBody <- lampreyExpr
   Prs.spaces
   let funcDeclTrees =
         [ tokenUnitToTree st f
-            -<= [(tokenUnitToTree B.Send) declId] `foldAppendChildren` declArgs
-            -<= funcReturn
+            -<= [(tokenUnitToTree B.Send) declId]
+            -<= partialBody
         ]
   return funcDeclTrees
 
+lampreyExpr :: SakanaTreeParser u
+lampreyExpr = do
+  Prs.spaces
+  Prs.optionMaybe (Prs.string "lamprey")
+  Prs.spaces
+  args <- (Prs.many . Prs.choice . (<$>) Prs.try) [funcDeclArg, nullBracket B.Send]
+  Prs.spaces
+  funcReturn <- Prs.try (bracketContainingExpr B.Return) <|> swimExp
+  Prs.spaces
+  let funcTrees =
+        [ ((tokenUnitToTree B.Return) (PacketUnit (Keyword (K.Lamprey)) 0))
+            -<= ((concat args) ++ funcReturn)
+        ]
+  return funcTrees
+
 expr :: B.ScopeType -> SakanaTreeParser u
 expr st =
-  Prs.choice (Prs.try <$> [opExpr st, finExpr st, swimExp, funcCall st, dataTree st])
+  Prs.choice
+    ( Prs.try
+        <$> [ opExpr st,
+              finExpr st,
+              swimExp,
+              funcCall st,
+              dataTree st,
+              lampreyExpr
+            ]
+    )
     <?> "Expression, a phrase that can return a value:\
         \ (fin, swim, a function call, or data)"
 

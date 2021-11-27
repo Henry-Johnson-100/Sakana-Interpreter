@@ -153,7 +153,7 @@ executeMain srt programArgsIO = do
       )
         args
 
--- Will cease execution and return at the first return context it sees
+-- | Will cease execution and return at the first return context it sees
 procExecute :: Env.SakanaRuntime [SakanaParser.SyntaxTree] -> IO D.Data
 procExecute (Env.SakanaRuntime _ []) = return D.Null
 procExecute (Env.SakanaRuntime env (tr : trs))
