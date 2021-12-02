@@ -24,6 +24,7 @@ data ExceptionType
   | SymbolNotFound
   | MissingPositionalArguments
   | SymbolIsAlreadyBound
+  | LampreyExtractionError
   deriving (Show, Eq)
 
 data ExceptionSeverity
