@@ -2,9 +2,9 @@
 
 module Exception.Base where
 
-import qualified Data.List (findIndex)
-import qualified GHC.Exception (errorCallException)
-import qualified GHC.Prim (raise#)
+import qualified Data.List
+import qualified GHC.Exception
+import qualified GHC.Prim
 
 data ExceptionType
   = General
@@ -25,6 +25,7 @@ data ExceptionType
   | MissingPositionalArguments
   | SymbolIsAlreadyBound
   | LampreyExtractionError
+  | LampreyBindingError
   deriving (Show, Eq)
 
 data ExceptionSeverity

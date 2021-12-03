@@ -17,10 +17,13 @@ module Util.Tree
     treeMap,
     maybeOnTreeNode,
     nodeStrictlySatisfies,
+    firstChild,
+    flattenTree,
   )
 where
 
 import qualified Data.Maybe (fromJust)
+import qualified Util.General
 
 class TreeIO r where
   fPrintTree :: (Show a) => Int -> r a -> String
@@ -106,3 +109,11 @@ maybeOnTreeNode defaultVal f st = maybe defaultVal f (treeNode st)
 
 nodeStrictlySatisfies :: (a -> Bool) -> Tree a -> Bool
 nodeStrictlySatisfies = maybeOnTreeNode False
+
+firstChild :: Tree a -> Maybe (Tree a)
+firstChild = Util.General.head' . treeChildren
+
+flattenTree :: Tree a -> [a]
+flattenTree Empty = []
+flattenTree (n :-<-: []) = [n]
+flattenTree (n :-<-: cs) = n : (concatMap flattenTree cs)

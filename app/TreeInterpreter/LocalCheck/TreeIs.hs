@@ -1,5 +1,5 @@
 module TreeInterpreter.LocalCheck.TreeIs
-  ( sendingValueBinding,
+  ( fishSendBinding,
     primitiveValueBinding,
     primitivelyEvaluable,
     functionCall,
@@ -7,45 +7,26 @@ module TreeInterpreter.LocalCheck.TreeIs
     executable,
     positionalArg,
     standardLibCall,
-    swim,
     storeable,
     symbolValueBinding,
+    nodeEqualToKeyword,
   )
 where
 
-import qualified Data.Maybe as DMaybe (fromJust, maybe)
+import qualified Data.Maybe as DMaybe
 import qualified SakanaParser
-  ( SyntaxTree,
-    SyntaxUnit (context, token),
-    Token (Keyword),
-    baseData,
-  )
-import qualified Token.Bracket as B (ScopeType (Return, Send))
-import qualified Token.Data as D (fromData)
-import qualified Token.Keyword as K (Keyword (Swim))
+import qualified Token.Bracket as B
+import qualified Token.Data as D
+import qualified Token.Keyword as K
 import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
-  ( dataToken,
-    dataTokenAndPrimitive,
-    declarationRequiringId,
-    fin,
-    idNode,
-    nullNode,
-    operator,
-  )
-import qualified Util.General (foldIdApplicativeOnSingleton, head')
+import qualified Util.General
 import qualified Util.Tree as Tree
-  ( Tree (Empty),
-    maybeOnTreeNode,
-    nodeStrictlySatisfies,
-    treeChildren,
-    treeNode,
-  )
 
 -- | For a fish like >(some_id <(***)<)>
 -- Where some_id should then be bound to the value *** in whatever scope immediately
 -- follows.
-sendingValueBinding :: SakanaParser.SyntaxTree -> Bool
-sendingValueBinding tr =
+fishSendBinding :: SakanaParser.SyntaxTree -> Bool
+fishSendBinding tr =
   symbolValueBinding tr
     && Tree.nodeStrictlySatisfies ((B.Send ==) . SakanaParser.context) tr
 
@@ -119,6 +100,18 @@ standardLibCall tr =
 swim :: SakanaParser.SyntaxTree -> Bool
 swim tr =
   Tree.nodeStrictlySatisfies ((SakanaParser.Keyword (K.Swim) ==) . SakanaParser.token) tr
+
+lamprey :: SakanaParser.SyntaxTree -> Bool
+lamprey tr =
+  Tree.nodeStrictlySatisfies
+    ( (SakanaParser.Keyword (K.Lamprey) ==)
+        . SakanaParser.token
+    )
+    tr
+
+nodeEqualToKeyword :: K.Keyword -> SakanaParser.SyntaxTree -> Bool
+nodeEqualToKeyword k =
+  Tree.nodeStrictlySatisfies ((==) (SakanaParser.Keyword k) . SakanaParser.token)
 
 -- | Can be stored in a symbol table.
 --  As of right now, storeable and executable are not opposites.
