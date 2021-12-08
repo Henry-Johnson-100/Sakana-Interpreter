@@ -5,6 +5,13 @@ module TreeInterpreter.Environment
   ( Lamprey (..),
     LampreyBinding (..),
     RuntimeEnvironment (..),
+    LampreyRuntime (..),
+    addBindingToRuntime,
+    nullLamprey,
+    lampreyIsNormal,
+    lampreyBindingFromSyntaxUnit,
+    lampreyBindingFromString,
+    extractFromLamprey,
     emptyRuntimeEmptyTree,
     lookupBinding,
     maybeLookupBinding,
@@ -68,6 +75,10 @@ type LampreyTable = HashMap.HashMap SymbolKey Lamprey
 
 ----Lamprey functions---------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
+nullLamprey :: Lamprey
+nullLamprey =
+  Lamprey [] . Tree.tree . SakanaParser.genericSyntaxUnit . SakanaParser.Data $ D.Null
+
 singletonLampreyTable :: LampreyBinding -> LampreyTable
 singletonLampreyTable = CMonad.liftM2 HashMap.singleton lampreyBindingId lampreyBindingVal
 
@@ -228,15 +239,15 @@ addLampreyBindingToTable =
 -- consisting of a primitive type, like Num, String, or Boolean.
 --
 -- Otherwise, it can be reduced through Beta Reduction
-isNormal :: Lamprey -> Bool
-isNormal =
+lampreyIsNormal :: Lamprey -> Bool
+lampreyIsNormal =
   Tree.nodeStrictlySatisfies Check.NodeIs.dataTokenAndPrimitive . lampreyVal
 
-extractFromNormal :: Lamprey -> D.Data
-extractFromNormal l =
-  if isNormal l then (getData l) else (raiseLampreyExtractionError l)
+extractFromLamprey :: Lamprey -> D.Data
+extractFromLamprey l =
+  if lampreyIsNormal l then (getData l) else (raiseLampreyExtractionError l)
   where
-    -- If this function is called in extractFromNormal,
+    -- If this function is called in extractFromLamprey,
     -- it is guaranteed to not be Nothing
     getData :: Lamprey -> D.Data
     getData =
