@@ -7,6 +7,7 @@ module TreeInterpreter.Environment
     RuntimeEnvironment (..),
     LampreyRuntime (..),
     addBindingToRuntime,
+    injectValueToRuntime,
     nullLamprey,
     lampreyIsNormal,
     lampreyBindingFromSyntaxUnit,

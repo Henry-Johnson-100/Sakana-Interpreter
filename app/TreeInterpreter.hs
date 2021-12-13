@@ -9,8 +9,8 @@ where
 --   IO String ->
 --   IO D.Data
 -- executeMain,
--- reduceLamprey :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
--- reduceLamprey,
+-- reduce :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
+-- reduce,
 -- getMainExecutionTrees ::
 --   SakanaParser.SyntaxTree -> Env.SakanaRuntime [SakanaParser.SyntaxTree]
 -- getMainExecutionTrees,
@@ -93,6 +93,16 @@ import qualified Util.General
 import qualified Util.Like as LikeClass
 import qualified Util.Tree as Tree
 
+-- | The main entry point to the Sakana interpreter.
+--
+-- All reductions and evaluations are performed below this function, providing it with
+-- a Lamprey in normal form,
+--
+-- to extract the value as the Sakana program output.
+-- -- -- --
+-- ~how do I have more than one line break in the documentation?~
+--
+-- Throws an error if the result of the interpreter is not in normal form.
 executeMain :: IO (Env.LampreyRuntime [Env.Lamprey]) -> IO String -> IO D.Data
 executeMain iolrts prgargs = do
   lrts <- iolrts
@@ -129,10 +139,65 @@ doLampreys lrts
 --
 -- Reimplementation of v0.2.2.3's
 -- >execute :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
-reduceLamprey :: Env.LampreyRuntime Env.Lamprey -> IO (Env.LampreyRuntime Env.Lamprey)
-reduceLamprey lrt
+reduce :: Env.LampreyRuntime Env.Lamprey -> IO (Env.LampreyRuntime Env.Lamprey)
+reduce lrt
   | (Env.lampreyIsNormal . Env.sakanaVal) lrt = return lrt
+  | (null . Env.lampreyParams . Env.sakanaVal) lrt = calculateEtaNormal lrt >>= reduce
   | otherwise = return lrt
+
+-- | Takes a Lamprey with no bound variables (One with zero parameters) and
+-- produces a new Lamprey with structure determined by the function guards.
+--
+-- Ex. A function call is like:
+-- >Lamprey [] "add >(1)> >(1)>"
+--
+-- This ultimately is evaluated to a normal lamprey since this function is fully applied.
+--
+-- For a partial function:
+-- >Lamprey[] "add >(1)>"
+-- This is expanded to:
+-- >Lamprey [y] "add >(x)> >(y)>"
+--
+-- Where 'x' is already expected to be defined in the runtime LampreyTable.
+-- #TODO stub
+calculateEtaNormal ::
+  Env.LampreyRuntime Env.Lamprey -> IO (Env.LampreyRuntime Env.Lamprey)
+calculateEtaNormal lrt
+  -- If not fully applied, send the lamprey to be reduced.
+  -- This shouldn't ever apply.
+  | (not . null . Env.lampreyParams . Env.sakanaVal) lrt = reduce lrt
+  -- substitute lamprey into current runtime.
+  | ( Tree.nodeStrictlySatisfies Check.NodeIs.idNode
+        . Env.lampreyVal
+        . Env.sakanaVal
+    )
+      lrt =
+    (return . lookupSymbolAndReinject) lrt
+  | otherwise = return lrt
+  where
+    -- #TODO I would prefer if betaReduce would do exactly this for an eta normal lamprey.
+    lookupSymbolAndReinject ::
+      Env.LampreyRuntime Env.Lamprey -> Env.LampreyRuntime Env.Lamprey
+    lookupSymbolAndReinject =
+      CMonad.liftM2
+        Env.injectValueToRuntime
+        (substitute)
+        (id)
+
+-- | Given a LampreyRuntime where:
+-- * the Lamprey is eta normal (0 parameters)
+-- * A tree with an ID parent node
+--
+-- Return a Lamprey substitution found in the runtime's symbol table.
+--
+-- Not agnostic on the parent node, throws an error or provides some unintended behavior
+-- if the node is not ID.
+substitute :: Env.LampreyRuntime Env.Lamprey -> Env.Lamprey
+substitute =
+  CMonad.liftM2
+    Env.lookupBinding
+    (id)
+    (DMaybe.fromJust . Tree.treeNode . Env.lampreyVal . Env.sakanaVal)
 
 -- #TODO stub
 {-
@@ -143,7 +208,7 @@ so that these bindings can be easily recalled in the runtime environment on exec
 of the function call 'lrtf'.
 -}
 betaReduce ::
-  -- | The runtime containing the fucntion call,
+  -- | The runtime containing the function call,
   -- from which to make the beta substitutions.
   Env.LampreyRuntime Env.Lamprey ->
   -- | The function declaration of the function called.
@@ -238,9 +303,9 @@ betaReduce lrt lm = lrt
 --     let newUnionedEnv = HashMap.union (Env.sakanaEnv fishSendRuntime) env
 --     (procExecute . Env.RuntimeEnvironment newUnionedEnv) trs
 --   | Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr =
---     reduceLamprey srtr >> procExecute srtrs
+--     reduce srtr >> procExecute srtrs
 --   | Tree.nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr =
---     reduceLamprey srtr
+--     reduce srtr
 --   | otherwise = return D.Null
 --   where
 --     trx = tr : trs
@@ -248,8 +313,8 @@ betaReduce lrt lm = lrt
 --     srtr = Env.RuntimeEnvironment env tr
 --     srtrs = Env.RuntimeEnvironment env trs
 
--- reduceLamprey :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
--- reduceLamprey sr
+-- reduce :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
+-- reduce sr
 --   | (Tree.nodeStrictlySatisfies Check.NodeIs.dataTokenAndPrimitive . Env.sakanaVal) sr =
 --     evaluatePrimitiveData sr
 --   | (Tree.nodeStrictlySatisfies Check.NodeIs.fin . Env.sakanaVal) sr = evaluateFin sr
@@ -425,7 +490,7 @@ betaReduce lrt lm = lrt
 --               )
 --                 sr
 --           }
---       argResults = (reduceLamprey fstArgRuntime, reduceLamprey sndArgRuntime)
+--       argResults = (reduce fstArgRuntime, reduce sndArgRuntime)
 --   (argResults)
 
 -- getFuncDeclArgs :: SakanaParser.SyntaxTree -> [SakanaParser.SyntaxTree]
@@ -491,7 +556,7 @@ betaReduce lrt lm = lrt
 --   table
 --   (dfarg : dfargs)
 --     | Check.TreeIs.positionalArg dfarg = do
---       let cfargValIO = reduceLamprey (Env.RuntimeEnvironment mainExEnv cfarg)
+--       let cfargValIO = reduce (Env.RuntimeEnvironment mainExEnv cfarg)
 --       cfargVal <- cfargValIO
 --       let argValBinding =
 --             createSymbolPairFromArgTreePair dfarg cfargVal
@@ -598,11 +663,11 @@ betaReduce lrt lm = lrt
 
 -- trout :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
 -- trout srt =
---   (reduceLamprey srt >>= (System.IO.hPutStr System.IO.stdout . D.fromData)) >> return D.Null
+--   (reduce srt >>= (System.IO.hPutStr System.IO.stdout . D.fromData)) >> return D.Null
 
 -- herring :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
 -- herring srt =
---   (reduceLamprey srt >>= (System.IO.hPutStr System.IO.stderr . D.fromData)) >> return D.Null
+--   (reduce srt >>= (System.IO.hPutStr System.IO.stderr . D.fromData)) >> return D.Null
 
 -- dolphin :: IO D.Data
 -- dolphin = System.IO.hGetLine System.IO.stdin >>= return . D.String
@@ -621,7 +686,7 @@ betaReduce lrt lm = lrt
 --               )
 --                 srt
 --           }
---       symbolValueToSendIO = reduceLamprey expressionRuntimeToSend
+--       symbolValueToSendIO = reduce expressionRuntimeToSend
 --   symbolValueToSend <- symbolValueToSendIO
 --   let newSymbolPair =
 --         createSymbolPairFromArgTreePair (Env.sakanaVal srt) (symbolValueToSend)
@@ -630,7 +695,7 @@ betaReduce lrt lm = lrt
 
 -- sakanaRead :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
 -- sakanaRead srt = do
---   valueResult <- reduceLamprey srt
+--   valueResult <- reduce srt
 --   let unstringedValue = D.unString valueResult
 --   DMaybe.maybe
 --     (sakanaReadException valueResult "Value is not a string.")
@@ -658,7 +723,7 @@ betaReduce lrt lm = lrt
 
 -- sakanaFloor :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
 -- sakanaFloor srt = do
---   valueResult <- reduceLamprey srt
+--   valueResult <- reduce srt
 --   let maybeNum = D.unNum valueResult
 --   DMaybe.maybe
 --     (sakanaFloorError valueResult)
