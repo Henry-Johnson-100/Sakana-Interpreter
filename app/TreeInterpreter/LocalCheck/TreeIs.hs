@@ -10,6 +10,8 @@ module TreeInterpreter.LocalCheck.TreeIs
     storeable,
     symbolValueBinding,
     nodeEqualToKeyword,
+    parentNodeSendContext,
+    parentNodeReturnContext,
   )
 where
 
@@ -135,3 +137,9 @@ symbolValueBinding tr =
       case ((Util.General.head' . Tree.treeChildren) tr) >>= Tree.treeNode of
         Nothing -> False
         Just x -> ((B.Return ==) . SakanaParser.context) x
+
+parentNodeSendContext :: SakanaParser.SyntaxTree -> Bool
+parentNodeSendContext = Tree.nodeStrictlySatisfies Check.NodeIs.sendContext
+
+parentNodeReturnContext :: SakanaParser.SyntaxTree -> Bool
+parentNodeReturnContext = Tree.nodeStrictlySatisfies Check.NodeIs.returnContext

@@ -9,8 +9,8 @@ where
 --   IO String ->
 --   IO D.Data
 -- executeMain,
--- reduce :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
--- reduce,
+-- reduceToNormal :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
+-- reduceToNormal,
 -- getMainExecutionTrees ::
 --   SakanaParser.SyntaxTree -> Env.SakanaRuntime [SakanaParser.SyntaxTree]
 -- getMainExecutionTrees,
@@ -132,17 +132,55 @@ executeMain iolrts prgargs = do
 -- Reimplementation of v0.2.2.3's
 -- >procExecute :: Env.SakanaRuntime [SakanaParser.SyntaxTree] -> IO D.Data
 doLampreys :: Env.LampreyRuntime [Env.Lamprey] -> IO (Env.LampreyRuntime Env.Lamprey)
+doLampreys (Env.RuntimeEnvironment _ []) =
+  Exception.raiseError $ Exception.newException Exception.General [] "" Exception.Fatal
 doLampreys lrts
-  | otherwise = (return . Env.RuntimeEnvironment HashMap.empty) Env.nullLamprey
+  -- >>= (ORDER MATTERS) #TODO
+  | (Check.TreeIs.fishSendBinding . onHeadLampreyValue) lrts = emptySingletonLRT
+  -- >>
+  | (Check.TreeIs.parentNodeSendContext . onHeadLampreyValue) lrts =
+    (reduceToNormal . withOneElement (DMaybe.fromJust . Util.General.head')) lrts
+      >> (doLampreys . withTail) lrts
+  -- return context
+  | (Check.TreeIs.parentNodeReturnContext . onHeadLampreyValue) lrts =
+    (reduceToNormal . withOneElement (DMaybe.fromJust . Util.General.head')) lrts
+  | otherwise = emptySingletonLRT
+  where
+    -- #FIXME Placeholder function to return an empty runtime
+    --while I finish implementation
+    emptySingletonLRT :: IO (Env.LampreyRuntime Env.Lamprey)
+    emptySingletonLRT = (return . Env.RuntimeEnvironment HashMap.empty) Env.nullLamprey
+
+    onHeadLampreyValue :: Env.LampreyRuntime [Env.Lamprey] -> SakaPar.SyntaxTree
+    onHeadLampreyValue =
+      Env.lampreyVal . DMaybe.fromJust . Util.General.head' . Env.sakanaVal
+
+    withOneElement ::
+      ([Env.Lamprey] -> Env.Lamprey) ->
+      Env.LampreyRuntime [Env.Lamprey] ->
+      Env.LampreyRuntime Env.Lamprey
+    withOneElement listSelector =
+      CMonad.liftM2 Env.injectValueToRuntime (listSelector . Env.sakanaVal) id
+
+    withTail :: Env.LampreyRuntime [Env.Lamprey] -> Env.LampreyRuntime [Env.Lamprey]
+    withTail =
+      CMonad.liftM2
+        Env.injectValueToRuntime
+        ( Util.General.tail'
+            . Env.sakanaVal
+        )
+        id
 
 -- | Perform an arbitrary, appropriate, reducing function on a Lamprey.
 --
 -- Reimplementation of v0.2.2.3's
 -- >execute :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
-reduce :: Env.LampreyRuntime Env.Lamprey -> IO (Env.LampreyRuntime Env.Lamprey)
-reduce lrt
+reduceToNormal :: Env.LampreyRuntime Env.Lamprey -> IO (Env.LampreyRuntime Env.Lamprey)
+reduceToNormal lrt
   | (Env.lampreyIsNormal . Env.sakanaVal) lrt = return lrt
-  | (null . Env.lampreyParams . Env.sakanaVal) lrt = calculateEtaNormal lrt >>= reduce
+  -- Lamprey is fully applied but not necessarily in normal form.
+  | (null . Env.lampreyParams . Env.sakanaVal) lrt =
+    calculateFullyAppliedLamprey lrt >>= reduceToNormal
   | otherwise = return lrt
 
 -- | Takes a Lamprey with no bound variables (One with zero parameters) and
@@ -160,12 +198,12 @@ reduce lrt
 --
 -- Where 'x' is already expected to be defined in the runtime LampreyTable.
 -- #TODO stub
-calculateEtaNormal ::
+calculateFullyAppliedLamprey ::
   Env.LampreyRuntime Env.Lamprey -> IO (Env.LampreyRuntime Env.Lamprey)
-calculateEtaNormal lrt
+calculateFullyAppliedLamprey lrt
   -- If not fully applied, send the lamprey to be reduced.
   -- This shouldn't ever apply.
-  | (not . null . Env.lampreyParams . Env.sakanaVal) lrt = reduce lrt
+  | (not . null . Env.lampreyParams . Env.sakanaVal) lrt = reduceToNormal lrt
   -- substitute lamprey into current runtime.
   | ( Tree.nodeStrictlySatisfies Check.NodeIs.idNode
         . Env.lampreyVal
@@ -303,9 +341,9 @@ betaReduce lrt lm = lrt
 --     let newUnionedEnv = HashMap.union (Env.sakanaEnv fishSendRuntime) env
 --     (procExecute . Env.RuntimeEnvironment newUnionedEnv) trs
 --   | Tree.nodeStrictlySatisfies ((B.Send ==) . SyntaxUnit.context) tr =
---     reduce srtr >> procExecute srtrs
+--     reduceToNormal srtr >> procExecute srtrs
 --   | Tree.nodeStrictlySatisfies ((B.Return ==) . SyntaxUnit.context) tr =
---     reduce srtr
+--     reduceToNormal srtr
 --   | otherwise = return D.Null
 --   where
 --     trx = tr : trs
@@ -313,8 +351,8 @@ betaReduce lrt lm = lrt
 --     srtr = Env.RuntimeEnvironment env tr
 --     srtrs = Env.RuntimeEnvironment env trs
 
--- reduce :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
--- reduce sr
+-- reduceToNormal :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
+-- reduceToNormal sr
 --   | (Tree.nodeStrictlySatisfies Check.NodeIs.dataTokenAndPrimitive . Env.sakanaVal) sr =
 --     evaluatePrimitiveData sr
 --   | (Tree.nodeStrictlySatisfies Check.NodeIs.fin . Env.sakanaVal) sr = evaluateFin sr
@@ -490,7 +528,7 @@ betaReduce lrt lm = lrt
 --               )
 --                 sr
 --           }
---       argResults = (reduce fstArgRuntime, reduce sndArgRuntime)
+--       argResults = (reduceToNormal fstArgRuntime, reduceToNormal sndArgRuntime)
 --   (argResults)
 
 -- getFuncDeclArgs :: SakanaParser.SyntaxTree -> [SakanaParser.SyntaxTree]
@@ -556,7 +594,7 @@ betaReduce lrt lm = lrt
 --   table
 --   (dfarg : dfargs)
 --     | Check.TreeIs.positionalArg dfarg = do
---       let cfargValIO = reduce (Env.RuntimeEnvironment mainExEnv cfarg)
+--       let cfargValIO = reduceToNormal (Env.RuntimeEnvironment mainExEnv cfarg)
 --       cfargVal <- cfargValIO
 --       let argValBinding =
 --             createSymbolPairFromArgTreePair dfarg cfargVal
@@ -663,11 +701,11 @@ betaReduce lrt lm = lrt
 
 -- trout :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
 -- trout srt =
---   (reduce srt >>= (System.IO.hPutStr System.IO.stdout . D.fromData)) >> return D.Null
+--   (reduceToNormal srt >>= (System.IO.hPutStr System.IO.stdout . D.fromData)) >> return D.Null
 
 -- herring :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
 -- herring srt =
---   (reduce srt >>= (System.IO.hPutStr System.IO.stderr . D.fromData)) >> return D.Null
+--   (reduceToNormal srt >>= (System.IO.hPutStr System.IO.stderr . D.fromData)) >> return D.Null
 
 -- dolphin :: IO D.Data
 -- dolphin = System.IO.hGetLine System.IO.stdin >>= return . D.String
@@ -686,7 +724,7 @@ betaReduce lrt lm = lrt
 --               )
 --                 srt
 --           }
---       symbolValueToSendIO = reduce expressionRuntimeToSend
+--       symbolValueToSendIO = reduceToNormal expressionRuntimeToSend
 --   symbolValueToSend <- symbolValueToSendIO
 --   let newSymbolPair =
 --         createSymbolPairFromArgTreePair (Env.sakanaVal srt) (symbolValueToSend)
@@ -695,7 +733,7 @@ betaReduce lrt lm = lrt
 
 -- sakanaRead :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
 -- sakanaRead srt = do
---   valueResult <- reduce srt
+--   valueResult <- reduceToNormal srt
 --   let unstringedValue = D.unString valueResult
 --   DMaybe.maybe
 --     (sakanaReadException valueResult "Value is not a string.")
@@ -723,7 +761,7 @@ betaReduce lrt lm = lrt
 
 -- sakanaFloor :: Env.SakanaRuntime SakanaParser.SyntaxTree -> IO D.Data
 -- sakanaFloor srt = do
---   valueResult <- reduce srt
+--   valueResult <- reduceToNormal srt
 --   let maybeNum = D.unNum valueResult
 --   DMaybe.maybe
 --     (sakanaFloorError valueResult)

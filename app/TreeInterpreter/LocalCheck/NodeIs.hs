@@ -6,23 +6,18 @@ module TreeInterpreter.LocalCheck.NodeIs
     fin,
     idNode,
     declarationRequiringId,
+    sendContext,
+    returnContext,
   )
 where
 
-import qualified Data.Maybe as DMaybe (maybe)
+import qualified Data.Maybe as DMaybe
 import qualified SakanaParser
-  ( SyntaxUnit (SyntaxUnit, token),
-    Token (Control, Data),
-    baseData,
-    dataTokenIsId,
-    genericData,
-    genericOperator,
-    keywordTokenIsDeclarationRequiringId,
-  )
-import qualified Token.Control as C (Control (Fin))
-import qualified Token.Data as D (Data (Null), isPrimitive)
-import qualified Util.General (foldIdApplicativeOnSingleton)
-import qualified Util.Like as LikeClass (Like (like))
+import qualified Token.Bracket as B
+import qualified Token.Control as C
+import qualified Token.Data as D
+import qualified Util.General
+import qualified Util.Like as LikeClass
 
 dataToken :: SakanaParser.SyntaxUnit -> Bool
 dataToken = LikeClass.like SakanaParser.genericData . SakanaParser.token
@@ -51,3 +46,9 @@ idNode = SakanaParser.dataTokenIsId . SakanaParser.token
 declarationRequiringId :: SakanaParser.SyntaxUnit -> Bool
 declarationRequiringId =
   SakanaParser.keywordTokenIsDeclarationRequiringId . SakanaParser.token
+
+sendContext :: SakanaParser.SyntaxUnit -> Bool
+sendContext = (==) B.Send . SakanaParser.context
+
+returnContext :: SakanaParser.SyntaxUnit -> Bool
+returnContext = (==) B.Return . SakanaParser.context
