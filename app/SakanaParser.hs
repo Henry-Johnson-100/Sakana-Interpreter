@@ -15,8 +15,92 @@ Copyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved.
 import Text.Parsec ((<?>), (<|>))
 import qualified Text.Parsec as Prs
 import qualified Util.Classes as UC
+import qualified Util.General as UGen
 import Util.Tree ((-<=))
 import qualified Util.Tree as Tree
+
+type DataParser u = Prs.ParsecT [Char] u DFId.Identity Syntax.Data
+
+type TokenParser u = Prs.ParsecT [Char] u DFId.Identity Syntax.Token
+
+type TokenSourceParser u = Prs.ParsecT [Char] u DFId.Identity Syntax.TokenSource
+
+type TreeParser u = Prs.ParsecT [Char] u DFId.Identity [Syntax.SyntaxTree]
+
+----Data Parsers--------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+boolParser :: DataParser u
+boolParser = do
+  b <- Prs.string "True" <|> Prs.string "False"
+  (return . Syntax.Boolean . readBool) b
+  where
+    readBool :: String -> Bool
+    readBool = read
+
+stringParser :: DataParser u
+stringParser = do
+  pos <- Prs.getPosition
+  let ln = Prs.sourceLine pos
+  Prs.char '"'
+  string <-
+    Prs.manyTill
+      ( (Prs.choice . (<$>) Prs.try)
+          [removeInvisibleSpacing, unescapeEscapedSpaces, anyCharAsString]
+      )
+      (Prs.char '"')
+  (return . Syntax.String . concat) string
+  where
+    anyCharAsString :: Prs.ParsecT [Char] u DFId.Identity [Char]
+    anyCharAsString = do
+      ch <- Prs.anyChar
+      return [ch]
+    removeInvisibleSpacing :: Prs.ParsecT [Char] u DFId.Identity [Char]
+    removeInvisibleSpacing = do
+      (Prs.choice . (<$>) Prs.try) [Prs.tab, Prs.newline, Prs.crlf]
+      return ""
+    unescapeEscapedSpaces :: Prs.ParsecT [Char] u DFId.Identity [Char]
+    unescapeEscapedSpaces =
+      (Prs.choice . (<$>) Prs.try)
+        [unescapeEscapedNewline, unescapeEscapedTab, unescapeEscapedCarriageReturn]
+      where
+        unescapeEscapedNewline :: Prs.ParsecT [Char] u DFId.Identity [Char]
+        unescapeEscapedNewline = do
+          Prs.string "\\n"
+          return "\n"
+        unescapeEscapedTab :: Prs.ParsecT [Char] u DFId.Identity [Char]
+        unescapeEscapedTab = do
+          Prs.string "\\t"
+          return "\t"
+        unescapeEscapedCarriageReturn :: Prs.ParsecT [Char] u DFId.Identity [Char]
+        unescapeEscapedCarriageReturn = do
+          Prs.string "\\r"
+          return "\r"
+
+numParser :: DataParser u
+numParser = do
+  maybeNegation <- (Prs.optionMaybe . Prs.char) '-'
+  integerDigits <- Prs.many1 Prs.digit
+  maybeDecimal <- (Prs.optionMaybe . Prs.char) '.'
+  decimalDigits <-
+    if DMaybe.isJust maybeDecimal then (Prs.many1 Prs.digit) else Prs.parserZero
+  -- maybeDecimalDigits <- (Prs.optionMaybe . Prs.many1) Prs.digit
+  (return . Syntax.Num . readDouble) $
+    composeNum maybeNegation integerDigits maybeDecimal decimalDigits
+  where
+    readDouble :: String -> Double
+    readDouble = read
+    composeNum :: Maybe Char -> [Char] -> Maybe Char -> [Char] -> [Char]
+    composeNum mNeg intD mDec decD =
+      let neg = DMaybe.maybe [] UGen.listSingleton mNeg
+          dec = DMaybe.maybe [] UGen.listSingleton mDec
+       in neg ++ intD ++ dec ++ decD
+
+----Token Parsers-------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
 
 -- data PacketUnit a = PacketUnit
 --   { unit :: a,
@@ -76,43 +160,6 @@ import qualified Util.Tree as Tree
 --           ++ (DMaybe.maybe (num) (num ++) maybeDecimal)
 --   (return . flip PacketUnit ln . Data . D.readData) justNumStr
 
--- dataString :: SakanaTokenParser u
--- dataString = do
---   pos <- Prs.getPosition
---   let ln = Prs.sourceLine pos
---   Prs.char '"'
---   string <- Prs.manyTill ((Prs.choice . (<$>) Prs.try) [removeInvisibleSpacing, unescapeEscapedSpaces, anyCharAsString]) (Prs.char '"')
---   (return . flip PacketUnit ln . Data . D.String . concat) string
-
--- anyCharAsString = do
---   ch <- Prs.anyChar
---   return [ch]
-
--- removeInvisibleSpacing :: Prs.ParsecT [Char] u DFId.Identity [Char]
--- removeInvisibleSpacing = do
---   (Prs.choice . (<$>) Prs.try) [Prs.tab, Prs.newline, Prs.crlf]
---   return ""
-
--- unescapeEscapedSpaces :: Prs.ParsecT [Char] u DFId.Identity [Char]
--- unescapeEscapedSpaces =
---   (Prs.choice . (<$>) Prs.try)
---     [unescapeEscapedNewline, unescapeEscapedTab, unescapeEscapedCarriageReturn]
-
--- unescapeEscapedNewline :: Prs.ParsecT [Char] u DFId.Identity [Char]
--- unescapeEscapedNewline = do
---   Prs.string "\\n"
---   return "\n"
-
--- unescapeEscapedTab :: Prs.ParsecT [Char] u DFId.Identity [Char]
--- unescapeEscapedTab = do
---   Prs.string "\\t"
---   return "\t"
-
--- unescapeEscapedCarriageReturn :: Prs.ParsecT [Char] u DFId.Identity [Char]
--- unescapeEscapedCarriageReturn = do
---   Prs.string "\\r"
---   return "\r"
-
 -- dataBoolean :: SakanaTokenParser u
 -- dataBoolean = do
 --   pos <- Prs.getPosition
@@ -127,7 +174,7 @@ import qualified Util.Tree as Tree
 --   (return . flip PacketUnit ln . Data) D.Null
 
 -- dataData :: SakanaTokenParser u
--- dataData = Prs.choice (Prs.try <$> [dataDouble, dataString, dataBoolean])
+-- dataData = Prs.choice (Prs.try <$> [dataDouble, stringParser, dataBoolean])
 
 -- stringStrict :: [Char] -> Prs.ParsecT [Char] u DFId.Identity [Char]
 -- stringStrict str = do
