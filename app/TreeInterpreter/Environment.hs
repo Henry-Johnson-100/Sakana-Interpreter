@@ -37,6 +37,7 @@ import qualified Token.Data as D
 import qualified Token.Keyword as K
 import qualified TreeInterpreter.LocalCheck.NodeIs as Check.NodeIs
 import qualified TreeInterpreter.LocalCheck.TreeIs as Check.TreeIs
+import qualified Util.Emptiable
 import qualified Util.General
 import qualified Util.Like
 import qualified Util.Tree as Tree
@@ -68,6 +69,19 @@ data RuntimeEnvironment e v = RuntimeEnvironment
   { sakanaEnv :: e,
     sakanaVal :: v
   }
+  deriving (Eq, Show)
+
+instance
+  (Data.Hashable.Hashable k, Eq k, Eq v) =>
+  Util.Emptiable.Emptiable (HashMap.HashMap k v)
+  where
+  empty = HashMap.empty
+
+instance
+  (Util.Emptiable.Emptiable e, Util.Emptiable.Emptiable v) =>
+  Util.Emptiable.Emptiable (RuntimeEnvironment e v)
+  where
+  empty = RuntimeEnvironment Util.Emptiable.empty Util.Emptiable.empty
 
 -- | A RuntimeEnvironment capturing lambda calculus
 type LampreyRuntime a = RuntimeEnvironment LampreyTable a

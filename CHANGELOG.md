@@ -89,4 +89,4 @@ a `HashMap` from Data.HashMap.Strict.
 * Created a ```SakanaRuntime``` 
 Struct to simplify passing state around inside the interpreter.
 
-### 0.2.3.0 -- YYYY-MM-DD
+### 1.0.0.0 -- YYYY-MM-DD

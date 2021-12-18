@@ -1,13 +1,13 @@
 import Data.Version
+import Interpreter
 import SakanaParser
 import System.Environment
 import System.IO
 import qualified Token.Data as D
-import TreeInterpreter
 import qualified Util.General
 
 sakanaVersion :: Version
-sakanaVersion = Version [0, 2, 3, 0] []
+sakanaVersion = Version [1, 0, 0, 0] []
 
 data LicenseStr = LS String String
 
@@ -66,10 +66,12 @@ usingArgs args
 
 interpretFileAndReturn :: FilePath -> String -> IO ()
 interpretFileAndReturn filePathToInterpret sakanaArgs = do
-  fileHandle <- openFile filePathToInterpret ReadMode
-  fileTree <-
-    hGetContents fileHandle
-      >>= return . generateSyntaxTree
-  executeMain (getMainRuntime fileTree) (return sakanaArgs)
-    >>= hPutStrLn stdout . D.fromData
-  hClose fileHandle
+  putStrLn "WIP"
+
+-- fileHandle <- openFile filePathToInterpret ReadMode
+-- fileTree <-
+--   hGetContents fileHandle
+--     >>= return . generateSyntaxTree
+-- executeMain (getMainRuntime fileTree) (return sakanaArgs)
+--   >>= hPutStrLn stdout . D.fromData
+-- hClose fileHandle

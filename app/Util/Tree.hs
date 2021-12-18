@@ -23,6 +23,7 @@ module Util.Tree
 where
 
 import qualified Data.Maybe (fromJust)
+import qualified Util.Emptiable
 import qualified Util.General
 
 class TreeIO r where
@@ -46,6 +47,9 @@ instance TreeIO Tree where
 
 instance Functor Tree where
   fmap f (b :-<-: cs) = f b :-<-: map (fmap f) cs
+
+instance Eq a => Util.Emptiable.Emptiable (Tree a) where
+  empty = Empty
 
 tree :: a -> Tree a
 tree x = x :-<-: []

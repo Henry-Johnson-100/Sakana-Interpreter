@@ -24,10 +24,10 @@ module SakanaParser
   )
 where
 
-import qualified Data.Either as DEither (fromRight)
-import qualified Data.Functor.Identity as DFId (Identity)
-import qualified Data.List as DList (foldl')
-import qualified Data.Maybe as DMaybe (Maybe (Just, Nothing), fromMaybe, maybe)
+import qualified Data.Either as DEither
+import qualified Data.Functor.Identity as DFId
+import qualified Data.List as DList
+import qualified Data.Maybe as DMaybe
 {-
 For Text.Parsec
 Copyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved.
@@ -35,38 +35,13 @@ Copyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved.
 import Text.Parsec ((<?>), (<|>))
 import qualified Text.Parsec as Prs
 import qualified Token.Bracket as B
-  ( BracketTerminal (..),
-    ScopeType (..),
-    fromBracket,
-  )
 import qualified Token.Control as C
-  ( Control (..),
-    fromControl,
-  )
 import qualified Token.Data as D
-  ( Data (Id, Null, Num, String),
-    fromData,
-    readData,
-  )
 import qualified Token.Keyword as K
-  ( Keyword (Fish, Lamprey, Swim),
-    fromKeyword,
-    isDeclarationRequiringId,
-  )
 import qualified Token.Operator as O
-  ( Operator (Add),
-    fromOp,
-    readOp,
-  )
-import qualified Util.Like as LikeClass (Like (..))
+import qualified Util.Like as LikeClass
 import Util.Tree ((-<=))
 import qualified Util.Tree as Tree
-  ( Tree (Empty),
-    TreeIO (..),
-    maybeOnTreeNode,
-    tree,
-    treeChildren,
-  )
 
 data Token
   = Bracket B.ScopeType B.BracketTerminal

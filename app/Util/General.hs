@@ -11,6 +11,11 @@ module Util.General
 where
 
 import Data.Maybe
+import qualified Util.Emptiable
+
+instance Eq a => Util.Emptiable.Emptiable [a] where
+  empty = []
+  isEmpty = null
 
 both :: (a -> Bool) -> (a, a) -> Bool
 both f (x, y) = f x && f y

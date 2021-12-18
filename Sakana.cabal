@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               Sakana
-version:            0.2.3.0
+version:            1.0.0.0
 
 -- A short (one-line) description of the package.
 synopsis: A syntax-tree based interpreter for the Sakana functional language.
@@ -27,7 +27,7 @@ executable Sakana
     --Modules included in this executable, other than Main.
     other-modules:
         Exception.Base
-        TreeInterpreter
+        Interpreter
         TreeInterpreter.Environment
         TreeInterpreter.LocalCheck.TreeIs
         TreeInterpreter.LocalCheck.NodeIs
@@ -37,13 +37,11 @@ executable Sakana
         Token.Data
         Token.Keyword
         Token.Operator
-        Util.CollapsibleTerminalCases
-        Util.EagerCollapsible
         Util.Like
-        Util.NestedCollapsible
         Util.String
         Util.Tree
         Util.General
+        Util.Emptiable
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: MagicHash
@@ -62,43 +60,6 @@ executable Sakana
                       app/Util
                       Test
     default-language: Haskell2010
-
-test-suite TreeInterpreter
-    default-language:
-        Haskell2010
-    type:
-        exitcode-stdio-1.0
-    hs-source-dirs:
-        Test
-        app
-    main-is:
-        TreeInterpreterTest.hs
-    other-modules:
-        SakanaParser
-        Token.Data
-        TreeInterpreter
-        Util.Tree
-        Exception.Base
-        Token.Bracket
-        Token.Control
-        Token.Keyword
-        Token.Operator
-        TreeInterpreter.Environment
-        TreeInterpreter.LocalCheck.NodeIs
-        TreeInterpreter.LocalCheck.TreeIs
-        Util.CollapsibleTerminalCases
-        Util.EagerCollapsible
-        Util.General
-        Util.Like
-        Util.String
-    build-depends:
-        base >= 4.8.0.0
-      , ghc-prim >= 0.5.0 
-      , tasty >= 0.7 && < 1.4.1
-      , tasty-hunit ^>=0.10.0.3
-      , parsec == 3.1.14.0
-      , hashable == 1.3.3.0
-      , unordered-containers == 0.2.14.0
 
 test-suite SakanaParser
     default-language:
@@ -120,13 +81,11 @@ test-suite SakanaParser
         Token.Data
         Token.Keyword
         Token.Operator
-        Util.CollapsibleTerminalCases
-        Util.EagerCollapsible
         Util.General
         Util.Like
-        Util.NestedCollapsible
         Util.String
         Util.Tree
+        Util.Emptiable
     build-depends:
         base >= 4.8.0.0
       , ghc-prim >= 0.5.0
