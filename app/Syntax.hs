@@ -1,0 +1,228 @@
+module Syntax
+  ( Keyword (..),
+    Data (..),
+    BracketTerminal (..),
+    ScopeType (..),
+    SyntaxTree (..),
+    Source (..),
+    SyntaxUnit (..),
+    Token (..),
+    TokenSource (..),
+    isPrimitive,
+    isString,
+    isNumeric,
+    unNum,
+    unString,
+    unBoolean,
+    keywords,
+    keywordRequiresId,
+    fromBracket,
+    baseData,
+    baseKeyword,
+    getTokenBracketScopeType,
+    genericKeyword,
+    genericBracket,
+    genericData,
+    dataTokenIsId,
+    keywordTokenIsDeclarationRequiringId,
+  )
+where
+
+import qualified Data.List
+import qualified Data.Maybe as DMaybe
+import qualified Util.Classes as UC
+import qualified Util.Tree as Tree
+
+----Data definitions----------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+data Source a = Source {sourceUnit :: a, sourceLine :: Int} deriving (Show, Eq, Read)
+
+data SyntaxUnit = SyntaxUnit
+  { token :: Token,
+    line :: Int,
+    context :: ScopeType
+  }
+  deriving (Show, Eq)
+
+data Token
+  = Bracket ScopeType BracketTerminal
+  | Data Data
+  | Keyword Keyword
+  deriving (Show, Read, Eq)
+
+data BracketTerminal = Open | Close deriving (Show, Read, Eq)
+
+data ScopeType = Send | Return deriving (Show, Read, Eq)
+
+data Keyword
+  = Fish
+  | School
+  | Shoal
+  | Swim
+  | Lamprey
+  deriving (Show, Read, Eq)
+
+data Data
+  = Num Double
+  | String String
+  | Boolean Bool
+  | Id String
+  | Null
+  deriving (Show, Read, Eq)
+
+----Type synonyms-------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+type TokenSource = Source Token
+
+type SyntaxTree = Tree.Tree SyntaxUnit
+
+----Instances-----------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+----Like
+
+instance UC.Like Data where
+  (Num _) `like` (Num _) = True
+  (String _) `like` (String _) = True
+  (Boolean _) `like` (Boolean _) = True
+  (Id _) `like` (Id _) = True
+  Null `like` Null = True
+  _ `like` _ = False
+
+instance UC.Like Keyword where
+  like = (==)
+
+instance UC.Like Token where
+  like (Bracket _ _) (Bracket _ _) = True
+  like (Data _) (Data _) = True
+  like (Keyword _) (Keyword _) = True
+  like _ _ = False
+
+----Emptiable
+
+instance UC.Emptiable Data where
+  empty = Null
+
+instance UC.Emptiable SyntaxUnit where
+  empty = SyntaxUnit (Data Null) 0 Return
+
+----Format
+
+instance UC.Format ScopeType where
+  format = show
+
+instance UC.Format BracketTerminal where
+  format = show
+
+instance UC.Format Data where
+  format (String a) = a
+  format (Num a) = show a
+  format (Boolean a) = show a
+  format (Id a) = a
+  format Null = ""
+
+instance UC.Format Keyword where
+  format Fish = "fish"
+  format School = "school"
+  format Shoal = "shoal"
+  format Swim = "swim"
+  format Lamprey = "lamprey"
+
+instance UC.Format Token where
+  format (Bracket st bt) = fromBracket st bt
+  format (Data d) = UC.format d
+  format (Keyword k) = UC.format k
+
+instance (UC.Format a) => UC.Format (Source a) where
+  format (Source x l) = UC.format x ++ ": " ++ UC.format l
+
+instance UC.Format SyntaxUnit where
+  format (SyntaxUnit t l c) =
+    Data.List.intercalate " | " $ [UC.format t, UC.format l, UC.format c]
+
+----Data functions------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+primTypeOf :: Data -> String
+primTypeOf (String _) = "String"
+primTypeOf (Num _) = "Num"
+primTypeOf (Boolean _) = "Boolean"
+primTypeOf (Id _) = "Id"
+primTypeOf Null = "Null"
+
+isPrimitive :: Data -> Bool
+isPrimitive d = any (d `UC.like`) [Num 0.0, String "", Boolean True, Null]
+
+isNumeric :: Data -> Bool
+isNumeric = UC.like (Num 0.0)
+
+isString :: Data -> Bool
+isString (String _) = True
+isString _ = False
+
+unNum :: Data -> Maybe Double
+unNum (Num x) = Just x
+unNum Null = Just 0.0
+unNum _ = Nothing
+
+unString :: Data -> Maybe String
+unString (String s) = Just s
+unString Null = Just ""
+unString _ = Nothing
+
+unBoolean :: Data -> Maybe Bool
+unBoolean (Boolean b) = Just b
+unBoolean Null = Just False
+unBoolean _ = Nothing
+
+----Keyword functions---------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+keywords :: [String]
+keywords = map UC.format [Fish, School, Shoal, Swim, Lamprey]
+
+keywordRequiresId :: Keyword -> Bool
+keywordRequiresId k = if elem k [Swim, Lamprey] then False else True
+
+----Bracket functions---------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+fromBracket :: ScopeType -> BracketTerminal -> String
+fromBracket Send Open = ">("
+fromBracket Send Close = ")>"
+fromBracket Return Open = "<("
+fromBracket Return Close = ")<"
+
+----Token functions-----------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+baseData :: Token -> DMaybe.Maybe Data
+baseData (Data d) = DMaybe.Just d
+baseData _ = DMaybe.Nothing
+
+baseKeyword :: Token -> DMaybe.Maybe Keyword
+baseKeyword (Keyword k) = DMaybe.Just k
+baseKeyword _ = DMaybe.Nothing
+
+getTokenBracketScopeType :: Token -> DMaybe.Maybe ScopeType
+getTokenBracketScopeType (Bracket st _) = DMaybe.Just st
+getTokenBracketScopeType _ = DMaybe.Nothing
+
+genericKeyword :: Token
+genericKeyword = Keyword Fish
+
+genericBracket :: Token
+genericBracket = Bracket Send Open
+
+genericData :: Token
+genericData = Data (Num 0)
+
+dataTokenIsId :: Token -> Bool
+dataTokenIsId (Data (Id _)) = True
+dataTokenIsId _ = False
+
+keywordTokenIsDeclarationRequiringId :: Token -> Bool
+keywordTokenIsDeclarationRequiringId t =
+  DMaybe.maybe False (keywordRequiresId) (baseKeyword t)

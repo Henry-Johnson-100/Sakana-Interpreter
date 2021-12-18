@@ -1,6 +1,5 @@
 module Util.Tree
   ( Tree (..),
-    TreeIO (..),
     tree,
     reTree,
     trees,
@@ -23,33 +22,35 @@ module Util.Tree
 where
 
 import qualified Data.Maybe (fromJust)
-import qualified Util.Emptiable
+import qualified Util.Classes as UC
 import qualified Util.General
 
-class TreeIO r where
-  fPrintTree :: (Show a) => Int -> r a -> String
-  ioPrintTree :: (Show a) => r a -> IO ()
-
 data Tree a = Empty | a :-<-: [Tree a] deriving (Show, Eq)
-
-instance TreeIO Tree where
-  fPrintTree d Empty =
-    concat (replicate (d * 4 - 1) "-")
-      ++ ">"
-      ++ "Empty\n"
-  fPrintTree d (n :-<-: a) =
-    concat (replicate (d * 4 - 1) "-")
-      ++ ">"
-      ++ show n
-      ++ "\n"
-      ++ concatMap (fPrintTree (d + 1)) a
-  ioPrintTree t = putStrLn $ fPrintTree 0 t
 
 instance Functor Tree where
   fmap f (b :-<-: cs) = f b :-<-: map (fmap f) cs
 
-instance Eq a => Util.Emptiable.Emptiable (Tree a) where
+instance Eq a => UC.Emptiable (Tree a) where
   empty = Empty
+
+instance UC.Format a => UC.Format (Tree a) where
+  format = fPrintTree 0
+  printf = ioPrintTree
+
+fPrintTree :: UC.Format a => Int -> Tree a -> String
+fPrintTree d Empty =
+  concat (replicate (d * 4 - 1) "-")
+    ++ ">"
+    ++ "Empty\n"
+fPrintTree d (n :-<-: a) =
+  concat (replicate (d * 4 - 1) "-")
+    ++ ">"
+    ++ UC.format n
+    ++ "\n"
+    ++ concatMap (fPrintTree (d + 1)) a
+
+ioPrintTree :: UC.Format a => Tree a -> IO ()
+ioPrintTree t = putStrLn $ fPrintTree 0 t
 
 tree :: a -> Tree a
 tree x = x :-<-: []

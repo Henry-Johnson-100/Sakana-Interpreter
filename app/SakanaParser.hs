@@ -7,78 +7,16 @@ import qualified Data.Either as DEither
 import qualified Data.Functor.Identity as DFId
 import qualified Data.List as DList
 import qualified Data.Maybe as DMaybe
+import qualified Syntax
 {-
 For Text.Parsec
 Copyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved.
 -}
 import Text.Parsec ((<?>), (<|>))
 import qualified Text.Parsec as Prs
-import qualified Token.Bracket as B
-import qualified Token.Control as C
-import qualified Token.Data as D
-import qualified Token.Keyword as K
-import qualified Token.Operator as O
-import qualified Util.Like as Like
+import qualified Util.Classes as UC
 import Util.Tree ((-<=))
 import qualified Util.Tree as Tree
-
-data Token
-  = Bracket B.ScopeType B.BracketTerminal
-  | Control C.Control
-  | Data D.Data
-  | Keyword K.Keyword
-  | Operator O.Operator
-  deriving (Show, Read, Eq)
-
-fromToken :: Token -> String
-fromToken (Bracket st bt) = B.fromBracket st bt
-fromToken (Control control) = C.fromControl control
-fromToken (Data d) = D.fromData d
-fromToken (Keyword keyword) = K.fromKeyword keyword
-fromToken (Operator operator) = O.fromOp operator
-
-instance Like.Like Token where
-  like (Bracket _ _) (Bracket _ _) = True
-  like (Control _) (Control _) = True
-  like (Data _) (Data _) = True
-  like (Keyword _) (Keyword _) = True
-  like (Operator _) (Operator _) = True
-  like _ _ = False
-  notLike a b = not $ Like.like a b
-
-baseData :: Token -> DMaybe.Maybe D.Data
-baseData (Data d) = DMaybe.Just d
-baseData _ = DMaybe.Nothing
-
-getTokenBracketScopeType :: Token -> B.ScopeType
-getTokenBracketScopeType (Bracket st _) = st
-
-genericKeyword :: Token
-genericKeyword = Keyword K.Fish
-
-genericControl :: Token
-genericControl = Control C.Fin
-
-genericOperator :: Token
-genericOperator = Operator O.Add
-
-genericBracket :: Token
-genericBracket = Bracket B.Send B.Open
-
-genericData :: Token
-genericData = Data (D.Num 0)
-
-dataTokenIsId :: Token -> Bool
-dataTokenIsId (Data (D.Id _)) = True
-dataTokenIsId _ = False
-
-keywordTokenIsDeclarationRequiringId :: Token -> Bool
-keywordTokenIsDeclarationRequiringId t =
-  DMaybe.maybe False (K.isDeclarationRequiringId) (baseKeyword t)
-
-baseKeyword :: Token -> DMaybe.Maybe K.Keyword
-baseKeyword (Keyword k) = DMaybe.Just k
-baseKeyword _ = DMaybe.Nothing
 
 -- data PacketUnit a = PacketUnit
 --   { unit :: a,

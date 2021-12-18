@@ -32,19 +32,17 @@ executable Sakana
         TreeInterpreter.LocalCheck.TreeIs
         TreeInterpreter.LocalCheck.NodeIs
         SakanaParser
-        Token.Bracket
-        Token.Control
-        Token.Data
-        Token.Keyword
-        Token.Operator
+        Syntax
         Util.Like
         Util.String
         Util.Tree
         Util.General
-        Util.Emptiable
+        Util.Classes
 
     -- LANGUAGE extensions used by modules in this package.
-    other-extensions: MagicHash
+    other-extensions: 
+        MagicHash
+
     -- other-extensions:
     build-depends:    
         base >= 4.8.0.0
@@ -56,7 +54,6 @@ executable Sakana
                       app/Exception
                       app/TreeInterpreter
                       app/TreeInterpreter/LocalCheck
-                      app/Token
                       app/Util
                       Test
     default-language: Haskell2010
@@ -69,23 +66,18 @@ test-suite SakanaParser
     hs-source-dirs:
         app
         app/Util
-        app/Token
         Test
     main-is:
         SyntaxTreeTest.hs
     other-modules:
         Exception.Base
         SakanaParser
-        Token.Bracket
-        Token.Control
-        Token.Data
-        Token.Keyword
-        Token.Operator
+        Syntax
         Util.General
         Util.Like
         Util.String
         Util.Tree
-        Util.Emptiable
+        Util.Classes
     build-depends:
         base >= 4.8.0.0
       , ghc-prim >= 0.5.0
