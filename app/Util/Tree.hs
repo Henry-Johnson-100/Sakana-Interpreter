@@ -91,9 +91,13 @@ mutateTreeNode (n :-<-: cs) f = f n :-<-: cs
 childMap :: (Tree a -> b) -> Tree a -> [b]
 childMap f tr = map f (treeChildren tr)
 
+infixl 9 -<-
+
 (-<-) :: Tree a -> Tree a -> Tree a
 Empty -<- t = t
 tr -<- t = tr -<= [t]
+
+infixl 9 -<=
 
 (-<=) :: Tree a -> [Tree a] -> Tree a
 (n :-<-: cs) -<= ts = n :-<-: (cs ++ ts)

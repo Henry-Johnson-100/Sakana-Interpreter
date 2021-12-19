@@ -3,6 +3,8 @@ module SakanaParser
   )
 where
 
+import qualified Control.Monad as CMonad
+import qualified Data.Char as DChar
 import qualified Data.Either as DEither
 import qualified Data.Functor.Identity as DFId
 import qualified Data.List as DList
@@ -15,9 +17,12 @@ Copyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved.
 import Text.Parsec ((<?>), (<|>))
 import qualified Text.Parsec as Prs
 import qualified Util.Classes as UC
+import Util.General ((.<))
 import qualified Util.General as UGen
-import Util.Tree ((-<=))
+import Util.Tree ((-<-), (-<=))
 import qualified Util.Tree as Tree
+
+type KeywordParser u = Prs.ParsecT [Char] u DFId.Identity Syntax.Keyword
 
 type DataParser u = Prs.ParsecT [Char] u DFId.Identity Syntax.Data
 
@@ -96,8 +101,221 @@ numParser = do
           dec = DMaybe.maybe [] UGen.listSingleton mDec
        in neg ++ intD ++ dec ++ decD
 
+-- | A special kind of DataParser, since ID's are not evaluable data types, this parser
+-- is NOT included in the
+--
+-- > dataParser :: DataParser u
+--
+-- function.
+idParser :: DataParser u
+idParser = do
+  accessorPrefixes <- (Prs.many . Prs.try) accessorIdParser
+  baseName <- Prs.many1 validIdCharParser
+  (return . Syntax.Id . (++) (concat accessorPrefixes)) baseName
+  where
+    validIdCharParser :: Prs.ParsecT [Char] u DFId.Identity Char
+    validIdCharParser =
+      (Prs.choice . (<$>) Prs.try)
+        [ Prs.alphaNum,
+          Prs.oneOf "!@#$%^&*-=_+,<>/?;:|`~[]{}"
+        ]
+        <?> "valid ID character: alphanumeric character or symbolic character, \
+            \excluding: \' . \' \" \\  \'"
+    accessorIdParser :: Prs.ParsecT [Char] u DFId.Identity [Char]
+    accessorIdParser = do
+      accessorId <- Prs.many1 validIdCharParser
+      dot <- Prs.char '.'
+      (return . (++) accessorId) [dot]
+
+dataParser :: DataParser u
+dataParser =
+  (Prs.choice . (<$>) Prs.try) [numParser, stringParser, boolParser]
+
+----Keyword Parsers-----------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+keywordParser :: Prs.ParsecT [Char] u DFId.Identity Syntax.Keyword
+keywordParser = do
+  keywordString <-
+    Prs.choice (Prs.try <$> (Prs.string <$> Syntax.keywords))
+      <?> ("keyword from: " ++ DList.intercalate ", " Syntax.keywords)
+  (return . readKeyword) keywordString
+  where
+    readKeyword :: String -> Syntax.Keyword
+    readKeyword =
+      read . CMonad.liftM2 (:) (DChar.toUpper . head) (tail)
+
+-- I should really learn template Haskell just for these...
+
+genericKeywordParser :: Syntax.Keyword -> KeywordParser u
+genericKeywordParser k = do
+  kStr <- (Prs.string . map DChar.toLower . show) k
+  return k
+
+fishKeywordParser :: KeywordParser u
+fishKeywordParser = genericKeywordParser Syntax.Fish
+
+schoolKeywordParser :: KeywordParser u
+schoolKeywordParser = genericKeywordParser Syntax.School
+
+shoalKeywordParser :: KeywordParser u
+shoalKeywordParser = genericKeywordParser Syntax.Shoal
+
+swimKeywordParser :: KeywordParser u
+swimKeywordParser = genericKeywordParser Syntax.Swim
+
+lampreyKeywordParser :: KeywordParser u
+lampreyKeywordParser = genericKeywordParser Syntax.Lamprey
+
 ----Token Parsers-------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
+
+genericBracketParser :: Syntax.ScopeType -> Syntax.BracketTerminal -> TokenParser u
+genericBracketParser st bt = do
+  stChar <- (Prs.char . Syntax.fromScopeType) st
+  btChar <- (Prs.char . Syntax.fromTerminal) bt
+  (return .< Syntax.Bracket) st bt
+
+sendOpenParser :: TokenParser u
+sendOpenParser = genericBracketParser Syntax.Send Syntax.Open
+
+sendCloseParser :: TokenParser u
+sendCloseParser = genericBracketParser Syntax.Send Syntax.Close
+
+returnOpenParser :: TokenParser u
+returnOpenParser = genericBracketParser Syntax.Return Syntax.Open
+
+returnCloseParser :: TokenParser u
+returnCloseParser = genericBracketParser Syntax.Return Syntax.Close
+
+dataTokenParser :: TokenParser u
+dataTokenParser = do
+  d <- dataParser
+  (return . Syntax.Data) d
+
+dataIdParser :: TokenParser u
+dataIdParser = do
+  identification <- idParser
+  (return . Syntax.Data) identification
+
+keywordTokenParser :: Syntax.Keyword -> TokenParser u
+keywordTokenParser = (=<<) (return . Syntax.Keyword) . genericKeywordParser
+
+----TokenSource Parsers-------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+tokenInfoParser :: TokenParser u -> TokenSourceParser u
+tokenInfoParser tp = do
+  pos <- Prs.getPosition
+  t <- tp
+  let ln = Prs.sourceLine pos
+  (return .< Syntax.Source) t ln
+
+----Tree Parsers--------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+-- | Takes a parser and ignores the spaces before and after it.
+stripSpaces ::
+  Prs.ParsecT [Char] u DFId.Identity a -> Prs.ParsecT [Char] u DFId.Identity a
+stripSpaces p = do
+  Prs.spaces
+  p
+  Prs.spaces
+  p
+
+attachAllBranches :: Tree.Tree a -> [[Tree.Tree a]] -> Tree.Tree a
+attachAllBranches h [] = h
+attachAllBranches h (c : cs) = (h -<= c) `attachAllBranches` cs
+
+infixl 9 -<*=
+
+-- | Equal to attachAllBranches.
+--
+-- Strongly left associative.
+--
+-- > a -<*= b -<= c -<*= d
+--
+-- Is the same as
+--
+-- > ((a -<*= b) -<= c) -<*= d
+(-<*=) :: Tree.Tree a -> [[Tree.Tree a]] -> Tree.Tree a
+(-<*=) = attachAllBranches
+
+idTreeParser :: Syntax.ScopeType -> TreeParser u
+idTreeParser st = do
+  identification <- (stripSpaces . tokenInfoParser) dataIdParser
+  (return . UGen.listSingleton . Tree.tree . Syntax.sourceToSyntaxUnit identification) st
+
+dataTreeParser :: Syntax.ScopeType -> TreeParser u
+dataTreeParser st = do
+  d <- (stripSpaces . tokenInfoParser) dataTokenParser
+  (return . UGen.listSingleton . Tree.tree . Syntax.sourceToSyntaxUnit d) st
+
+nullBracketParser :: Syntax.ScopeType -> TreeParser u
+nullBracketParser st = do
+  stripSpaces $ if st == Syntax.Send then sendOpenParser else returnOpenParser
+  stripSpaces $ if st == Syntax.Send then sendCloseParser else returnCloseParser
+  return [UC.empty]
+
+inBracketParser :: Syntax.ScopeType -> TreeParser u -> TreeParser u
+inBracketParser st tp = do
+  stripSpaces $ if st == Syntax.Send then sendOpenParser else returnOpenParser
+  stripSpaces tp
+  stripSpaces $ if st == Syntax.Send then sendCloseParser else returnCloseParser
+  tp
+
+lampreyParser :: Syntax.ScopeType -> TreeParser u
+lampreyParser st = do
+  implicitKeyword <-
+    (stripSpaces . Prs.optionMaybe . tokenInfoParser . keywordTokenParser) Syntax.Lamprey
+  paramsOrOther <-
+    (stripSpaces . Prs.many . inBracketParser Syntax.Send . statementParser) Syntax.Send
+  value <- (stripSpaces . inBracketParser Syntax.Return . expressionParser) Syntax.Return
+  let lampreyLn = (Syntax.line . DMaybe.fromJust . (=<<) Tree.treeNode . UGen.head') value
+      genericLamprey =
+        Syntax.SyntaxUnit (Syntax.Keyword Syntax.Lamprey) lampreyLn st
+      justLampreyTree =
+        Tree.tree $
+          DMaybe.maybe
+            (genericLamprey)
+            (flip Syntax.sourceToSyntaxUnit st)
+            implicitKeyword
+      lampreyTree =
+        justLampreyTree -<*= paramsOrOther -<= value
+  return [lampreyTree]
+
+functionDefinitionParser :: Syntax.ScopeType -> TreeParser u
+functionDefinitionParser st = do
+  fish <- (stripSpaces . tokenInfoParser . keywordTokenParser) Syntax.Fish
+  functionId <- (stripSpaces . idTreeParser) st
+  assocLamprey <- (stripSpaces . lampreyParser) Syntax.Return
+  let fishTR = (Tree.tree . Syntax.sourceToSyntaxUnit fish) st
+      idTR = (DMaybe.fromJust . UGen.head') functionId
+      fishTree = fishTR -<- (idTR -<= assocLamprey)
+  return [fishTree]
+
+functionCallParser :: Syntax.ScopeType -> TreeParser u
+functionCallParser st = do
+  functionCallId <- (stripSpaces . idTreeParser) st
+  arguments <-
+    (stripSpaces . Prs.many . inBracketParser Syntax.Send . expressionParser) st
+  let functionCallTree = ((DMaybe.fromJust . UGen.head') functionCallId) -<*= arguments
+  return [functionCallTree]
+
+expressionParser :: Syntax.ScopeType -> TreeParser u
+expressionParser st =
+  Prs.choice . (<$>) Prs.try $
+    [ lampreyParser st,
+      dataTreeParser st,
+      functionCallParser st
+    ]
+
+statementParser :: Syntax.ScopeType -> TreeParser u
+statementParser st =
+  Prs.choice . (<$>) Prs.try $
+    [ functionDefinitionParser st,
+      idTreeParser st
+    ]
 
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------

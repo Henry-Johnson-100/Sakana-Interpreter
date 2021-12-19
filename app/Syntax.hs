@@ -17,6 +17,8 @@ module Syntax
     keywords,
     keywordRequiresId,
     fromBracket,
+    fromScopeType,
+    fromTerminal,
     baseData,
     baseKeyword,
     getTokenBracketScopeType,
@@ -25,12 +27,16 @@ module Syntax
     genericData,
     dataTokenIsId,
     keywordTokenIsDeclarationRequiringId,
+    sourceToSyntaxUnit,
   )
 where
 
+import qualified Control.Monad as CMonad
 import qualified Data.List
 import qualified Data.Maybe as DMaybe
 import qualified Util.Classes as UC
+import Util.General ((.<))
+import qualified Util.General as UGen
 import qualified Util.Tree as Tree
 
 ----Data definitions----------------------------------------------------------------------
@@ -189,11 +195,24 @@ keywordRequiresId k = if elem k [Swim, Lamprey] then False else True
 ----Bracket functions---------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
+fromScopeType :: ScopeType -> Char
+fromScopeType Send = '>'
+fromScopeType Return = '<'
+
+fromTerminal :: BracketTerminal -> Char
+fromTerminal Open = '('
+fromTerminal Close = ')'
+
 fromBracket :: ScopeType -> BracketTerminal -> String
-fromBracket Send Open = ">("
-fromBracket Send Close = ")>"
-fromBracket Return Open = "<("
-fromBracket Return Close = ")<"
+fromBracket =
+  CMonad.liftM2
+    (:)
+    (fromScopeType . fst)
+    ( UGen.listSingleton
+        . fromTerminal
+        . snd
+    )
+    .< (,)
 
 ----Token functions-----------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -226,3 +245,9 @@ dataTokenIsId _ = False
 keywordTokenIsDeclarationRequiringId :: Token -> Bool
 keywordTokenIsDeclarationRequiringId t =
   DMaybe.maybe False (keywordRequiresId) (baseKeyword t)
+
+----Source functions----------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+sourceToSyntaxUnit :: TokenSource -> ScopeType -> SyntaxUnit
+sourceToSyntaxUnit (Source t ln) = SyntaxUnit t ln
