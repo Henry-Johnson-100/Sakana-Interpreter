@@ -211,7 +211,7 @@ tokenInfoParser tp = do
   let ln = Prs.sourceLine pos
   (return .< Syntax.Source) t ln
 
-----Tree Parsers--------------------------------------------------------------------------
+----Combinators and Util functions--------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
 -- | Takes a parser and ignores the spaces before and after it.
@@ -241,6 +241,22 @@ infixl 9 -<*=
 (-<*=) :: Tree.Tree a -> [[Tree.Tree a]] -> Tree.Tree a
 (-<*=) = attachAllBranches
 
+inBracketParser :: Syntax.ScopeType -> TreeParser u -> TreeParser u
+inBracketParser st tp = do
+  stripSpaces $ if st == Syntax.Send then sendOpenParser else returnOpenParser
+  stripSpaces tp
+  stripSpaces $ if st == Syntax.Send then sendCloseParser else returnCloseParser
+  tp
+
+----Tree Parsers--------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+keywordTreeParser :: Syntax.Keyword -> Syntax.ScopeType -> TreeParser u
+keywordTreeParser k st = do
+  keywordSource <- (stripSpaces . tokenInfoParser . keywordTokenParser) k
+  let keywordTree = (Tree.tree . Syntax.sourceToSyntaxUnit keywordSource) st
+  return [keywordTree]
+
 idTreeParser :: Syntax.ScopeType -> TreeParser u
 idTreeParser st = do
   identification <- (stripSpaces . tokenInfoParser) dataIdParser
@@ -257,13 +273,6 @@ nullBracketParser st = do
   stripSpaces $ if st == Syntax.Send then sendCloseParser else returnCloseParser
   return [UC.empty]
 
-inBracketParser :: Syntax.ScopeType -> TreeParser u -> TreeParser u
-inBracketParser st tp = do
-  stripSpaces $ if st == Syntax.Send then sendOpenParser else returnOpenParser
-  stripSpaces tp
-  stripSpaces $ if st == Syntax.Send then sendCloseParser else returnCloseParser
-  tp
-
 lampreyParser :: Syntax.ScopeType -> TreeParser u
 lampreyParser st = do
   implicitKeyword <-
@@ -275,11 +284,12 @@ lampreyParser st = do
       genericLamprey =
         Syntax.SyntaxUnit (Syntax.Keyword Syntax.Lamprey) lampreyLn st
       justLampreyTree =
-        Tree.tree $
-          DMaybe.maybe
-            (genericLamprey)
-            (flip Syntax.sourceToSyntaxUnit st)
-            implicitKeyword
+        ( Tree.tree
+            . DMaybe.maybe
+              (genericLamprey)
+              (flip Syntax.sourceToSyntaxUnit st)
+        )
+          implicitKeyword
       lampreyTree =
         justLampreyTree -<*= paramsOrOther -<= value
   return [lampreyTree]
@@ -302,12 +312,37 @@ functionCallParser st = do
   let functionCallTree = ((DMaybe.fromJust . UGen.head') functionCallId) -<*= arguments
   return [functionCallTree]
 
+swimParser :: Syntax.ScopeType -> TreeParser u
+swimParser st = do
+  swimKeyword <- (stripSpaces . keywordTreeParser Syntax.Swim) st
+  inSendContext <-
+    (stripSpaces . Prs.many . inBracketParser Syntax.Send) eitherFishBindOrExpr
+  returnValue <-
+    (stripSpaces . inBracketParser Syntax.Return . expressionParser) Syntax.Return
+  let swimTreeHead = head swimKeyword
+      swimTree = swimTreeHead -<*= inSendContext -<= returnValue
+  return [swimTree]
+  where
+    eitherFishBindOrExpr :: TreeParser u
+    eitherFishBindOrExpr =
+      (Prs.choice . (<$>) Prs.try) [expressionParser Syntax.Send, fishBindParser]
+      where
+        fishBindParser :: TreeParser u
+        fishBindParser = do
+          bindId <- (stripSpaces . idTreeParser) Syntax.Send
+          bindingExpression <-
+            (stripSpaces . inBracketParser Syntax.Return . expressionParser) Syntax.Return
+          let bindIdTr = head bindId
+              fishBindTree = bindIdTr -<= bindingExpression
+          return [fishBindTree]
+
 expressionParser :: Syntax.ScopeType -> TreeParser u
 expressionParser st =
-  Prs.choice . (<$>) Prs.try $
+  (Prs.choice . (<$>) Prs.try)
     [ lampreyParser st,
       dataTreeParser st,
-      functionCallParser st
+      functionCallParser st,
+      swimParser st
     ]
 
 statementParser :: Syntax.ScopeType -> TreeParser u
@@ -316,6 +351,10 @@ statementParser st =
     [ functionDefinitionParser st,
       idTreeParser st
     ]
+
+globalStatementParser :: TreeParser u
+globalStatementParser = do
+  return [UC.empty]
 
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
