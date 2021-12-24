@@ -4,7 +4,6 @@ module Test.Core
     standardTimeout,
     timedTest,
     timedAssertEqual,
-    parserPrep,
     dataId,
     dataNum,
     dataString,
@@ -28,6 +27,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Util.Classes (Emptiable (empty))
 import Util.Tree (Tree, tree, (-<=))
+import Parser.Core (generalParse)
 
 standardTimeout :: Integer -> TestTree -> TestTree
 standardTimeout timeS = localOption (Timeout (timeS * 1000000) (show timeS ++ "s"))
@@ -51,8 +51,6 @@ timedAssertEqual timeS name description_optional assert func =
     a = assert
     f = func
 
-parserPrep :: String -> [SyntaxTree]
-parserPrep str = []
 
 dataId :: String -> Token
 dataId = Data . Id
