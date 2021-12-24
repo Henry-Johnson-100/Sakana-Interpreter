@@ -23,7 +23,7 @@ import Syntax
     Keyword (Lamprey, Shoal),
     ScopeType (Send),
     SyntaxTree,
-    SyntaxUnit (SyntaxUnit, token),
+    SyntaxUnit (SyntaxUnit, line, token),
     Token (Data, Keyword),
   )
 import Test.Tasty
@@ -79,10 +79,10 @@ sendArgs :: [[Char]] -> [SyntaxTree]
 sendArgs = listIds Send
 
 attachToMain :: [SyntaxTree] -> SyntaxTree
-attachToMain = (-<=) (tree (empty) {token = Data (Id "main")})
+attachToMain = (-<=) (tree (empty) {token = Data (Id "main"), line = 1})
 
 attachToLamprey :: [Tree SyntaxUnit] -> Tree SyntaxUnit
-attachToLamprey = (-<=) (tree (empty {token = Keyword Lamprey}))
+attachToLamprey = (-<=) (tree (empty {token = Keyword Lamprey, line = 1}))
 
 attachToShoal :: [Tree SyntaxUnit] -> Tree SyntaxUnit
-attachToShoal = (-<=) (tree (empty {token = Keyword Shoal}))
+attachToShoal = (-<=) (tree (empty {token = Keyword Shoal, line = 1}))

@@ -145,21 +145,6 @@ keywordParserTests =
         (prepareParser (genericKeywordParser Syntax.Lamprey) "lamprey")
     ]
 
-addXYLampreyAssertion :: [Tree SyntaxUnit]
-addXYLampreyAssertion =
-  [ attachToLamprey $
-      (listIds Syntax.Send ["x", "y"])
-        ++ [ treeSU Syntax.Return (dataId "+")
-               -<= (listIds Syntax.Return ["x", "y"])
-           ]
-  ]
-
-addXYFunctionDefAssertion :: [SyntaxTree]
-addXYFunctionDefAssertion =
-  [ (treeSU Syntax.Return (Syntax.Keyword Syntax.Fish))
-      -<- ((treeId Syntax.Send "add") -<= addXYLampreyAssertion)
-  ]
-
 treeParserTests =
   testGroup
     "Tree Parser Tests"
@@ -183,3 +168,17 @@ treeParserTests =
             \ >(x)> >(y)> <(+ >(x)> >(y)>)<"
         )
     ]
+  where
+    addXYLampreyAssertion :: [Tree SyntaxUnit]
+    addXYLampreyAssertion =
+      [ attachToLamprey $
+          (listIds Syntax.Send ["x", "y"])
+            ++ [ treeSU Syntax.Return (dataId "+")
+                   -<= (listIds Syntax.Return ["x", "y"])
+               ]
+      ]
+    addXYFunctionDefAssertion :: [SyntaxTree]
+    addXYFunctionDefAssertion =
+      [ (treeSU Syntax.Return (Syntax.Keyword Syntax.Fish))
+          -<- ((treeId Syntax.Return "add") -<= addXYLampreyAssertion)
+      ]

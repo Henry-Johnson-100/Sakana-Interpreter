@@ -173,10 +173,14 @@ genericKeywordParser k = do
 ------------------------------------------------------------------------------------------
 
 genericBracketParser :: Syntax.ScopeType -> Syntax.BracketTerminal -> TokenParser u
-genericBracketParser st bt = do
+genericBracketParser st Syntax.Open = do
   stChar <- (Prs.char . Syntax.fromScopeType) st
-  btChar <- (Prs.char . Syntax.fromTerminal) bt
-  (return .< Syntax.Bracket) st bt
+  Prs.char '('
+  return (Syntax.Bracket st Syntax.Open)
+genericBracketParser st Syntax.Close = do
+  Prs.char ')'
+  stChar <- (Prs.char . Syntax.fromScopeType) st
+  return (Syntax.Bracket st Syntax.Open)
 
 dataTokenParser :: TokenParser u
 dataTokenParser = do
@@ -232,12 +236,13 @@ infixl 9 -<*=
 
 inBracketParser :: Syntax.ScopeType -> TreeParser u -> TreeParser u
 inBracketParser st tp = do
-  (genericBracketParser st) Syntax.Open
+  (genericBracketParser st) Syntax.Open <?> ("an opening " ++ show st ++ " bracket")
   Prs.spaces
-  tp
+  parseStruct <- tp
   Prs.spaces
-  (genericBracketParser st) Syntax.Close
-  tp
+  (genericBracketParser st) Syntax.Close <?> ("a closing " ++ show st ++ " bracket")
+  Prs.spaces
+  return parseStruct
 
 ----Tree Parsers--------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -270,13 +275,19 @@ lampreyParser :: Syntax.ScopeType -> TreeParser u
 lampreyParser st = do
   implicitKeyword <-
     (Prs.optionMaybe . tokenInfoParser . keywordTokenParser) Syntax.Lamprey
+  Prs.spaces
   paramsOrOther <-
     ( Prs.many
         . inBracketParser Syntax.Send
         . lampreyParameterParser
       )
       Syntax.Send
-  value <- (inBracketParser Syntax.Return . expressionParser) Syntax.Return
+      <?> "valid identifiers, or function definitions"
+  Prs.spaces
+  value <-
+    (inBracketParser Syntax.Return . expressionParser) Syntax.Return
+      <?> "a return value expression."
+  Prs.spaces
   let lampreyLn = (Syntax.line . DMaybe.fromJust . (=<<) Tree.treeNode . UGen.head') value
       genericLamprey =
         Syntax.SyntaxUnit (Syntax.Keyword Syntax.Lamprey) lampreyLn st
@@ -294,8 +305,11 @@ lampreyParser st = do
 functionDefinitionParser :: Syntax.ScopeType -> TreeParser u
 functionDefinitionParser st = do
   fish <- (tokenInfoParser . keywordTokenParser) Syntax.Fish
+  Prs.spaces
   functionId <- (idTreeParser) st
+  Prs.spaces
   assocLamprey <- (lampreyParser) Syntax.Return
+  Prs.spaces
   let fishTR = (Tree.tree . Syntax.sourceToSyntaxUnit fish) st
       idTR = (DMaybe.fromJust . UGen.head') functionId
       fishTree = fishTR -<- (idTR -<= assocLamprey)
@@ -304,8 +318,10 @@ functionDefinitionParser st = do
 functionCallParser :: Syntax.ScopeType -> TreeParser u
 functionCallParser st = do
   functionCallId <- (idTreeParser) st
+  Prs.spaces
   arguments <-
     (Prs.many . inBracketParser Syntax.Send . expressionParser) st
+  Prs.spaces
   let functionCallTree = ((DMaybe.fromJust . UGen.head') functionCallId) -<*= arguments
   return [functionCallTree]
 
