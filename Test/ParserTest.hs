@@ -9,7 +9,7 @@ main = defaultMain tests
 tests =
   testGroup
     ""
-    [dataParserTests]
+    [dataParserTests, keywordParserTests]
 
 dataParserTests =
   testGroup
@@ -109,5 +109,34 @@ dataParserTests =
         "Parse a normal id with an operator accessor prefix."
         []
         (Syntax.Id "+.main")
-        (prepareParser idParser "+.main")
+        (prepareParser idParser "+.main"),
+      timedAssertEqual
+        2
+        "Parse \"fish\" as an id."
+        []
+        (Syntax.Id "fish")
+        (prepareParser idParser "fish")
+    ]
+
+keywordParserTests =
+  testGroup
+    "Keyword Parser Tests"
+    [ timedAssertEqual
+        2
+        "Parse a fish keyword."
+        []
+        (Syntax.Fish)
+        (prepareParser (genericKeywordParser Syntax.Fish) "fish"),
+      timedAssertEqual
+        2
+        "Parse a shoal keyword."
+        []
+        (Syntax.Shoal)
+        (prepareParser (genericKeywordParser Syntax.Shoal) "shoal"),
+      timedAssertEqual
+        2
+        "Parse a lamprey keyword."
+        []
+        (Syntax.Lamprey)
+        (prepareParser (genericKeywordParser Syntax.Lamprey) "lamprey")
     ]
