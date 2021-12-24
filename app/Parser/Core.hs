@@ -114,20 +114,22 @@ numParser :: DataParser u
 numParser = do
   maybeNegation <- (Prs.optionMaybe . Prs.char) '-'
   integerDigits <- Prs.many1 Prs.digit
-  maybeDecimal <- (Prs.optionMaybe . Prs.char) '.'
-  decimalDigits <-
-    if DMaybe.isJust maybeDecimal then (Prs.many1 Prs.digit) else Prs.parserZero
-  -- maybeDecimalDigits <- (Prs.optionMaybe . Prs.many1) Prs.digit
+  maybeDoubleSuffix <- Prs.optionMaybe doubleSuffix
   (return . Syntax.Num . readDouble) $
-    composeNum maybeNegation integerDigits maybeDecimal decimalDigits
+    composeNum maybeNegation integerDigits maybeDoubleSuffix
   where
+    doubleSuffix :: Prs.ParsecT [Char] u DFId.Identity [Char]
+    doubleSuffix = do
+      decimal <- Prs.char '.'
+      remainingDigits <- Prs.many1 Prs.digit
+      return (decimal : remainingDigits)
     readDouble :: String -> Double
     readDouble = read
-    composeNum :: Maybe Char -> [Char] -> Maybe Char -> [Char] -> [Char]
-    composeNum mNeg intD mDec decD =
+    composeNum :: Maybe Char -> [Char] -> Maybe [Char] -> [Char]
+    composeNum mNeg intD mDSuf =
       let neg = DMaybe.maybe [] UGen.listSingleton mNeg
-          dec = DMaybe.maybe [] UGen.listSingleton mDec
-       in neg ++ intD ++ dec ++ decD
+          doubleSuffix = DMaybe.fromMaybe [] mDSuf
+       in neg ++ intD ++ doubleSuffix
 
 -- | A special kind of DataParser, since ID's are not evaluable data types, this parser
 -- is NOT included in the
