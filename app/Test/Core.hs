@@ -9,16 +9,19 @@ module Test.Core
     dataString,
     makeSU,
     treeSU,
+    treeId,
+    listIds,
     attachToMain,
     attachToLamprey,
     attachToShoal,
   )
 where
 
+import Parser.Core (generalParse)
 import Syntax
   ( Data (Id, Num, String),
     Keyword (Lamprey, Shoal),
-    ScopeType,
+    ScopeType (Send),
     SyntaxTree,
     SyntaxUnit (SyntaxUnit, token),
     Token (Data, Keyword),
@@ -26,8 +29,8 @@ import Syntax
 import Test.Tasty
 import Test.Tasty.HUnit
 import Util.Classes (Emptiable (empty))
+import Util.General ((.<))
 import Util.Tree (Tree, tree, (-<=))
-import Parser.Core (generalParse)
 
 standardTimeout :: Integer -> TestTree -> TestTree
 standardTimeout timeS = localOption (Timeout (timeS * 1000000) (show timeS ++ "s"))
@@ -51,7 +54,6 @@ timedAssertEqual timeS name description_optional assert func =
     a = assert
     f = func
 
-
 dataId :: String -> Token
 dataId = Data . Id
 
@@ -64,8 +66,17 @@ dataString = Data . String
 makeSU :: ScopeType -> Token -> SyntaxUnit
 makeSU c t = SyntaxUnit t 1 c
 
-treeSU :: ScopeType -> Tree (Token -> SyntaxUnit)
-treeSU = tree . makeSU
+treeSU :: ScopeType -> Token -> Tree SyntaxUnit
+treeSU = tree .< makeSU
+
+treeId :: ScopeType -> String -> SyntaxTree
+treeId st = treeSU st . dataId
+
+listIds :: ScopeType -> [[Char]] -> [SyntaxTree]
+listIds st = (<$>) (treeSU st) . (<$>) dataId
+
+sendArgs :: [[Char]] -> [SyntaxTree]
+sendArgs = listIds Send
 
 attachToMain :: [SyntaxTree] -> SyntaxTree
 attachToMain = (-<=) (tree (empty) {token = Data (Id "main")})

@@ -1,6 +1,7 @@
 import Parser.Core
 import Syntax
 import Test.Core
+import Util.Tree
 
 prepareParser p str = generalParse p "Test" str
 
@@ -9,7 +10,10 @@ main = defaultMain tests
 tests =
   testGroup
     ""
-    [dataParserTests, keywordParserTests]
+    [ dataParserTests,
+      keywordParserTests,
+      treeParserTests
+    ]
 
 dataParserTests =
   testGroup
@@ -139,4 +143,43 @@ keywordParserTests =
         []
         (Syntax.Lamprey)
         (prepareParser (genericKeywordParser Syntax.Lamprey) "lamprey")
+    ]
+
+addXYLampreyAssertion :: [Tree SyntaxUnit]
+addXYLampreyAssertion =
+  [ attachToLamprey $
+      (listIds Syntax.Send ["x", "y"])
+        ++ [ treeSU Syntax.Return (dataId "+")
+               -<= (listIds Syntax.Return ["x", "y"])
+           ]
+  ]
+
+addXYFunctionDefAssertion :: [SyntaxTree]
+addXYFunctionDefAssertion =
+  [ (treeSU Syntax.Return (Syntax.Keyword Syntax.Fish))
+      -<- ((treeId Syntax.Send "add") -<= addXYLampreyAssertion)
+  ]
+
+treeParserTests =
+  testGroup
+    "Tree Parser Tests"
+    [ timedAssertEqual
+        2
+        "Parse a simple Lamprey."
+        []
+        addXYLampreyAssertion
+        ( prepareParser
+            (lampreyParser Syntax.Return)
+            "lamprey >(x)> >(y)> <(+ >(x)> >(y)>)<"
+        ),
+      timedAssertEqual
+        2
+        "Parse a simple function definition."
+        []
+        addXYFunctionDefAssertion
+        ( prepareParser
+            (functionDefinitionParser Syntax.Return)
+            "fish add lamprey\
+            \ >(x)> >(y)> <(+ >(x)> >(y)>)<"
+        )
     ]
