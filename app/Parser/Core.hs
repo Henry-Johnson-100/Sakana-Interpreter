@@ -22,7 +22,6 @@ module Parser.Core
     shoalParser,
     expressionParser,
     globalStatementParser,
-    lampreyParameterParser,
     docParser,
     generalParse,
   )
@@ -301,6 +300,13 @@ lampreyParser st = do
       lampreyTree =
         justLampreyTree -<*= paramsOrOther -<= value
   return [lampreyTree]
+  where
+    lampreyParameterParser :: Syntax.ScopeType -> TreeParser u
+    lampreyParameterParser st =
+      Prs.choice . (<$>) Prs.try $
+        [ functionDefinitionParser st,
+          idTreeParser st
+        ]
 
 functionDefinitionParser :: Syntax.ScopeType -> TreeParser u
 functionDefinitionParser st = do
@@ -371,13 +377,6 @@ globalStatementParser =
   (Prs.choice . (<$>) Prs.try)
     [functionDefinitionParser Syntax.Return, shoalParser Syntax.Return]
 
-lampreyParameterParser :: Syntax.ScopeType -> TreeParser u
-lampreyParameterParser st =
-  Prs.choice . (<$>) Prs.try $
-    [ functionDefinitionParser st,
-      idTreeParser st
-    ]
-
 ----Parse---------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -407,4 +406,4 @@ getParseError prsErr =
    in Exception.newException Exception.FailedToParse [errLine] errMsg Exception.Fatal
 
 parse' :: Prs.SourceName -> [Char] -> Either Prs.ParseError Syntax.SyntaxTree
-parse' srcName src = Prs.parse (docParser) srcName src
+parse' srcName src = Prs.parse docParser srcName src
