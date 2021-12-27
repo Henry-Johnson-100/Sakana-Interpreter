@@ -11,4 +11,5 @@ import Text.Parsec (SourceName)
 import Util.General ((.<))
 
 parse :: SourceName -> [Char] -> SyntaxTree
-parse = either (raiseError . getParseError) id .< parse'
+parse srcName srcString =
+  either (raiseError . flip getParseError srcString) id . parse' srcName $ srcString

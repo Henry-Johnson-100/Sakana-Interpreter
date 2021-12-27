@@ -393,20 +393,26 @@ docParser = do
 generalParse ::
   Eq a => Prs.ParsecT [Char] () DFId.Identity a -> Prs.SourceName -> String -> a
 generalParse p srcName src =
-  DEither.either (Exception.raiseError . getParseError) (id) (Prs.parse p srcName src)
+  DEither.either
+    (Exception.raiseError . flip getParseError src)
+    id
+    (Prs.parse p srcName src)
 
--- parse :: Prs.SourceName -> [Char] -> Syntax.SyntaxTree
--- parse =
---   DEither.either
---     (Exception.raiseError . getParseError)
---     id
---     .< parse'
-
-getParseError :: Prs.ParseError -> Exception.Exception
-getParseError prsErr =
+getParseError :: Prs.ParseError -> String -> Exception.Exception
+getParseError prsErr srcStr =
   let errLine = (Prs.sourceLine . Prs.errorPos) prsErr
-      errMsg = '\n' : show prsErr
+      errColumn = (Prs.sourceColumn . Prs.errorPos) prsErr
+      lineContext = showWindow (errColumn) . flip (!!) (errLine - 1) . lines $ srcStr
+      errMsg = unlines ["\n", show prsErr, lineContext]
    in Exception.newException Exception.FailedToParse [errLine] errMsg Exception.Fatal
 
 parse' :: Prs.SourceName -> [Char] -> Either Prs.ParseError Syntax.SyntaxTree
 parse' srcName src = Prs.parse docParser srcName src
+
+----Reporting-----------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+showWindow :: Int -> String -> String
+showWindow n = take windowSize . drop (((-) n . div windowSize) 2)
+  where
+    windowSize = 30
