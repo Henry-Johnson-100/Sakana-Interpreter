@@ -13,6 +13,7 @@ tests =
     [ dataParserTests,
       keywordParserTests,
       functionCallParserTests,
+      fishBindParserTests,
       lampreyAndFunctionParserTests
     ]
 
@@ -155,6 +156,29 @@ functionCallParserTests =
         []
         [treeId Return "or" -<= (listIds Send ["x", "y"])]
         (prepareParser (functionCallParser Return) "or >(x)> >(y)>")
+    ]
+
+fishBindParserTests =
+  testGroup
+    "FishBind Parser Tests"
+    [ timedAssertEqual
+        2
+        "Parse a simple fishBind."
+        []
+        [treeId Send "bind_this" -<= [treeId Return "x"]]
+        (prepareParser fishBindParser "bind_this <(x)<"),
+      timedAssertEqual
+        2
+        "Parse a fishBind bound to a lamprey."
+        []
+        [ treeId Send "bind_this"
+            -<= [ treeKeyword Return Lamprey
+                    -<= [ treeId Send "x",
+                          (treeSU Return . Data . Boolean) True
+                        ]
+                ]
+        ]
+        (prepareParser fishBindParser "bind_this <(lamprey >(x)> <(True)<)<")
     ]
 
 lampreyAndFunctionParserTests =
@@ -315,8 +339,9 @@ lampreyAndFunctionParserTests =
         []
         [ treeKeyword Return Fish
             -<= [ treeId Return "do_swim"
-                    -<= [ treeId Send "x"
-                            -<= [ treeKeyword Return Swim
+                    -<= [ treeKeyword Return Lamprey
+                            -<= [ treeId Send "x",
+                                  treeKeyword Return Swim
                                     -<= [ treeId Send "bind_this"
                                             -<= [treeId Return "x"],
                                           treeId Send "trout"
@@ -348,8 +373,9 @@ lampreyAndFunctionParserTests =
         []
         [ treeKeyword Return Fish
             -<= [ treeId Return "do_swim"
-                    -<= [ treeId Send "x"
-                            -<= [ treeKeyword Return Swim
+                    -<= [ treeKeyword Return Lamprey
+                            -<= [ treeId Send "x",
+                                  treeKeyword Return Swim
                                     -<= [ treeId Send "bind_this"
                                             -<= [ treeKeyword Return Lamprey
                                                     -<= [ treeId Send "z",
@@ -394,7 +420,7 @@ lampreyAndFunctionParserTests =
                                   treeKeyword Send Fish
                                     --I'm not really sure what scopetype this is supposed
                                     --to have.
-                                    -<= [ treeId Return "middle"
+                                    -<= [ treeId Send "middle"
                                             -<= [ treeKeyword Return Lamprey
                                                     -<= [ treeId Send "z",
                                                           treeKeyword Return Swim
@@ -427,7 +453,7 @@ lampreyAndFunctionParserTests =
                                                       . Data
                                                       . String
                                                   )
-                                                    "\"Hello\""
+                                                    "Hello"
                                                 ],
                                           treeId Send "bind_top"
                                             -<= [ treeId Return "middle"

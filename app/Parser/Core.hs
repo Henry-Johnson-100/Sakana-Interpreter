@@ -19,6 +19,7 @@ module Parser.Core
     functionDefinitionParser,
     functionCallParser,
     swimParser,
+    fishBindParser,
     shoalParser,
     expressionParser,
     globalStatementParser,
@@ -347,16 +348,22 @@ swimParser st = do
   where
     eitherFishBindOrExpr :: TreeParser u
     eitherFishBindOrExpr =
-      (Prs.choice . (<$>) Prs.try) [expressionParser Syntax.Send, fishBindParser]
-      where
-        fishBindParser :: TreeParser u
-        fishBindParser = do
-          bindId <- (idTreeParser) Syntax.Send
-          bindingExpression <-
-            (inBracketParser Syntax.Return . expressionParser) Syntax.Return
-          let bindIdTr = head bindId
-              fishBindTree = bindIdTr -<= bindingExpression
-          return [fishBindTree]
+      -- This is order dependent and I would like it not to be,
+      -- but since this is the only place a fishBind can appear I guess it's okay
+      -- for it to be first.
+      -- If it's not in this order, the parser will fail.
+      (Prs.choice . (<$>) Prs.try) [fishBindParser, expressionParser Syntax.Send]
+
+fishBindParser :: TreeParser u
+fishBindParser = do
+  bindId <- (idTreeParser) Syntax.Send
+  Prs.spaces
+  bindingExpression <-
+    (inBracketParser Syntax.Return . expressionParser) Syntax.Return
+  Prs.spaces
+  let bindIdTr = head bindId
+      fishBindTree = bindIdTr -<= bindingExpression
+  return [fishBindTree]
 
 shoalParser :: Syntax.ScopeType -> TreeParser u
 shoalParser st = do
