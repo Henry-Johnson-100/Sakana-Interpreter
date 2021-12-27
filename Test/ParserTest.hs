@@ -12,7 +12,7 @@ tests =
     ""
     [ dataParserTests,
       keywordParserTests,
-      treeParserTests
+      lampreyAndFunctionParserTests
     ]
 
 dataParserTests =
@@ -145,14 +145,22 @@ keywordParserTests =
         (prepareParser (genericKeywordParser Syntax.Lamprey) "lamprey")
     ]
 
-treeParserTests =
+lampreyAndFunctionParserTests =
   testGroup
     "Tree Parser Tests"
     [ timedAssertEqual
         2
         "Parse a simple Lamprey."
         []
-        addXYLampreyAssertion
+        [ treeKeyword Return Lamprey
+            -<= [ treeId Send "x",
+                  treeId Send "y",
+                  treeId Return "+"
+                    -<= [ treeId Send "x",
+                          treeId Send "y"
+                        ]
+                ]
+        ]
         ( prepareParser
             (lampreyParser Syntax.Return)
             "lamprey >(x)> >(y)> <(+ >(x)> >(y)>)<"
@@ -161,24 +169,288 @@ treeParserTests =
         2
         "Parse a simple function definition."
         []
-        addXYFunctionDefAssertion
+        [ treeKeyword Return Fish
+            -<= [ treeId Return "add"
+                    -<= [ treeKeyword Return Lamprey
+                            -<= [ treeId Send "x",
+                                  treeId Send "y",
+                                  treeId Return "+"
+                                    -<= [ treeId Send "x",
+                                          treeId Send "y"
+                                        ]
+                                ]
+                        ]
+                ]
+        ]
         ( prepareParser
             (functionDefinitionParser Syntax.Return)
             "fish add lamprey\
             \ >(x)> >(y)> <(+ >(x)> >(y)>)<"
+        ),
+      timedAssertEqual
+        2
+        "A lamprey does not need an explicit keyword."
+        []
+        [ treeKeyword Return Lamprey
+            -<= [ treeId Send "x",
+                  treeId Send "y",
+                  treeId Return "+"
+                    -<= [ treeId Send "x",
+                          treeId Send "y"
+                        ]
+                ]
+        ]
+        ( prepareParser
+            (lampreyParser Return)
+            ">(x)> \
+            \>(y)> \
+            \<(+ >(x)> >(y)>)<"
+        ),
+      -- LAMPREY WITH DEFINED CO-FUNCTION AS PARAMETER.
+      timedAssertEqual
+        2
+        "Parse a lamprey with a scoped function definition."
+        []
+        [ treeKeyword Syntax.Return Lamprey
+            -<= [ treeId Send "x",
+                  treeKeyword Send Fish
+                    -<= [ treeId Send "sub"
+                            -- It makes sense that this is Return because calling the
+                            -- function's id should return this lambda function.
+                            -<= [ treeKeyword Return Lamprey
+                                    -<= [ treeId Send "x",
+                                          treeId Send "y",
+                                          treeId Return "-"
+                                            -<= (listIds Return ["x", "y"])
+                                        ]
+                                ]
+                        ],
+                  -- The 'x' and 'y' are parsed as Return but they should definitely
+                  -- be Send
+                  treeId Return "+" -<= (listIds Send ["x", "y"])
+                ]
+        ]
+        ( prepareParser
+            (lampreyParser Syntax.Return)
+            "lamprey\
+            \ >(x)>\
+            \ >(fish sub >(x)> >(y)> <(- >(x)> >(y)>)<)>\
+            \ <(+ >(x)> >(y)>)<"
+        ),
+      timedAssertEqual
+        2
+        "Parse a function definition that returns an explicit lamprey."
+        []
+        [ treeKeyword Return Fish
+            -<= [ treeId Return "return_part"
+                    -<= [ treeKeyword Return Lamprey
+                            -<= [ treeId Send "x",
+                                  treeKeyword Return Lamprey
+                                    -<= [ treeId Send "y",
+                                          treeId Return "+"
+                                            -<= [ treeId Send "x",
+                                                  treeId Send "sqrt"
+                                                    -<= [treeId Send "y"]
+                                                ]
+                                        ]
+                                ]
+                        ]
+                ]
+        ]
+        ( prepareParser
+            (functionDefinitionParser Return)
+            "fish return_part \
+            \lamprey \
+            \>(x)> \
+            \<( lamprey \
+            \    >(y)> \
+            \    <(+ >(x)> >(sqrt >(y)>)>)< \
+            \)<"
+        ),
+      timedAssertEqual
+        2
+        "Parse a function definition that returns an implicit lamprey"
+        []
+        [ treeKeyword Return Fish
+            -<= [ treeId Return "return_part"
+                    -<= [ treeKeyword Return Lamprey
+                            -<= [ treeId Send "x",
+                                  treeKeyword Return Lamprey
+                                    -<= [ treeId Send "y",
+                                          treeId Return "+"
+                                            -<= [ treeId Send "x",
+                                                  treeId Send "sqrt"
+                                                    -<= [treeId Send "y"]
+                                                ]
+                                        ]
+                                ]
+                        ]
+                ]
+        ]
+        ( prepareParser
+            (functionDefinitionParser Return)
+            "fish return_part \
+            \lamprey \
+            \>(x)> \
+            \<( \
+            \    >(y)> \
+            \    <(+ >(x)> >(sqrt >(y)>)>)< \
+            \)<"
+        ),
+      timedAssertEqual
+        2
+        "Parse a function that contains a swim block."
+        []
+        [ treeKeyword Return Fish
+            -<= [ treeId Return "do_swim"
+                    -<= [ treeId Send "x"
+                            -<= [ treeKeyword Return Swim
+                                    -<= [ treeId Send "bind_this"
+                                            -<= [treeId Return "x"],
+                                          treeId Send "trout"
+                                            -<= [ treeId Send "to_string"
+                                                    -<= [treeId Send "bind_this"]
+                                                ],
+                                          treeId Return "+"
+                                            -<= [ (treeSU Send . dataNum) 1,
+                                                  treeId Send "bind_this"
+                                                ]
+                                        ]
+                                ]
+                        ]
+                ]
+        ]
+        ( prepareParser
+            (functionDefinitionParser Return)
+            "fish do_swim >(x)> \
+            \<( \
+            \swim \
+            \    >(bind_this <(x)<)> \
+            \    >(trout >( to_string >(bind_this)>)>)> \
+            \    <(+ >(1)> >(bind_this)>)< \
+            \)<"
+        ),
+      timedAssertEqual
+        2
+        "Parse a function with a swim block that contains a fishbind with a lamprey."
+        []
+        [ treeKeyword Return Fish
+            -<= [ treeId Return "do_swim"
+                    -<= [ treeId Send "x"
+                            -<= [ treeKeyword Return Swim
+                                    -<= [ treeId Send "bind_this"
+                                            -<= [ treeKeyword Return Lamprey
+                                                    -<= [ treeId Send "z",
+                                                          treeId Return "z"
+                                                        ]
+                                                ],
+                                          treeId Send "trout"
+                                            -<= [ treeId Send "to_string"
+                                                    -<= [ treeId Send "bind_this"
+                                                            -<= [treeId Send "x"]
+                                                        ]
+                                                ],
+                                          treeId Return "+"
+                                            -<= [ (treeSU Send . dataNum) 1,
+                                                  treeId Send "bind_this"
+                                                    -<= [treeId Send "x"]
+                                                ]
+                                        ]
+                                ]
+                        ]
+                ]
+        ]
+        ( prepareParser
+            (functionDefinitionParser Return)
+            "fish do_swim >(x)> \
+            \<( \
+            \swim \
+            \    >(bind_this <(lamprey >(z)> <(z)<)<)> \
+            \    >(trout >( to_string >(bind_this >(x)>)>)>)> \
+            \    <(+ >(1)> >(bind_this >(x)>)>)< \
+            \)<"
+        ),
+      timedAssertEqual
+        2
+        "Parse a function definition with multiple nested swim or function blocks."
+        []
+        [ treeKeyword Return Fish
+            -<= [ treeId Return "top"
+                    -<= [ treeKeyword Return Lamprey
+                            -<= [ treeId Send "x",
+                                  treeId Send "y",
+                                  treeKeyword Send Fish
+                                    --I'm not really sure what scopetype this is supposed
+                                    --to have.
+                                    -<= [ treeId Return "middle"
+                                            -<= [ treeKeyword Return Lamprey
+                                                    -<= [ treeId Send "z",
+                                                          treeKeyword Return Swim
+                                                            -<= [ treeId
+                                                                    Send
+                                                                    "bind_middle"
+                                                                    -<= [ ( treeSU Return
+                                                                              . Data
+                                                                              . Boolean
+                                                                          )
+                                                                            True
+                                                                        ],
+                                                                  treeKeyword
+                                                                    Return
+                                                                    Lamprey
+                                                                    -<= [ treeId Send "h",
+                                                                          ( treeSU Return
+                                                                              . Data
+                                                                              . Boolean
+                                                                          )
+                                                                            False
+                                                                        ]
+                                                                ]
+                                                        ]
+                                                ]
+                                        ],
+                                  treeKeyword Return Swim
+                                    -<= [ treeId Send "trout"
+                                            -<= [ ( treeSU Send
+                                                      . Data
+                                                      . String
+                                                  )
+                                                    "\"Hello\""
+                                                ],
+                                          treeId Send "bind_top"
+                                            -<= [ treeId Return "middle"
+                                                    -<= [ ( treeSU Send
+                                                              . Data
+                                                              . Boolean
+                                                          )
+                                                            False
+                                                        ]
+                                                ],
+                                          treeKeyword Return Lamprey
+                                            -<= [ treeId Send "q",
+                                                  treeId Return "or"
+                                                    -<= [ treeId Send "q",
+                                                          treeId Send "bind_top"
+                                                        ]
+                                                ]
+                                        ]
+                                ]
+                        ]
+                ]
+        ]
+        ( prepareParser
+            (functionDefinitionParser Return)
+            "fish top \
+            \ >(x)> >(y)> \
+            \ >(fish middle >(z)> <( \
+            \ swim \
+            \   >(bind_middle <(True)< )> \
+            \   <(lamprey >(h)> <(False)< )< )< )> \
+            \ <( \
+            \   swim \
+            \     >(trout >(\"Hello\")>)> \
+            \     >(bind_top <(middle >(False)>)<)> \
+            \     <( >(q)> <( or >(q)> >(bind_top)> )< )< \
+            \ )<"
         )
     ]
-  where
-    addXYLampreyAssertion :: [Tree SyntaxUnit]
-    addXYLampreyAssertion =
-      [ attachToLamprey $
-          (listIds Syntax.Send ["x", "y"])
-            ++ [ treeSU Syntax.Return (dataId "+")
-                   -<= (listIds Syntax.Return ["x", "y"])
-               ]
-      ]
-    addXYFunctionDefAssertion :: [SyntaxTree]
-    addXYFunctionDefAssertion =
-      [ (treeSU Syntax.Return (Syntax.Keyword Syntax.Fish))
-          -<- ((treeId Syntax.Return "add") -<= addXYLampreyAssertion)
-      ]

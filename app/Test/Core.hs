@@ -10,6 +10,7 @@ module Test.Core
     makeSU,
     treeSU,
     treeId,
+    treeKeyword,
     listIds,
     attachToMain,
     attachToLamprey,
@@ -20,7 +21,7 @@ where
 import Parser.Core (generalParse)
 import Syntax
   ( Data (Id, Num, String),
-    Keyword (Lamprey, Shoal),
+    Keyword (Fish, Lamprey, Shoal),
     ScopeType (Send),
     SyntaxTree,
     SyntaxUnit (SyntaxUnit, line, token),
@@ -72,6 +73,9 @@ treeSU = tree .< makeSU
 treeId :: ScopeType -> String -> SyntaxTree
 treeId st = treeSU st . dataId
 
+treeKeyword :: ScopeType -> Keyword -> SyntaxTree
+treeKeyword st = treeSU st . Keyword
+
 listIds :: ScopeType -> [[Char]] -> [SyntaxTree]
 listIds st = (<$>) (treeSU st) . (<$>) dataId
 
@@ -83,6 +87,9 @@ attachToMain = (-<=) (tree (empty) {token = Data (Id "main"), line = 1})
 
 attachToLamprey :: [Tree SyntaxUnit] -> Tree SyntaxUnit
 attachToLamprey = (-<=) (tree (empty {token = Keyword Lamprey, line = 1}))
+
+attachToFish :: [SyntaxTree] -> SyntaxTree
+attachToFish = (-<=) (tree (empty {token = Keyword Fish, line = 1}))
 
 attachToShoal :: [Tree SyntaxUnit] -> Tree SyntaxUnit
 attachToShoal = (-<=) (tree (empty {token = Keyword Shoal, line = 1}))
