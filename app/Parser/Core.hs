@@ -326,7 +326,7 @@ functionCallParser st = do
   functionCallId <- (idTreeParser) st
   Prs.spaces
   arguments <-
-    (Prs.many . inBracketParser Syntax.Send . expressionParser) st
+    (Prs.many . inBracketParser Syntax.Send . expressionParser) Syntax.Send
   Prs.spaces
   let functionCallTree = ((DMaybe.fromJust . UGen.head') functionCallId) -<*= arguments
   return [functionCallTree]
@@ -334,10 +334,13 @@ functionCallParser st = do
 swimParser :: Syntax.ScopeType -> TreeParser u
 swimParser st = do
   swimKeyword <- (keywordTreeParser Syntax.Swim) st
+  Prs.spaces
   inSendContext <-
     (Prs.many . inBracketParser Syntax.Send) eitherFishBindOrExpr
+  Prs.spaces
   returnValue <-
     (inBracketParser Syntax.Return . expressionParser) Syntax.Return
+  Prs.spaces
   let swimTreeHead = head swimKeyword
       swimTree = swimTreeHead -<*= inSendContext -<= returnValue
   return [swimTree]

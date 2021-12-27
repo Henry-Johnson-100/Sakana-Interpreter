@@ -12,6 +12,7 @@ tests =
     ""
     [ dataParserTests,
       keywordParserTests,
+      functionCallParserTests,
       lampreyAndFunctionParserTests
     ]
 
@@ -145,9 +146,20 @@ keywordParserTests =
         (prepareParser (genericKeywordParser Syntax.Lamprey) "lamprey")
     ]
 
+functionCallParserTests =
+  testGroup
+    "Function Call Parser Tests"
+    [ timedAssertEqual
+        2
+        "Parse a simple function call."
+        []
+        [treeId Return "or" -<= (listIds Send ["x", "y"])]
+        (prepareParser (functionCallParser Return) "or >(x)> >(y)>")
+    ]
+
 lampreyAndFunctionParserTests =
   testGroup
-    "Tree Parser Tests"
+    "Lamprey and FunctionDefinition Parser Tests"
     [ timedAssertEqual
         2
         "Parse a simple Lamprey."
@@ -221,7 +233,7 @@ lampreyAndFunctionParserTests =
                                     -<= [ treeId Send "x",
                                           treeId Send "y",
                                           treeId Return "-"
-                                            -<= (listIds Return ["x", "y"])
+                                            -<= (listIds Send ["x", "y"])
                                         ]
                                 ]
                         ],
