@@ -108,11 +108,11 @@ instance UC.Like Token where
 
 ----Emptiable
 
-instance UC.Emptiable Data where
-  empty = Null
+instance UC.Defaultable Data where
+  defaultValue = Null
 
-instance UC.Emptiable SyntaxUnit where
-  empty = SyntaxUnit (Data Null) 0 Return
+instance UC.Defaultable SyntaxUnit where
+  defaultValue = SyntaxUnit (Data Null) 0 Return
 
 ----Format
 

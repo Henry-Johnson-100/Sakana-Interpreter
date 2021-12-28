@@ -30,8 +30,8 @@ data Tree a = Empty | a :-<-: [Tree a] deriving (Show, Eq)
 instance Functor Tree where
   fmap f (b :-<-: cs) = f b :-<-: map (fmap f) cs
 
-instance Eq a => UC.Emptiable (Tree a) where
-  empty = Empty
+instance Eq a => UC.Defaultable (Tree a) where
+  defaultValue = Empty
 
 instance UC.Format a => UC.Format (Tree a) where
   format = fPrintTree 0

@@ -5,27 +5,17 @@ module Exception.Base where
 import qualified Data.List
 import qualified GHC.Exception
 import qualified GHC.Prim
+import qualified Util.Classes as UC
 
 data ExceptionType
   = General
   | FailedToParse
-  | InvalidBracketing
   | InvalidID
   | InvalidArgs
-  | UndefinedTokenException
-  | IncompleteStringLiteralException
-  | FishDeclarationMissingReturn
-  | FreeTokensInForeignScope
-  | DeclarationMissingId
-  | UndefinedOperatorBehavior
-  | GeneralTypeError
-  | OperatorTypeError
   | SymbolNotFound
-  | MissingPositionalArguments
   | SymbolIsAlreadyBound
-  | LampreyExtractionError
-  | LampreyBindingError
-  deriving (Show, Eq)
+  | ImproperBindingLookup
+  deriving (Show, Eq, Ord)
 
 data ExceptionSeverity
   = Fatal
@@ -49,13 +39,8 @@ data Exception = Exception
   }
   deriving (Eq)
 
-instance Ord ExceptionType where
-  compare x y
-    | findIndex' x > findIndex' y = LT
-    | findIndex' x < findIndex' y = GT
-    | otherwise = EQ
-    where
-      findIndex' x' = Data.List.findIndex (elem x') exceptionTypeOrder
+instance UC.Defaultable Exception where
+  defaultValue = newException General [] "" Fatal
 
 instance Show ExceptionInfo where
   show NoInfo = "No Information."
@@ -72,24 +57,8 @@ instance Show ExceptionInfo where
       ++ msg
       ++ "\n"
 
-instance Ord Exception where
-  compare x y
-    | exceptionType x /= exceptionType y = compare (exceptionType x) (exceptionType y)
-    | otherwise = compare ((severity . information) x) ((severity . information) y)
-
 instance Show Exception where
   show (Exception et info) = show info
-
-exceptionTypeOrder :: [[ExceptionType]]
-exceptionTypeOrder =
-  [ [General],
-    [ UndefinedTokenException,
-      IncompleteStringLiteralException,
-      InvalidBracketing,
-      InvalidID,
-      InvalidArgs
-    ]
-  ]
 
 setExceptionSeverity :: Exception -> ExceptionSeverity -> Exception
 setExceptionSeverity e es =

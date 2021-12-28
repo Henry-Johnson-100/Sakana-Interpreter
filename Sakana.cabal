@@ -28,9 +28,7 @@ executable Sakana
     other-modules:
         Exception.Base
         Interpreter
-        TreeInterpreter.Environment
-        TreeInterpreter.LocalCheck.TreeIs
-        TreeInterpreter.LocalCheck.NodeIs
+        Interpreter.Environment
         Parser
         Parser.Core
         Syntax
@@ -53,8 +51,7 @@ executable Sakana
       , unordered-containers == 0.2.14.0
     hs-source-dirs:   app
                       app/Exception
-                      app/TreeInterpreter
-                      app/TreeInterpreter/LocalCheck
+                      app/Interpreter
                       app/Util
                       app/Parser
                       app/Test

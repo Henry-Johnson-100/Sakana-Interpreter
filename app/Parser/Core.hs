@@ -218,7 +218,7 @@ stripSpaces p = do
   p
 
 attachAllBranches :: Tree.Tree a -> [[Tree.Tree a]] -> Tree.Tree a
-attachAllBranches h trs = DList.foldl' (-<=) h trs
+attachAllBranches = DList.foldl' (-<=)
 
 infixl 9 -<*=
 
@@ -269,7 +269,7 @@ nullBracketParser st = do
   (genericBracketParser st) Syntax.Open
   Prs.spaces
   (genericBracketParser st) Syntax.Close
-  return [UC.empty]
+  return [UC.defaultValue]
 
 lampreyParser :: Syntax.ScopeType -> TreeParser u
 lampreyParser st = do
@@ -349,8 +349,8 @@ swimParser st = do
     eitherFishBindOrExpr :: TreeParser u
     eitherFishBindOrExpr =
       -- This is order dependent and I would like it not to be,
-      -- but since this is the only place a fishBind can appear I guess it's okay
-      -- for it to be first.
+      -- but since this is the only place a fishBind can appear,
+      -- I guess it's okay for it to be first.
       -- If it's not in this order, the parser will fail.
       (Prs.choice . (<$>) Prs.try) [fishBindParser, expressionParser Syntax.Send]
 
@@ -393,7 +393,7 @@ globalStatementParser =
 docParser :: Prs.ParsecT [Char] u DFId.Identity Syntax.SyntaxTree
 docParser = do
   globalStatements <- Prs.many globalStatementParser
-  let mainTree = Tree.tree (UC.empty {Syntax.token = Syntax.Data (Syntax.Id "main")})
+  let mainTree = Tree.tree (UC.defaultValue {Syntax.token = Syntax.Data (Syntax.Id "main")})
       docTree = mainTree -<*= globalStatements
   return docTree
 
@@ -409,7 +409,7 @@ getParseError :: Prs.ParseError -> String -> Exception.Exception
 getParseError prsErr srcStr =
   let errLine = (Prs.sourceLine . Prs.errorPos) prsErr
       errColumn = (Prs.sourceColumn . Prs.errorPos) prsErr
-      lineContext = showWindow (errColumn) . flip (!!) (errLine - 1) . lines $ srcStr
+      lineContext = (showWindow (errColumn) . flip (!!) (errLine - 1) . lines) srcStr
       errMsg = unlines ["\n", show prsErr, lineContext]
    in Exception.newException Exception.FailedToParse [errLine] errMsg Exception.Fatal
 

@@ -1,6 +1,6 @@
 module Util.Classes
   ( Format (..),
-    Emptiable (..),
+    Defaultable (..),
     Like (..),
   )
 where
@@ -49,17 +49,17 @@ instance (Show a, Show b) => Format (a, b) where
 --
 -- defines
 --
--- > empty :: (Emptiable a, Eq a) => a
+-- > defaultValue :: (Defaultable a, Eq a) => a
 --
--- > isEmpty :: (Emptiable a, Eq a) => a -> Bool
+-- > isDefault :: (Defaultable a, Eq a) => a -> Bool
 --
 -- Minimal complete definition:
 --
--- > empty
-class Eq a => Emptiable a where
-  empty :: a
-  isEmpty :: a -> Bool
-  isEmpty = (==) empty
+-- > defaultValue
+class Eq a => Defaultable a where
+  defaultValue :: a
+  isDefault :: a -> Bool
+  isDefault = (==) defaultValue
 
 class Like a where
   like :: a -> a -> Bool

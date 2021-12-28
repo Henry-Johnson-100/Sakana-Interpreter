@@ -29,7 +29,7 @@ import Syntax
   )
 import Test.Tasty
 import Test.Tasty.HUnit
-import Util.Classes (Emptiable (empty))
+import Util.Classes (Defaultable (defaultValue))
 import Util.General ((.<))
 import Util.Tree (Tree, tree, (-<=))
 
@@ -83,13 +83,13 @@ sendArgs :: [[Char]] -> [SyntaxTree]
 sendArgs = listIds Send
 
 attachToMain :: [SyntaxTree] -> SyntaxTree
-attachToMain = (-<=) (tree (empty) {token = Data (Id "main"), line = 1})
+attachToMain = (-<=) (tree (defaultValue) {token = Data (Id "main"), line = 1})
 
 attachToLamprey :: [Tree SyntaxUnit] -> Tree SyntaxUnit
-attachToLamprey = (-<=) (tree (empty {token = Keyword Lamprey, line = 1}))
+attachToLamprey = (-<=) (tree (defaultValue {token = Keyword Lamprey, line = 1}))
 
 attachToFish :: [SyntaxTree] -> SyntaxTree
-attachToFish = (-<=) (tree (empty {token = Keyword Fish, line = 1}))
+attachToFish = (-<=) (tree (defaultValue {token = Keyword Fish, line = 1}))
 
 attachToShoal :: [Tree SyntaxUnit] -> Tree SyntaxUnit
-attachToShoal = (-<=) (tree (empty {token = Keyword Shoal, line = 1}))
+attachToShoal = (-<=) (tree (defaultValue {token = Keyword Shoal, line = 1}))
