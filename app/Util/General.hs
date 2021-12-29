@@ -7,11 +7,12 @@ module Util.General
     foldIdApplicativeOnSingleton,
     listSingleton,
     rotateArg3,
+    filterFromJust,
     (.<),
   )
 where
 
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe, fromJust, maybe)
 
 both :: (a -> Bool) -> (a, a) -> Bool
 both f (x, y) = f x && f y
@@ -37,7 +38,11 @@ listSingleton = flip (:) []
 rotateArg3 :: (t1 -> t2 -> t3 -> t4) -> t2 -> t3 -> t1 -> t4
 rotateArg3 f b c a = f a b c
 
+filterFromJust :: (b -> Bool) -> [Maybe b] -> [b]
+filterFromJust fb = map fromJust . filter (maybe False fb)
+
 infixr 9 .<
+
 -- | Works like function composition but composes a function taking one argument, (g),
 -- to a function, (f), which takes two arguments.
 --

@@ -1,7 +1,27 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Interpreter.Environment
-  (
+  ( BindingKey (..),
+    Binding (..),
+    SymbolTable (..),
+    Runtime (..),
+    insertBinding,
+    singletonSymbolTable,
+    lookup,
+    maybeLookup,
+    bindingExists,
+    replaceSymbolTable,
+    replaceValue,
+    replaceException,
+    propagateException,
+    transpropagateUnion,
+    cisUnion,
+    transUnion,
+    throwJustError,
+    runtimeBindingExists,
+    runtimeMaybeLookup,
+    updateRuntimeSymbolTable,
+    injectBinding,
   )
 where
 
@@ -15,8 +35,6 @@ import qualified GHC.Generics
 import qualified Syntax
 import qualified Util.Classes as UC
 import Util.General ((.<))
-import qualified Util.General as UGen
-import qualified Util.Tree as Tree
 import Prelude hiding (lookup)
 
 ----Data & Type & Instance Definitions----------------------------------------------------

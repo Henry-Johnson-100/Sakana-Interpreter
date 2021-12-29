@@ -15,6 +15,7 @@ data ExceptionType
   | SymbolNotFound
   | SymbolIsAlreadyBound
   | ImproperBindingLookup
+  | NullTree
   deriving (Show, Eq, Ord)
 
 data ExceptionSeverity
