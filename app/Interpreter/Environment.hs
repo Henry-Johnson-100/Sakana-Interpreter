@@ -177,13 +177,15 @@ transpropagateUnion = flip transUnion
 -- into the second Runtime.
 cisUnion :: Runtime -> Runtime -> Runtime
 cisUnion ra rb =
-  replaceSymbolTable (HashMap.union (runtimeSymbolTable rb) (runtimeSymbolTable ra)) rb
+  let newTable = HashMap.union (runtimeSymbolTable rb) (runtimeSymbolTable ra)
+   in replaceSymbolTable newTable rb
 
 -- | Replace a union of two Runtimes' SymbolTables, with the second as the master,
 -- into the first Runtime.
 transUnion :: Runtime -> Runtime -> Runtime
 transUnion ra rb =
-  replaceSymbolTable (HashMap.union (runtimeSymbolTable rb) (runtimeSymbolTable ra)) ra
+  let newTable = HashMap.union (runtimeSymbolTable rb) (runtimeSymbolTable ra)
+   in replaceSymbolTable newTable ra
 
 throwJustError :: Runtime -> Runtime
 throwJustError rt = Maybe.maybe rt Exception.raiseError (runtimeException rt)
@@ -201,7 +203,8 @@ runtimeMaybeLookup = maybeLookup . runtimeSymbolTable
 -- and replace it into the Runtime.
 updateRuntimeSymbolTable :: SymbolTable -> Runtime -> Runtime
 updateRuntimeSymbolTable st rt =
-  replaceSymbolTable (HashMap.union st (runtimeSymbolTable rt)) rt
+  let newTable = HashMap.union st (runtimeSymbolTable rt)
+   in replaceSymbolTable newTable rt
 
 injectBinding :: Binding -> Runtime -> Runtime
 injectBinding = updateRuntimeSymbolTable . singletonSymbolTable

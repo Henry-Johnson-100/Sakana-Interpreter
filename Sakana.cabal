@@ -28,7 +28,11 @@ executable Sakana
     other-modules:
         Exception.Base
         Interpreter
+        Interpreter.Core
         Interpreter.Environment
+        Interpreter.Inspection
+        Interpreter.SknStdLib.Std
+        Interpreter.SknStdLib.IO
         Parser
         Parser.Core
         Syntax
@@ -41,6 +45,7 @@ executable Sakana
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: 
         MagicHash
+        DeriveGeneric
 
     -- other-extensions:
     build-depends:    
@@ -52,6 +57,7 @@ executable Sakana
     hs-source-dirs:   app
                       app/Exception
                       app/Interpreter
+                      app/Interpreter/SknStdLib
                       app/Util
                       app/Parser
                       app/Test

@@ -14,6 +14,7 @@ module Syntax
     unNum,
     unString,
     unBoolean,
+    unId,
     keywords,
     keywordRequiresId,
     fromBracket,
@@ -106,7 +107,7 @@ instance UC.Like Token where
   like (Keyword _) (Keyword _) = True
   like _ _ = False
 
-----Emptiable
+----Defaultable
 
 instance UC.Defaultable Data where
   defaultValue = Null
@@ -182,6 +183,10 @@ unBoolean :: Data -> Maybe Bool
 unBoolean (Boolean b) = Just b
 unBoolean Null = Just False
 unBoolean _ = Nothing
+
+unId :: Data -> Maybe String
+unId (Id d) = Just d
+unId _ = Nothing
 
 ----Keyword functions---------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
