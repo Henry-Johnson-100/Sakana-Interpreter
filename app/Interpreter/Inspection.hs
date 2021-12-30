@@ -1,7 +1,6 @@
 module Interpreter.Inspection where
 
 import qualified Data.Maybe as Maybe
-import qualified Interpreter.SknStdLib.Std (stdLibIds)
 import qualified Syntax
 import qualified Util.General as UGen
 import qualified Util.Tree as Tree
@@ -37,12 +36,6 @@ treeHeadIsPositionalParameter :: Syntax.SyntaxTree -> Bool
 treeHeadIsPositionalParameter =
   UGen.foldIdApplicativeOnSingleton all [treeHeadIsId, treeHasNoChildren]
 
-treeHeadIsStandardLibraryCall :: Syntax.SyntaxTree -> Bool
-treeHeadIsStandardLibraryCall =
-  UGen.foldIdApplicativeOnSingleton
-    all
-    [treeHeadIsFunctionCall, Tree.nodeStrictlySatisfies nodeIsStandardLibCall]
-
 ----Node Checks---------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -58,8 +51,3 @@ nodeIsReturnContext su = case Syntax.context su of
 
 nodeIsSendContext :: Syntax.SyntaxUnit -> Bool
 nodeIsSendContext = not . nodeIsReturnContext
-
-nodeIsStandardLibCall :: Syntax.SyntaxUnit -> Bool
-nodeIsStandardLibCall su = case Syntax.token su of
-  (Syntax.Data (Syntax.Id id)) -> elem id (Interpreter.SknStdLib.Std.stdLibIds)
-  _ -> False

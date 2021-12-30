@@ -1,5 +1,5 @@
 module Interpreter.Core
-  (
+  ( nodeIsStandardLibCall,
   )
 where
 
@@ -18,52 +18,13 @@ import qualified Util.General as UGen
 import qualified Util.Tree as Tree
 import Prelude hiding (lookup)
 
-evaluateProgram :: Env.Runtime -> IO Syntax.SyntaxTree
-evaluateProgram = fmap programOutputHead . interpret
-  where
-    programOutputHead :: Env.Runtime -> Syntax.SyntaxTree
-    programOutputHead =
-      Maybe.fromMaybe
-        (Exception.raiseError programTerminatesAsNull)
-        . (UGen.head' . Env.runtimeValue . Env.throwJustError)
-    programTerminatesAsNull :: Exception.Exception
-    programTerminatesAsNull =
-      Exception.newException
-        Exception.NullTree
-        []
-        "Null value at end of program."
-        Exception.Fatal
-
-interpret :: Env.Runtime -> IO Env.Runtime
-interpret rt = interpret' . Env.throwJustError $ rt
-  where
-    interpret' :: Env.Runtime -> IO Env.Runtime
-    -- Will cause an infinite hang if Env.throwJustError is not present in interpret.
-    interpret' (Env.Runtime st [] err) =
-      interpret
-        ( Env.replaceException
-            ( Exception.newException
-                Exception.NullTree
-                []
-                "Unexpected null tree in the interpreter."
-                Exception.Fatal
-            )
-            rt
-        )
-    -- Guards go here.
-    -- trs could be null.
-    interpret' (Env.Runtime st (tr : trs) err)
-      | Inspect.treeHeadIsPrimitiveData tr = return rt
-      | Inspect.treeHeadIsStandardLibraryCall tr = return rt
-      | otherwise = return rt
-
 -- | #TODO
 evaluateFunction :: Env.Runtime -> IO Env.Runtime
 evaluateFunction rt = evaluateFunction' rt
   where
     evaluateFunction' :: Env.Runtime -> IO Env.Runtime
     evaluateFunction' (Env.Runtime st (tr : trs) err)
-      | Tree.nodeStrictlySatisfies Inspect.nodeIsStandardLibCall tr = return rt
+      | Tree.nodeStrictlySatisfies nodeIsStandardLibCall tr = return rt
       | otherwise = return rt
 
 -- | #TODO
@@ -86,6 +47,11 @@ evaluateStandardLibraryCall rt = evaluateStandardLibraryCall' rt
               . (=<<) (Syntax.baseData . Syntax.token)
               . Tree.treeNode
           )
+
+nodeIsStandardLibCall :: Syntax.SyntaxUnit -> Bool
+nodeIsStandardLibCall su = case Syntax.token su of
+  (Syntax.Data (Syntax.Id id)) -> elem id (SknStdLib.stdLibIds)
+  _ -> False
 
 ----Traverse and Retrieve Functions-------------------------------------------------------
 ------------------------------------------------------------------------------------------

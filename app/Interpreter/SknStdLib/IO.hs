@@ -6,6 +6,7 @@ module Interpreter.SknStdLib.IO
   )
 where
 
+import qualified Interpreter.Inspection
 import qualified Syntax
 import qualified System.IO
 import qualified Util.Classes as UC

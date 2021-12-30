@@ -11,6 +11,7 @@ import qualified Interpreter.Inspection as Inspect
 import qualified Syntax
 import qualified System.IO as IO
 import qualified Util.General as UGen
+import qualified Util.Tree as Tree
 
 evaluateProgram :: Env.Runtime -> IO Syntax.SyntaxTree
 evaluateProgram = fmap programOutputHead . interpret
@@ -48,5 +49,13 @@ interpret rt = interpret' . Env.throwJustError $ rt
     -- trs could be null.
     interpret' (Env.Runtime st (tr : trs) err)
       | Inspect.treeHeadIsPrimitiveData tr = return rt
-      | Inspect.treeHeadIsStandardLibraryCall tr = return rt
+      | treeHeadIsStandardLibraryCall tr = return rt
       | otherwise = return rt
+
+treeHeadIsStandardLibraryCall :: Syntax.SyntaxTree -> Bool
+treeHeadIsStandardLibraryCall =
+  UGen.foldIdApplicativeOnSingleton
+    all
+    [ Inspect.treeHeadIsFunctionCall,
+      Tree.nodeStrictlySatisfies Interpreter.Core.nodeIsStandardLibCall
+    ]
