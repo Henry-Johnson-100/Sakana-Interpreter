@@ -6,28 +6,47 @@ module Interpreter.SknStdLib.IO
   )
 where
 
+import qualified Data.Maybe as Maybe
+import qualified Exception.Base as Exception
 import qualified Interpreter.Inspection
 import qualified Syntax
-import qualified System.IO
+import System.IO (hGetContents, hPutStr, stderr, stdin, stdout)
 import qualified Util.Classes as UC
+import qualified Util.General as UGen
+import Util.Tree (Tree ((:-<-:)))
 import qualified Util.Tree as Tree
 
 exportingIds :: [String]
-exportingIds = ["trout", "dolphin", "herring"]
+exportingIds = ["trout", "herring", "dolphin"]
 
-trout :: String -> IO Syntax.SyntaxTree
-trout out = do
-  System.IO.hPutStr System.IO.stdout out
-  (return . Tree.tree) UC.defaultValue
+-- | Pass in the result of an interpretation to be printed to stdout.
+trout :: Syntax.SyntaxTree -> IO Syntax.SyntaxTree
+trout ((Syntax.SyntaxUnit (Syntax.Data (Syntax.String str)) _ _) :-<-: []) =
+  hPutStr stdout str >> return UC.defaultValue
+trout tr = (Exception.raiseError . printTypeException) tr
 
-herring :: String -> IO Syntax.SyntaxTree
-herring errOut = do
-  System.IO.hPutStr System.IO.stderr errOut
-  (return . Tree.tree) UC.defaultValue
+-- | Pass in the result of interpretation to be printed to stderr.
+herring :: Syntax.SyntaxTree -> IO Syntax.SyntaxTree
+herring ((Syntax.SyntaxUnit (Syntax.Data (Syntax.String str)) _ _) :-<-: []) =
+  hPutStr stderr str >> return UC.defaultValue
+herring tr = (Exception.raiseError . printTypeException) tr
 
+-- | Collect contents from stdin as a String.
 dolphin :: IO Syntax.SyntaxTree
 dolphin = do
-  inString <- System.IO.hGetContents System.IO.stdin
+  inString <- hGetContents stdin
   let stringDataTree =
         Tree.tree UC.defaultValue {Syntax.token = Syntax.Data (Syntax.String inString)}
   return stringDataTree
+
+printTypeException :: Syntax.SyntaxTree -> Exception.Exception
+printTypeException tr =
+  Exception.newException
+    Exception.TypeException
+    ( ( map Syntax.line
+          . Tree.flattenTree
+      )
+        tr
+    )
+    ("Error printing tree: " ++ UC.format tr ++ "\n Not a string primitive type.")
+    Exception.Fatal
