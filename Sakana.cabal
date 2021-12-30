@@ -27,7 +27,6 @@ executable Sakana
     --Modules included in this executable, other than Main.
     other-modules:
         Exception.Base
-        Interpreter
         Interpreter.Core
         Interpreter.Environment
         Interpreter.Inspection
