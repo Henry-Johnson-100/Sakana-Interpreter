@@ -1,10 +1,11 @@
 module Interpreter.SknStdLib.Std
-  ( module Interpreter.SknStdLib.IO,
-    stdLibIds,
+  ( module Interpreter.SknStdLib.Type,
+    exporting,
   )
 where
 
-import Interpreter.SknStdLib.IO
+import qualified Interpreter.SknStdLib.IO
+import Interpreter.SknStdLib.Type
 
-stdLibIds :: [String]
-stdLibIds = concat [Interpreter.SknStdLib.IO.exportingIds]
+exporting :: [SknStdLibFunction]
+exporting = [] ++ Interpreter.SknStdLib.IO.exporting

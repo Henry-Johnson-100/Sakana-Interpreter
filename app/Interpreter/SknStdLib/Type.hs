@@ -24,15 +24,25 @@ data SknStdLibFunction = GeneralStdLibFunction
 generalStdLibFunctionParamNumber :: SknStdLibFunction -> Int
 generalStdLibFunctionParamNumber = length . generalStdLibFunctionParams
 
-exportingIds :: [String]
-exportingIds = map generalStdLibFunctionId exportingFunctions
-
-exportingFunctions :: [SknStdLibFunction]
-exportingFunctions = [sakana_const]
-
 evaluateGeneralStdLibFunction ::
   SknStdLibFunction -> [Syntax.SyntaxTree] -> IO Syntax.SyntaxTree
 evaluateGeneralStdLibFunction genFunc trs = (generalStdLibFunctionDefinition genFunc) trs
+
+raiseSknStdLibArgumentException :: [Syntax.SyntaxTree] -> [Char] -> [String] -> a2
+raiseSknStdLibArgumentException trs expectedArgMessage expectedArgIds =
+  Exception.raiseError
+    ( Exception.newException
+        Exception.FunctionArgumentNumberException
+        ((map Syntax.line . concatMap Tree.flattenTree) trs)
+        ( "Mismatched number of arguments in uncurryable function:\n"
+            ++ expectedArgMessage
+            ++ "\n Argument trees are: "
+            ++ "\n Expecting only the following arguments: "
+            ++ unwords expectedArgIds
+            ++ (unlines . map UC.format) trs
+        )
+        Exception.Fatal
+    )
 
 -- | Here is a proposition as well as an example of how a std lib might be defined.
 --
@@ -46,8 +56,10 @@ evaluateGeneralStdLibFunction genFunc trs = (generalStdLibFunctionDefinition gen
 -- Any additional error handling can be done in the function definition proper.
 sakana_const :: SknStdLibFunction
 sakana_const =
-  GeneralStdLibFunction "const" ["keep", "replace"] sakana_const#
+  GeneralStdLibFunction "const" sakana_const_params# sakana_const#
   where
+    sakana_const_params# :: [String]
+    sakana_const_params# = ["keep", "replace"]
     sakana_const# :: [Syntax.SyntaxTree] -> IO Syntax.SyntaxTree
     sakana_const# args = sakana_const'# args
       where
@@ -55,18 +67,5 @@ sakana_const =
         sakana_const'# _ =
           raiseSknStdLibArgumentException
             args
-            "Expected only two arguments: \'keep\', \'replace\'"
-
-raiseSknStdLibArgumentException :: [Syntax.SyntaxTree] -> [Char] -> a2
-raiseSknStdLibArgumentException trs expectedArgMessage =
-  Exception.raiseError
-    ( Exception.newException
-        Exception.FunctionArgumentNumberException
-        ((map Syntax.line . concatMap Tree.flattenTree) trs)
-        ( "Mismatched number of arguments in uncurryable function:\n"
-            ++ expectedArgMessage
-            ++ "\n Argument trees are: "
-            ++ (unlines . map UC.format) trs
-        )
-        Exception.Fatal
-    )
+            ""
+            sakana_const_params#
