@@ -20,6 +20,7 @@ module Interpreter.Environment
     throwJustError,
     runtimeBindingExists,
     runtimeMaybeLookup,
+    runtimeLookup,
     updateRuntimeSymbolTable,
     injectBinding,
   )

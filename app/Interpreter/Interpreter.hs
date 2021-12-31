@@ -1,5 +1,7 @@
 module Interpreter
-  (
+  ( preprocessParserOutput,
+    createCLIArgumentBindings,
+    evaluateProgram,
   )
 where
 
@@ -13,18 +15,55 @@ import qualified Interpreter.Inspection as Inspect
 import qualified Interpreter.SknStdLib.Std as SknStdLib
 import qualified Syntax
 import qualified System.IO as IO
+import qualified Util.Classes as UC
 import Util.General ((.<))
 import qualified Util.General as UGen
+import Util.Tree (Tree ((:-<-:)))
 import qualified Util.Tree as Tree
 import Prelude hiding (lookup)
 
--- | #TODO
--- preprocessParserOutput :: Syntax.SyntaxTree -> Env.Runtime
+-- | Takes the raw output from the parser and converts it into an interpretable Runtime.
+preprocessParserOutput :: Syntax.SyntaxTree -> [Env.Binding] -> Env.Runtime
+preprocessParserOutput docTree additionalBindings =
+  ( setMain
+      . injectAdditionalBindings additionalBindings
+      . foldDocTreeChildrenToRuntime
+  )
+    UC.defaultValue {Env.runtimeValue = Tree.treeChildren docTree}
+  where
+    foldDocTreeChildrenToRuntime :: Env.Runtime -> Env.Runtime
+    foldDocTreeChildrenToRuntime rt =
+      if (null . Env.runtimeValue) rt
+        then rt
+        else (foldDocTreeChildrenToRuntime . advanceToNextTree . processStatementTree) rt
+    -- Finds the function identified as 'main' in the runtime's symbol table
+    -- and returns a runtime with that function as the runtimeValue.
+    setMain :: Env.Runtime -> Env.Runtime
+    setMain rt =
+      Maybe.maybe
+        (Env.replaceException noMainException rt)
+        (flip Env.replaceValue rt . UGen.listSingleton)
+        (Env.runtimeMaybeLookup rt "main")
+      where
+        noMainException =
+          Exception.newException
+            Exception.SymbolNotFound
+            []
+            "requires a fish called \'main\' to interpret the program."
+            Exception.Fatal
+    injectAdditionalBindings :: [Env.Binding] -> Env.Runtime -> Env.Runtime
+    injectAdditionalBindings bindings rt = List.foldr Env.injectBinding rt bindings
 
--- | #TODO
--- Finds the function identified as 'main' in the runtime's symbol table
--- and returns a runtime with that function as the runtimeValue.
--- setMain :: Env.Runtime -> Env.Runtime
+createCLIArgumentBindings :: [String] -> [Env.Binding]
+createCLIArgumentBindings = map bindingFromTuple . zip argNameScheme
+  where
+    argNameScheme :: [String]
+    argNameScheme = ["_arg_" ++ [c] | c <- ['A' .. 'z']]
+    bindingFromTuple :: (String, String) -> Env.Binding
+    bindingFromTuple (bid, bval) =
+      Env.Binding
+        (Env.BindingKey bid)
+        (Tree.tree (UC.defaultValue {Syntax.token = Syntax.Data (Syntax.String bval)}))
 
 -- | ...
 evaluateProgram :: Env.Runtime -> IO Syntax.SyntaxTree
@@ -142,6 +181,54 @@ nodeIsStandardLibCall su = case Syntax.token su of
     (elem id . map SknStdLib.generalStdLibFunctionId) SknStdLib.exporting
   _ -> False
 
+----Statement Processing Functions--------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+-- | Contains guards for processing individual statement trees.
+--
+-- operates on, but does not consume, the head of the current runtimeValue.
+--
+-- Should probably have guards for the statement types found in the Parser.
+-- Currently missing a guard for the Shoal global statement.
+processStatementTree :: Env.Runtime -> Env.Runtime
+processStatementTree rt = processStatementTree' rt
+  where
+    processStatementTree' (Env.Runtime st (tr : trs) err)
+      | Inspect.treeHeadIsFishDeclaration tr =
+        processFishStatement rt
+      | otherwise = rt
+
+-- | Take a tree of a 'fish' declaration structure and return a new runtime with that
+-- symbol injected into it.
+--
+-- relies on partial functions, will throw errors if called on trees that are not
+-- valid 'fish' declaration structures.
+--
+-- Valid tree structure is as follows:
+--
+-- > Fish :-<-: Id :-<-: Lamprey :-<-: [...]
+processFishStatement :: Env.Runtime -> Env.Runtime
+processFishStatement rt = processFishStatement' rt
+  where
+    processFishStatement' (Env.Runtime st (tr : trs) err) =
+      Env.injectBinding (makeFishBinding tr) rt
+    makeFishBinding :: Syntax.SyntaxTree -> Env.Binding
+    makeFishBinding tr =
+      Env.Binding (Env.BindingKey (getFishId tr)) (getFishLamprey tr)
+      where
+        getFishId :: Syntax.SyntaxTree -> String
+        getFishId =
+          Maybe.fromJust
+            . (=<<) Syntax.unId
+            . (=<<) (Syntax.baseData . Syntax.token)
+            . Tree.treeNode
+        getFishLamprey :: Syntax.SyntaxTree -> Syntax.SyntaxTree
+        getFishLamprey =
+          Maybe.fromJust
+            . (=<<) (UGen.head' . Tree.treeChildren)
+            . UGen.head'
+            . Tree.treeChildren
+
 ----Traverse and Retrieve Functions-------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -165,6 +252,13 @@ getLampreyPositionalParameters =
 getLampreyValue :: Syntax.SyntaxTree -> Syntax.SyntaxTree
 getLampreyValue = last . Tree.treeChildren
 
+-- | Advances the runtimeValue from the current head to the next tree.
+advanceToNextTree :: Env.Runtime -> Env.Runtime
+advanceToNextTree rt =
+  if (null . Env.runtimeValue) rt
+    then rt
+    else rt {Env.runtimeValue = (UGen.tail' . Env.runtimeValue) rt}
+
 ----General-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -172,3 +266,12 @@ throwGeneralError :: a
 throwGeneralError =
   Exception.raiseError
     (Exception.newException Exception.General [] "" Exception.Fatal)
+
+throwGeneralErrorWithMsg msg =
+  Exception.raiseError
+    ( Exception.newException
+        Exception.General
+        []
+        msg
+        Exception.Fatal
+    )

@@ -11,6 +11,11 @@ import qualified Util.Tree as Tree
 onFirstElem :: (a -> Bool) -> [a] -> Bool
 onFirstElem f = Maybe.maybe False f . UGen.head'
 
+treeHeadIsFishDeclaration :: Syntax.SyntaxTree -> Bool
+treeHeadIsFishDeclaration tr = case Tree.treeNode tr of
+  (Maybe.Just (Syntax.SyntaxUnit (Syntax.Keyword Syntax.Fish) _ _)) -> True
+  _ -> False
+
 treeHeadIsPrimitiveData :: Syntax.SyntaxTree -> Bool
 treeHeadIsPrimitiveData tr = case Tree.treeNode tr of
   (Maybe.Just (Syntax.SyntaxUnit (Syntax.Data d) _ _)) -> Syntax.isPrimitive d
