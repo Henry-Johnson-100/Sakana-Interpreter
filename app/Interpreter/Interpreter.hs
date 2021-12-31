@@ -1,4 +1,4 @@
-module Interpreter.Core
+module Interpreter
   (
   )
 where
@@ -18,6 +18,15 @@ import qualified Util.General as UGen
 import qualified Util.Tree as Tree
 import Prelude hiding (lookup)
 
+-- | #TODO
+-- preprocessParserOutput :: Syntax.SyntaxTree -> Env.Runtime
+
+-- | #TODO
+-- Finds the function identified as 'main' in the runtime's symbol table
+-- and returns a runtime with that function as the runtimeValue.
+-- setMain :: Env.Runtime -> Env.Runtime
+
+-- | ...
 evaluateProgram :: Env.Runtime -> IO Syntax.SyntaxTree
 evaluateProgram = fmap programOutputHead . interpret
   where
@@ -67,9 +76,6 @@ evaluateFunction rt = evaluateFunction' rt
       | otherwise = return rt
 
 -- | #TODO
--- It would be best to store inline C or ccall imports in a tree and then store those
--- in the runtime. That way, the std_lib could be expanded by including more header files
--- or just adding more functions to an existing header.
 evaluateStandardLibraryCall :: Env.Runtime -> IO Env.Runtime
 evaluateStandardLibraryCall rt = evaluateStandardLibraryCall' rt
   where
@@ -92,12 +98,13 @@ treeHeadIsStandardLibraryCall =
   UGen.foldIdApplicativeOnSingleton
     all
     [ Inspect.treeHeadIsFunctionCall,
-      Tree.nodeStrictlySatisfies Interpreter.Core.nodeIsStandardLibCall
+      Tree.nodeStrictlySatisfies nodeIsStandardLibCall
     ]
 
 nodeIsStandardLibCall :: Syntax.SyntaxUnit -> Bool
 nodeIsStandardLibCall su = case Syntax.token su of
-  (Syntax.Data (Syntax.Id id)) -> elem id (SknStdLib.stdLibIds)
+  (Syntax.Data (Syntax.Id id)) ->
+    (elem id . map SknStdLib.generalStdLibFunctionId) SknStdLib.exporting
   _ -> False
 
 ----Traverse and Retrieve Functions-------------------------------------------------------
@@ -125,30 +132,6 @@ getLampreyValue = last . Tree.treeChildren
 
 ----Inline Standard Library---------------------------------------------------------------
 ------------------------------------------------------------------------------------------
-standardLibIdStrings :: [String]
-standardLibIdStrings =
-  [ "+",
-    "-",
-    "/",
-    "*",
-    "^",
-    "==",
-    "/=",
-    ">",
-    "<",
-    ">=",
-    "<=",
-    "fin",
-    "#INLINE#",
-    "to_string",
-    "to_bool",
-    "concat_str",
-    "read_prim",
-    "floor"
-  ]
-
-getSakanaArgForInlineBody :: String
-getSakanaArgForInlineBody = ""
 
 getSakanaNumDraft :: Syntax.Data -> Double
 getSakanaNumDraft (Syntax.Num n) = n
