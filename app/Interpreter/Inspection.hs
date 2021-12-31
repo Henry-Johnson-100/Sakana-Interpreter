@@ -16,6 +16,11 @@ treeHeadIsPrimitiveData tr = case Tree.treeNode tr of
   (Maybe.Just (Syntax.SyntaxUnit (Syntax.Data d) _ _)) -> Syntax.isPrimitive d
   _ -> False
 
+treeHeadIsPrimitiveNumType :: Syntax.SyntaxTree -> Bool
+treeHeadIsPrimitiveNumType tr = case Tree.treeNode tr of
+  (Maybe.Just (Syntax.SyntaxUnit (Syntax.Data (Syntax.Num n)) _ _)) -> True
+  _ -> False
+
 treeHasNoChildren :: Tree.Tree a -> Bool
 treeHasNoChildren = null . Tree.treeChildren
 

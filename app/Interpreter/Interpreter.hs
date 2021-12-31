@@ -165,17 +165,8 @@ getLampreyPositionalParameters =
 getLampreyValue :: Syntax.SyntaxTree -> Syntax.SyntaxTree
 getLampreyValue = last . Tree.treeChildren
 
-----Inline Standard Library---------------------------------------------------------------
+----General-------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
-
-getSakanaNumDraft :: Syntax.Data -> Double
-getSakanaNumDraft (Syntax.Num n) = n
-getSakanaNumDraft _ = throwGeneralError
-
-getSakanaArgDraft :: Syntax.SyntaxTree -> Syntax.Data
-getSakanaArgDraft tr = case Tree.treeNode tr of
-  (Maybe.Just (Syntax.SyntaxUnit (Syntax.Data d) _ _)) -> d
-  _ -> throwGeneralError
 
 throwGeneralError :: a
 throwGeneralError =
