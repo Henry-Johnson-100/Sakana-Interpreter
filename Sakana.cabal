@@ -32,6 +32,7 @@ executable Sakana
         Interpreter.Inspection
         Interpreter.SknStdLib.Std
         Interpreter.SknStdLib.IO
+        Interpreter.SknStdLib.Type
         Parser
         Parser.Core
         Syntax

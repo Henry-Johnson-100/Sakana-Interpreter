@@ -12,6 +12,7 @@ data ExceptionType
   | FailedToParse
   | InvalidID
   | InvalidArgs
+  | FunctionArgumentNumberException
   | SymbolNotFound
   | SymbolIsAlreadyBound
   | ImproperBindingLookup
