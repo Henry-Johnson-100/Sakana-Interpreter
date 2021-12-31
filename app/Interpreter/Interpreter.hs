@@ -76,14 +76,20 @@ evaluateFunction rt = evaluateFunction' rt
       | otherwise = return rt
 
 -- | #TODO
+-- still requires implementing argument number error checking and stuff
+-- but I think it works for now
 evaluateStandardLibraryCall :: Env.Runtime -> IO Env.Runtime
 evaluateStandardLibraryCall rt = evaluateStandardLibraryCall' rt
   where
     evaluateStandardLibraryCall' :: Env.Runtime -> IO Env.Runtime
-    evaluateStandardLibraryCall' (Env.Runtime st (tr : trs) err) =
-      case getBaseFunctionIdString tr of
-        "+" -> return rt
-        _ -> return rt
+    evaluateStandardLibraryCall' (Env.Runtime st (tr : trs) err) = do
+      evaluatedArguments <- interpretArgumentList (Env.replaceValue trs rt)
+      stdLibFuncResult <-
+        ( SknStdLib.generalStdLibFunctionDefinition
+            ((getStdLibFunctionFromId . getBaseFunctionIdString) tr)
+          )
+          evaluatedArguments
+      (return . flip Env.replaceValue rt . UGen.listSingleton) stdLibFuncResult
       where
         getBaseFunctionIdString :: Syntax.SyntaxTree -> String
         getBaseFunctionIdString =
@@ -92,6 +98,35 @@ evaluateStandardLibraryCall rt = evaluateStandardLibraryCall' rt
               . (=<<) (Syntax.baseData . Syntax.token)
               . Tree.treeNode
           )
+        getStdLibFunctionFromId :: String -> SknStdLib.SknStdLibFunction
+        getStdLibFunctionFromId funcId =
+          ( Maybe.fromJust
+              . UGen.head'
+              . filter ((==) funcId . SknStdLib.generalStdLibFunctionId)
+          )
+            SknStdLib.exporting
+        -- Taking a list of trees, return a list of the results of interpretation
+        -- of each individual tree.
+        --
+        -- Differs from program interpretation in that the list of trees in the Runtime
+        -- is parallel and not serial, in concept.
+        interpretArgumentList :: Env.Runtime -> IO [Syntax.SyntaxTree]
+        interpretArgumentList = flip interpretArgumentList' (pure [])
+          where
+            interpretArgumentList' ::
+              Env.Runtime -> IO [Syntax.SyntaxTree] -> IO [Syntax.SyntaxTree]
+            interpretArgumentList' (Env.Runtime st [] err) accum = accum
+            interpretArgumentList' (Env.Runtime st (tr' : trs') err) accum = do
+              joinedAccum <- accum
+              toCons <- argumentResult (Env.Runtime st [tr'] err)
+              (return . flip (:) joinedAccum) toCons
+              where
+                -- This is a partial function but hopefully
+                -- it doesn't lead to any trouble later.
+                argumentResult :: Env.Runtime -> IO Syntax.SyntaxTree
+                argumentResult =
+                  fmap (\(Env.Runtime _ xs _) -> (Maybe.fromJust . UGen.head') xs)
+                    . interpret
 
 treeHeadIsStandardLibraryCall :: Syntax.SyntaxTree -> Bool
 treeHeadIsStandardLibraryCall =

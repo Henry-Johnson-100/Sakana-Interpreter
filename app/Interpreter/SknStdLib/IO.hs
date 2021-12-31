@@ -5,14 +5,11 @@ module Interpreter.SknStdLib.IO
   )
 where
 
-import qualified Data.Maybe as Maybe
 import qualified Exception.Base as Exception
-import qualified Interpreter.Inspection
 import qualified Interpreter.SknStdLib.Type as StdLibType
 import qualified Syntax
 import System.IO (hGetContents, hPutStr, stderr, stdin, stdout)
 import qualified Util.Classes as UC
-import qualified Util.General as UGen
 import Util.Tree (Tree ((:-<-:)))
 import qualified Util.Tree as Tree
 
@@ -23,26 +20,26 @@ trout :: StdLibType.SknStdLibFunction
 trout = StdLibType.GeneralStdLibFunction "trout" trout_params# trout#
   where
     trout_params# = ["to_print"]
-    trout# trs = trout'# trs
+    trout# trs = trout_definition# trs
       where
-        trout'#
+        trout_definition#
           (((Syntax.SyntaxUnit (Syntax.Data (Syntax.String str)) _ _) :-<-: []) : []) =
             hPutStr stdout str >> return UC.defaultValue
-        trout'# (tr : []) = (Exception.raiseError . printTypeException) tr
-        trout'# trs =
+        trout_definition# (tr : []) = (Exception.raiseError . printTypeException) tr
+        trout_definition# trs =
           StdLibType.raiseSknStdLibArgumentException (trs) ("") (trout_params#)
 
 herring :: StdLibType.SknStdLibFunction
 herring = StdLibType.GeneralStdLibFunction "herring" herring_params# herring#
   where
     herring_params# = ["to_print"]
-    herring# trs = herring'# trs
+    herring# trs = herring_definition# trs
       where
-        herring'#
+        herring_definition#
           (((Syntax.SyntaxUnit (Syntax.Data (Syntax.String str)) _ _) :-<-: []) : []) =
             hPutStr stderr str >> return UC.defaultValue
-        herring'# (tr : []) = (Exception.raiseError . printTypeException) tr
-        herring'# trs =
+        herring_definition# (tr : []) = (Exception.raiseError . printTypeException) tr
+        herring_definition# trs =
           StdLibType.raiseSknStdLibArgumentException (trs) ("") (herring_params#)
 
 dolphin :: StdLibType.SknStdLibFunction
@@ -50,15 +47,15 @@ dolphin = StdLibType.GeneralStdLibFunction dolphin_id# dolphin_params# dolphin#
   where
     dolphin_id# = "dolphin"
     dolphin_params# = []
-    dolphin# trs = dolphin'# trs
+    dolphin# trs = dolphin_definition# trs
       where
-        dolphin'# [] = do
+        dolphin_definition# [] = do
           inString <- hGetContents stdin
           let stringDataTree =
                 Tree.tree
                   UC.defaultValue {Syntax.token = Syntax.Data (Syntax.String inString)}
           return stringDataTree
-        dolphin'# trs =
+        dolphin_definition# trs =
           StdLibType.raiseSknStdLibArgumentException
             (trs)
             ("This function takes no arguments!")

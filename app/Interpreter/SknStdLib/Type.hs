@@ -61,6 +61,9 @@ sakana_const =
     sakana_const_params# :: [String]
     sakana_const_params# = ["keep", "replace"]
     sakana_const# :: [Syntax.SyntaxTree] -> IO Syntax.SyntaxTree
+    -- Note that it may be preferred to have this double nested 'where'
+    -- to keep an easy reference to the list of trees passed into the function
+    -- for error reporting.
     sakana_const# args = sakana_const'# args
       where
         sakana_const'# (trKeep : trReplace : []) = return trKeep
