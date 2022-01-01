@@ -33,7 +33,7 @@ import qualified Data.List as List hiding (lookup)
 import qualified Data.Maybe as Maybe
 import qualified Exception.Base as Exception
 import qualified GHC.Generics
-import qualified Syntax
+import qualified Parser.Syntax as Syntax
 import qualified Util.Classes as UC
 import Util.General ((.<))
 import Prelude hiding (lookup)

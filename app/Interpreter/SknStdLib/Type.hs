@@ -9,7 +9,7 @@ module Interpreter.SknStdLib.Type
 where
 
 import qualified Exception.Base as Exception
-import qualified Syntax
+import qualified Parser.Syntax as Syntax
 import qualified Util.Classes as UC
 import qualified Util.Tree as Tree
 

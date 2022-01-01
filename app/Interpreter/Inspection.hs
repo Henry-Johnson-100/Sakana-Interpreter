@@ -1,7 +1,7 @@
 module Interpreter.Inspection where
 
 import qualified Data.Maybe as Maybe
-import qualified Syntax
+import qualified Parser.Syntax as Syntax
 import qualified Util.General as UGen
 import qualified Util.Tree as Tree
 

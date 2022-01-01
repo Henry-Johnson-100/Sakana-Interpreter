@@ -27,20 +27,21 @@ executable Sakana
     --Modules included in this executable, other than Main.
     other-modules:
         Exception.Base
-        Interpreter
+        Interpreter.Main
         Interpreter.Environment
         Interpreter.Inspection
-        Interpreter.SknStdLib.Std
         Interpreter.SknStdLib.IO
+        Interpreter.SknStdLib.Std
         Interpreter.SknStdLib.Type
-        Parser
+        Parser.Main
         Parser.Core
-        Syntax
+        Parser.Syntax
+        Test.Core
+        Util.Classes
+        Util.General
         Util.Like
         Util.String
         Util.Tree
-        Util.General
-        Util.Classes
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: 
@@ -51,47 +52,22 @@ executable Sakana
     build-depends:    
         base >= 4.8.0.0
       , ghc-prim >= 0.5.0
+      , tasty >= 0.7 && < 1.4.1
+      , tasty-hunit ^>=0.10.0.3
       , parsec == 3.1.14.0
       , hashable == 1.3.3.0
       , unordered-containers == 0.2.14.0
-    hs-source-dirs:   app
-                      app/Exception
-                      app/Interpreter
-                      app/Interpreter/SknStdLib
-                      app/Util
-                      app/Parser
-                      app/Test
-                      Test
+    hs-source-dirs:   
+        app
+        app/Exception
+        app/Interpreter
+        app/Interpreter/SknStdLib
+        app/Parser
+        app/Test
+        app/Util
+        Test
     default-language: Haskell2010
 
--- test-suite SakanaParser
---     default-language:
---         Haskell2010
---     type:
---         exitcode-stdio-1.0
---     hs-source-dirs:
---         app
---         app/Util
---         Test
---     main-is:
---         SyntaxTreeTest.hs
---     other-modules:
---         Exception.Base
---         SakanaParser
---         Syntax
---         Util.General
---         Util.Like
---         Util.String
---         Util.Tree
---         Util.Classes
---     build-depends:
---         base >= 4.8.0.0
---       , ghc-prim >= 0.5.0
---       , tasty >= 0.7 && < 1.4.1
---       , tasty-hunit ^>=0.10.0.3
---       , parsec == 3.1.14.0
---       , hashable == 1.3.3.0
---       , unordered-containers == 0.2.14.0
       
 test-suite ParserTest
     default-language:
@@ -99,20 +75,69 @@ test-suite ParserTest
     type:
         exitcode-stdio-1.0
     hs-source-dirs:
-        Test
         app
+        app/Exception
+        app/Parser
+        app/Test
+        app/Util
+        Test
     main-is:
         ParserTest.hs
     other-modules:
-        Test.Core
-        Parser.Core
         Exception.Base
-        Syntax
+        Parser.Main
+        Parser.Core
+        Parser.Syntax
+        Test.Core
+        Util.Classes
         Util.General
         Util.Like
         Util.String
         Util.Tree
+
+    build-depends:
+        base >= 4.8.0.0
+      , ghc-prim >= 0.5.0
+      , tasty >= 0.7 && < 1.4.1
+      , tasty-hunit ^>=0.10.0.3
+      , parsec == 3.1.14.0
+      , hashable == 1.3.3.0
+      , unordered-containers == 0.2.14.0
+
+test-suite InterpreterTest
+    default-language:
+        Haskell2010
+    type:
+        exitcode-stdio-1.0
+    hs-source-dirs:
+        app
+        app/Exception
+        app/Interpreter
+        app/Interpreter/SknStdLib
+        app/Parser
+        app/Test
+        app/Util
+        Test
+    main-is:
+        InterpreterTest.hs
+    other-modules:
+        Exception.Base
+        Interpreter.Main
+        Interpreter.Environment
+        Interpreter.Inspection
+        Interpreter.SknStdLib.IO
+        Interpreter.SknStdLib.Std
+        Interpreter.SknStdLib.Type
+        Parser.Main
+        Parser.Core
+        Parser.Syntax
+        Test.Core
         Util.Classes
+        Util.General
+        Util.Like
+        Util.String
+        Util.Tree
+
     build-depends:
         base >= 4.8.0.0
       , ghc-prim >= 0.5.0

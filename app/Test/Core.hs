@@ -19,7 +19,7 @@ module Test.Core
 where
 
 import Parser.Core (generalParse)
-import Syntax
+import Parser.Syntax
   ( Data (Id, Num, String),
     Keyword (Fish, Lamprey, Shoal),
     ScopeType (Send),

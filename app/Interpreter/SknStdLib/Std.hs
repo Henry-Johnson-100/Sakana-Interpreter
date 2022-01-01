@@ -12,7 +12,7 @@ import qualified Exception.Base as Exception
 import qualified Interpreter.Inspection as Inspect
 import qualified Interpreter.SknStdLib.IO
 import Interpreter.SknStdLib.Type
-import qualified Syntax
+import qualified Parser.Syntax as Syntax
 import qualified Util.Classes as UC
 import qualified Util.General as UGen
 import Util.Tree (Tree ((:-<-:)))

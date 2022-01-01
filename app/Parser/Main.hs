@@ -1,4 +1,4 @@
-module Parser
+module Parser.Main
   ( parse,
   )
 where
@@ -6,7 +6,7 @@ where
 import Data.Either (either)
 import Exception.Base (raiseError)
 import Parser.Core (getParseError, parse')
-import Syntax (SyntaxTree)
+import Parser.Syntax (SyntaxTree)
 import Text.Parsec (SourceName)
 import Util.General ((.<))
 

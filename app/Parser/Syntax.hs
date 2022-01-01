@@ -1,4 +1,4 @@
-module Syntax
+module Parser.Syntax
   ( Keyword (..),
     Data (..),
     BracketTerminal (..),

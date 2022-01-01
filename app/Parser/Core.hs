@@ -40,7 +40,7 @@ Copyright 1999-2000, Daan Leijen; 2007, Paolo Martini. All rights reserved.
 -}
 
 import qualified Exception.Base as Exception
-import qualified Syntax
+import qualified Parser.Syntax as Syntax
 import Text.Parsec ((<?>), (<|>))
 import qualified Text.Parsec as Prs
 import qualified Text.Parsec.Error

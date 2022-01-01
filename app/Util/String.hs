@@ -8,11 +8,7 @@ import qualified Data.Char (isSpace)
 import qualified Data.List (isPrefixOf, isSuffixOf)
 
 strip :: String -> String
-strip str =
-  reverse $
-    dropWhile Data.Char.isSpace $
-      reverse $
-        dropWhile Data.Char.isSpace str
+strip = reverse . dropWhile Data.Char.isSpace . reverse . dropWhile Data.Char.isSpace
 
 onlyLiteral :: String -> String
 onlyLiteral strs

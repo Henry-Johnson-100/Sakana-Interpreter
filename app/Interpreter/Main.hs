@@ -1,4 +1,4 @@
-module Interpreter
+module Interpreter.Main
   ( preprocessParserOutput,
     createCLIArgumentBindings,
     evaluateProgram,
@@ -13,7 +13,7 @@ import qualified Exception.Base as Exception
 import qualified Interpreter.Environment as Env
 import qualified Interpreter.Inspection as Inspect
 import qualified Interpreter.SknStdLib.Std as SknStdLib
-import qualified Syntax
+import qualified Parser.Syntax as Syntax
 import qualified System.IO as IO
 import qualified Util.Classes as UC
 import Util.General ((.<))

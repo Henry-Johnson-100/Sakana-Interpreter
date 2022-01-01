@@ -1,5 +1,5 @@
 import Parser.Core
-import Syntax
+import Parser.Syntax as Syntax
 import Test.Core
 import Util.Tree
 

@@ -7,7 +7,7 @@ where
 
 import qualified Exception.Base as Exception
 import qualified Interpreter.SknStdLib.Type as StdLibType
-import qualified Syntax
+import qualified Parser.Syntax as Syntax
 import System.IO (hGetContents, hPutStr, stderr, stdin, stdout)
 import qualified Util.Classes as UC
 import Util.Tree (Tree ((:-<-:)))

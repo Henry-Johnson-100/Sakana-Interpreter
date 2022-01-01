@@ -1,10 +1,23 @@
-import Data.Version
-import Interpreter
-import Parser
-import System.Environment
+import Data.Maybe (fromJust)
+import Data.Version (Version (Version), showVersion)
+import Interpreter.Main
+  ( createCLIArgumentBindings,
+    evaluateProgram,
+    preprocessParserOutput,
+  )
+import Interpreter.Inspection (treeHeadIsPrimitiveData)
+import Parser.Main (parse)
+import Parser.Syntax (SyntaxTree, SyntaxUnit (token), baseData)
+import System.Environment (getArgs)
 import System.IO
-import Util.Classes
+  ( IOMode (ReadMode),
+    hClose,
+    hGetContents,
+    openFile,
+  )
+import Util.Classes (Format (printf))
 import qualified Util.General
+import Util.Tree (treeNode)
 
 sakanaVersion :: Version
 sakanaVersion = Version [1, 0, 0, 0] []
@@ -69,17 +82,15 @@ interpretFileAndReturn filePathToInterpret sakanaArgs = do
   fileHandle <- openFile filePathToInterpret ReadMode
   fileContents <- hGetContents fileHandle
   let parserOutput = parse "Main" fileContents
-      preProcess =
+      initializedProgramRuntime =
         preprocessParserOutput parserOutput (createCLIArgumentBindings sakanaArgs)
-  programResult <- evaluateProgram preProcess
+  programResultTree <- evaluateProgram initializedProgramRuntime
+  printfProgramOutput programResultTree
   putStrLn "WIP"
-  printf programResult
   hClose fileHandle
-
--- fileHandle <- openFile filePathToInterpret ReadMode
--- fileTree <-
---   hGetContents fileHandle
---     >>= return . generateSyntaxTree
--- executeMain (getMainRuntime fileTree) (return sakanaArgs)
---   >>= hPutStrLn stdout . D.fromData
--- hClose fileHandle
+  where
+    printfProgramOutput :: SyntaxTree -> IO ()
+    printfProgramOutput tr =
+      if treeHeadIsPrimitiveData tr
+        then (printf . fromJust . (=<<) (baseData . token) . treeNode) tr
+        else printf tr
