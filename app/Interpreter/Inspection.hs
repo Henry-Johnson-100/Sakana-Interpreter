@@ -16,9 +16,12 @@ treeHeadIsFishDeclaration tr = case Tree.treeNode tr of
   (Maybe.Just (Syntax.SyntaxUnit (Syntax.Keyword Syntax.Fish) _ _)) -> True
   _ -> False
 
+-- | True only if the head of the tree is a primitive data type.
+-- Note that it is False when the head is an Id as well.
 treeHeadIsPrimitiveData :: Syntax.SyntaxTree -> Bool
 treeHeadIsPrimitiveData tr = case Tree.treeNode tr of
-  (Maybe.Just (Syntax.SyntaxUnit (Syntax.Data d) _ _)) -> Syntax.isPrimitive d
+  (Maybe.Just (Syntax.SyntaxUnit (Syntax.Data d) _ _)) ->
+    if Syntax.isId d then False else True
   _ -> False
 
 treeHeadIsPrimitiveNumType :: Syntax.SyntaxTree -> Bool

@@ -11,6 +11,7 @@ module Parser.Syntax
     isPrimitive,
     isString,
     isNumeric,
+    isId,
     unNum,
     unString,
     unBoolean,
@@ -158,6 +159,10 @@ primTypeOf (Num _) = "Num"
 primTypeOf (Boolean _) = "Boolean"
 primTypeOf (Id _) = "Id"
 primTypeOf Null = "Null"
+
+isId :: Data -> Bool
+isId (Id _) = True
+isId _ = False
 
 isPrimitive :: Data -> Bool
 isPrimitive d = any (d `UC.like`) [Num 0.0, String "", Boolean True, Null]

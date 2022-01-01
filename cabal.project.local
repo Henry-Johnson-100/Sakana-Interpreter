@@ -1,2 +1,2 @@
 ignore-project: False
-tests: True
+optimization: 2

@@ -1,0 +1,29 @@
+fish fact
+  >(n)>
+  >(
+    fish fact_
+      >(n)>
+      >(prod)>
+      <(
+        fin
+          >(<= >(n)> >(1)>)>
+          >(prod)>
+          >(
+            fact_
+              >(- >(n)> >(1)>)>
+              >(* >(prod)> >(n)>)>
+          )>
+      )<
+  )>
+  <(
+    fact_ >(n)> >(prod)>
+  )<
+
+fish main
+  <(
+    swim
+      >(arg_int <(read >(_arg_B)>)<)>
+      <(
+        fact >(arg_int)>
+      )<
+  )<

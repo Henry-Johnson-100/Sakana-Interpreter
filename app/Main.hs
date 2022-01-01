@@ -1,13 +1,13 @@
+import Data.Either
 import Data.Maybe (fromJust)
 import Data.Version (Version (Version), showVersion)
+import Interpreter.Inspection (treeHeadIsPrimitiveData)
 import Interpreter.Main
   ( createCLIArgumentBindings,
     evaluateProgram,
-    preprocessParserOutput,
   )
-import Interpreter.Inspection (treeHeadIsPrimitiveData)
 import Parser.Main (parse)
-import Parser.Syntax (SyntaxTree, SyntaxUnit (token), baseData)
+import Parser.Syntax (Data, SyntaxTree, SyntaxUnit (token), baseData)
 import System.Environment (getArgs)
 import System.IO
   ( IOMode (ReadMode),
@@ -81,16 +81,11 @@ interpretFileAndReturn :: FilePath -> [String] -> IO ()
 interpretFileAndReturn filePathToInterpret sakanaArgs = do
   fileHandle <- openFile filePathToInterpret ReadMode
   fileContents <- hGetContents fileHandle
-  let parserOutput = parse "Main" fileContents
-      initializedProgramRuntime =
-        preprocessParserOutput parserOutput (createCLIArgumentBindings sakanaArgs)
-  programResultTree <- evaluateProgram initializedProgramRuntime
-  printfProgramOutput programResultTree
+  interpreterOutput <-
+    evaluateProgram (parse "Main" fileContents) (createCLIArgumentBindings sakanaArgs)
+  printfProgramOutput interpreterOutput
   putStrLn "WIP"
   hClose fileHandle
   where
-    printfProgramOutput :: SyntaxTree -> IO ()
-    printfProgramOutput tr =
-      if treeHeadIsPrimitiveData tr
-        then (printf . fromJust . (=<<) (baseData . token) . treeNode) tr
-        else printf tr
+    printfProgramOutput :: Either SyntaxTree Data -> IO ()
+    printfProgramOutput = either printf printf

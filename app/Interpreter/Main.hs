@@ -1,11 +1,11 @@
 module Interpreter.Main
-  ( preprocessParserOutput,
-    createCLIArgumentBindings,
+  ( createCLIArgumentBindings,
     evaluateProgram,
   )
 where
 
 import qualified Control.Monad as CMonad
+import qualified Data.Either as Either
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as List hiding (lookup)
 import qualified Data.Maybe as Maybe
@@ -22,52 +22,19 @@ import Util.Tree (Tree ((:-<-:)))
 import qualified Util.Tree as Tree
 import Prelude hiding (lookup)
 
--- | Takes the raw output from the parser and converts it into an interpretable Runtime.
-preprocessParserOutput :: Syntax.SyntaxTree -> [Env.Binding] -> Env.Runtime
-preprocessParserOutput docTree additionalBindings =
-  ( setMain
-      . injectAdditionalBindings additionalBindings
-      . foldDocTreeChildrenToRuntime
-  )
-    UC.defaultValue {Env.runtimeValue = Tree.treeChildren docTree}
-  where
-    foldDocTreeChildrenToRuntime :: Env.Runtime -> Env.Runtime
-    foldDocTreeChildrenToRuntime rt =
-      if (null . Env.runtimeValue) rt
-        then rt
-        else (foldDocTreeChildrenToRuntime . advanceToNextTree . processStatementTree) rt
-    -- Finds the function identified as 'main' in the runtime's symbol table
-    -- and returns a runtime with that function as the runtimeValue.
-    setMain :: Env.Runtime -> Env.Runtime
-    setMain rt =
-      Maybe.maybe
-        (Env.replaceException noMainException rt)
-        (flip Env.replaceValue rt . UGen.listSingleton)
-        (Env.runtimeMaybeLookup rt "main")
-      where
-        noMainException =
-          Exception.newException
-            Exception.SymbolNotFound
-            []
-            "requires a fish called \'main\' to interpret the program."
-            Exception.Fatal
-    injectAdditionalBindings :: [Env.Binding] -> Env.Runtime -> Env.Runtime
-    injectAdditionalBindings bindings rt = List.foldr Env.injectBinding rt bindings
-
-createCLIArgumentBindings :: [String] -> [Env.Binding]
-createCLIArgumentBindings = map bindingFromTuple . zip argNameScheme
-  where
-    argNameScheme :: [String]
-    argNameScheme = ["_arg_" ++ [c] | c <- ['A' .. 'z']]
-    bindingFromTuple :: (String, String) -> Env.Binding
-    bindingFromTuple (bid, bval) =
-      Env.Binding
-        (Env.BindingKey bid)
-        (Tree.tree (UC.defaultValue {Syntax.token = Syntax.Data (Syntax.String bval)}))
+----Interpreter Preprocessing and Output--------------------------------------------------
+------------------------------------------------------------------------------------------
 
 -- | ...
-evaluateProgram :: Env.Runtime -> IO Syntax.SyntaxTree
-evaluateProgram = fmap programOutputHead . interpret
+evaluateProgram ::
+  Syntax.SyntaxTree -> [Env.Binding] -> IO (Either.Either Syntax.SyntaxTree Syntax.Data)
+evaluateProgram docTree additionalBindings =
+  ( fmap getUsefulOutput
+      . fmap programOutputHead
+      . interpret
+      . preprocessParserOutput docTree
+  )
+    additionalBindings
   where
     programOutputHead :: Env.Runtime -> Syntax.SyntaxTree
     programOutputHead =
@@ -81,6 +48,69 @@ evaluateProgram = fmap programOutputHead . interpret
         []
         "Null value at end of program."
         Exception.Fatal
+    -- If the output of the interpreter's head is a primitive data type,
+    -- return that instead otherwise return the tree that was the result.
+    getUsefulOutput :: Syntax.SyntaxTree -> Either.Either Syntax.SyntaxTree Syntax.Data
+    getUsefulOutput tr =
+      if Inspect.treeHeadIsPrimitiveData tr
+        then
+          ( Either.Right
+              . Maybe.fromJust
+              . (=<<) (Syntax.baseData . Syntax.token)
+              . Tree.treeNode
+          )
+            tr
+        else Either.Left tr
+    -- Takes the raw output from the parser and converts it into an interpretable Runtime.
+    preprocessParserOutput :: Syntax.SyntaxTree -> [Env.Binding] -> Env.Runtime
+    preprocessParserOutput docTree additionalBindings =
+      ( setMain
+          . injectAdditionalBindings additionalBindings
+          . foldDocTreeChildrenToRuntime
+      )
+        UC.defaultValue {Env.runtimeValue = Tree.treeChildren docTree}
+      where
+        foldDocTreeChildrenToRuntime :: Env.Runtime -> Env.Runtime
+        foldDocTreeChildrenToRuntime rt =
+          if (null . Env.runtimeValue) rt
+            then rt
+            else
+              ( foldDocTreeChildrenToRuntime
+                  . advanceToNextTree
+                  . processStatementTree
+              )
+                rt
+        -- Finds the function identified as 'main' in the runtime's symbol table
+        -- and returns a runtime with that function as the runtimeValue.
+        setMain :: Env.Runtime -> Env.Runtime
+        setMain rt =
+          Maybe.maybe
+            (Env.replaceException noMainException rt)
+            (flip Env.replaceValue rt . UGen.listSingleton)
+            (Env.runtimeMaybeLookup rt "main")
+          where
+            noMainException =
+              Exception.newException
+                Exception.SymbolNotFound
+                []
+                "requires a fish called \'main\' to interpret the program."
+                Exception.Fatal
+        injectAdditionalBindings :: [Env.Binding] -> Env.Runtime -> Env.Runtime
+        injectAdditionalBindings bindings rt = List.foldr Env.injectBinding rt bindings
+
+createCLIArgumentBindings :: [String] -> [Env.Binding]
+createCLIArgumentBindings = map bindingFromTuple . zip argNameScheme
+  where
+    argNameScheme :: [String]
+    argNameScheme = ["_arg_" ++ [c] | c <- ['A' .. 'z']]
+    bindingFromTuple :: (String, String) -> Env.Binding
+    bindingFromTuple (bid, bval) =
+      Env.Binding
+        (Env.BindingKey bid)
+        (Tree.tree (UC.defaultValue {Syntax.token = Syntax.Data (Syntax.String bval)}))
+
+----Interpreter Logic and Operations------------------------------------------------------
+------------------------------------------------------------------------------------------
 
 interpret :: Env.Runtime -> IO Env.Runtime
 interpret rt = interpret' . Env.throwJustError $ rt
