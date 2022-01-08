@@ -1,5 +1,6 @@
 module Parser.Core
   ( parse',
+    generalParsePreserveError,
     getParseError,
     boolParser,
     stringParser,
@@ -404,6 +405,13 @@ generalParse p srcName src =
     (Exception.raiseError . flip getParseError src)
     id
     (Prs.parse p srcName src)
+
+generalParsePreserveError ::
+  Prs.ParsecT [Char] () DFId.Identity a ->
+  Prs.SourceName ->
+  String ->
+  Either Prs.ParseError a
+generalParsePreserveError parser srcName src = Prs.parse parser srcName src
 
 getParseError :: Prs.ParseError -> String -> Exception.Exception
 getParseError prsErr srcStr =

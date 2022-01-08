@@ -6,12 +6,14 @@ module Interpreter.SknStdLib.Std
   )
 where
 
+import qualified Data.Either as Either
 import qualified Data.List as List
 import qualified Data.Maybe as Maybe
 import qualified Exception.Base as Exception
 import qualified Interpreter.Inspection as Inspect
 import qualified Interpreter.SknStdLib.IO
 import Interpreter.SknStdLib.Type
+import qualified Parser.Core
 import qualified Parser.Syntax as Syntax
 import qualified Util.Classes as UC
 import qualified Util.General as UGen
@@ -25,8 +27,11 @@ exporting =
 
 stdFunctions :: [SknStdLibFunction]
 stdFunctions =
-  algebraicFunctions
-    ++ ordFunctions
+  concat
+    [ algebraicFunctions,
+      ordFunctions,
+      generalFunctions
+    ]
 
 ----StdLib function declarations----------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -79,6 +84,68 @@ skn_gteq = genericOrdCompareStdLibFunc ">=" (>=) (>=) (>=)
 skn_lteq :: SknStdLibFunction
 skn_lteq = genericOrdCompareStdLibFunc "<=" (<=) (<=) (<=)
 
+generalFunctions :: [SknStdLibFunction]
+generalFunctions = [skn_show, skn_read]
+
+-- | Take a primitive value and return a string.
+skn_show :: SknStdLibFunction
+skn_show = GeneralStdLibFunction id# params# skn_show#
+  where
+    id# = "show_prim"
+    params# = ["x"]
+    skn_show# trs = skn_show_definition# trs
+      where
+        skn_show_definition# :: [Syntax.SyntaxTree] -> IO Syntax.SyntaxTree
+        skn_show_definition# (tr : []) =
+          if Inspect.treeHeadIsPrimitiveData tr
+            then
+              ( return
+                  . Tree.tree
+                  . ( \((Syntax.SyntaxUnit (Syntax.Data d) _ _) :-<-: _) ->
+                        UC.defaultValue
+                          { Syntax.token =
+                              (Syntax.Data (Syntax.String (UC.format d)))
+                          }
+                    )
+              )
+                tr
+            else raiseNonPrimitiveTypeError id# [tr]
+        -- raise error for wrong number of arguments
+        skn_show_definition# trs = raiseSknStdLibArgumentException trs "" params#
+
+-- | Take a primitive string and return an appropriately typed value.
+skn_read :: SknStdLibFunction
+skn_read = GeneralStdLibFunction id# params# skn_read#
+  where
+    id# = "read_prim"
+    params# = ["x"]
+    skn_read# trs = skn_read_definition# trs
+      where
+        skn_read_definition# :: [Syntax.SyntaxTree] -> IO Syntax.SyntaxTree
+        skn_read_definition# (tr : []) =
+          case Tree.treeNode tr of
+            Maybe.Just (Syntax.SyntaxUnit (Syntax.Data (Syntax.String str)) l st) ->
+              (return . Tree.tree)
+                UC.defaultValue
+                  { Syntax.token = Syntax.Data (parseSknString str),
+                    Syntax.line = l,
+                    Syntax.context = st
+                  }
+            Maybe.Just su -> raiseNonPrimitiveTypeError id# [tr]
+            _ -> raiseSknStdLibArgumentException [tr] "" params#
+        --raise error for wrong number of arguments
+        skn_read_definition# trs = raiseSknStdLibArgumentException trs "" params#
+        parseSknString :: String -> Syntax.Data
+        parseSknString str =
+          Either.either
+            ((const . Syntax.String) str)
+            id
+            ( Parser.Core.generalParsePreserveError
+                Parser.Core.dataParser
+                "read_prim parsing"
+                str
+            )
+
 ----Functions for generating StdLib functions---------------------------------------------
 ------------------------------------------------------------------------------------------
 
@@ -107,7 +174,7 @@ genericOrdCompareStdLibFunc name doubleCompare strCompare boolCompare =
               (Syntax.String x, Syntax.String y) -> (return . stBool . strCompare x) y
               (Syntax.Boolean x, Syntax.Boolean y) -> (return . stBool . boolCompare x) y
               _ -> raiseMismatchedPrimitiveComparitiveTypeError trs
-            else raiseNonPrimitiveComparitiveTypeError name trs
+            else raiseNonPrimitiveTypeError name trs
           where
             curryTrees :: (Syntax.SyntaxTree, Syntax.SyntaxTree)
             curryTrees = (trx, try)
@@ -162,8 +229,8 @@ raiseMismatchedPrimitiveComparitiveTypeError trs =
         Exception.Fatal
     )
 
-raiseNonPrimitiveComparitiveTypeError :: [Char] -> [Tree Syntax.SyntaxUnit] -> a2
-raiseNonPrimitiveComparitiveTypeError opName trs =
+raiseNonPrimitiveTypeError :: [Char] -> [Tree Syntax.SyntaxUnit] -> a2
+raiseNonPrimitiveTypeError opName trs =
   Exception.raiseError
     ( Exception.newException
         Exception.TypeException
