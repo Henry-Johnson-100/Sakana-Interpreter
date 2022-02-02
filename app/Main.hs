@@ -22,7 +22,7 @@ import Util.Tree (treeNode)
 sakanaVersion :: Version
 sakanaVersion = Version [1, 0, 0, 0] []
 
-data LicenseStr = LS String String
+data LicenseStr = LS !String !String
 
 instance Show LicenseStr where
   show (LS title copyright) = title ++ "\n\t" ++ copyright

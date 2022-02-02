@@ -25,7 +25,7 @@ import qualified Data.Maybe (fromJust)
 import qualified Util.Classes as UC
 import qualified Util.General
 
-data Tree a = Empty | a :-<-: [Tree a] deriving (Show, Eq)
+data Tree a = Empty | !a :-<-: ![Tree a] deriving (Show, Eq)
 
 instance Functor Tree where
   fmap f (b :-<-: cs) = f b :-<-: map (fmap f) cs

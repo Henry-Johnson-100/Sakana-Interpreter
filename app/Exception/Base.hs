@@ -30,15 +30,15 @@ data ExceptionSeverity
 data ExceptionInfo
   = NoInfo
   | ExceptionInfo
-      { exceptionLines :: [Int],
-        exceptionMessage :: String,
-        severity :: ExceptionSeverity
+      { exceptionLines :: ![Int],
+        exceptionMessage :: !String,
+        severity :: !ExceptionSeverity
       }
   deriving (Eq)
 
 data Exception = Exception
-  { exceptionType :: ExceptionType,
-    information :: ExceptionInfo
+  { exceptionType :: !ExceptionType,
+    information :: !ExceptionInfo
   }
   deriving (Eq)
 

@@ -40,7 +40,7 @@ import Prelude hiding (lookup)
 
 ----Data & Type & Instance Definitions----------------------------------------------------
 ------------------------------------------------------------------------------------------
-data BindingKey = BindingKey String deriving (Show, Eq, GHC.Generics.Generic)
+data BindingKey = BindingKey !String deriving (Show, Eq, GHC.Generics.Generic)
 
 instance Data.Hashable.Hashable BindingKey where
   hash (BindingKey key) = Data.Hashable.hash key
@@ -49,8 +49,8 @@ instance UC.Format BindingKey where
   format (BindingKey key) = key
 
 data Binding = Binding
-  { bindingKey :: BindingKey,
-    bindingTree :: Syntax.SyntaxTree
+  { bindingKey :: !BindingKey,
+    bindingTree :: !Syntax.SyntaxTree
   }
   deriving (Show, Eq)
 
@@ -72,9 +72,9 @@ instance (UC.Format k, UC.Format v) => UC.Format (HashMap.HashMap k v) where
       formatKVTuple (k, v) = UC.format k ++ ": " ++ UC.format v
 
 data Runtime = Runtime
-  { runtimeSymbolTable :: SymbolTable,
-    runtimeValue :: [Syntax.SyntaxTree],
-    runtimeException :: Maybe.Maybe Exception.Exception
+  { runtimeSymbolTable :: !SymbolTable,
+    runtimeValue :: ![Syntax.SyntaxTree],
+    runtimeException :: !(Maybe.Maybe Exception.Exception)
   }
   deriving (Eq, Show)
 

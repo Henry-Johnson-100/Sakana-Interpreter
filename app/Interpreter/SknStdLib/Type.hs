@@ -14,11 +14,12 @@ import qualified Util.Classes as UC
 import qualified Util.Tree as Tree
 
 data SknStdLibFunction = GeneralStdLibFunction
-  { generalStdLibFunctionId :: String,
-    generalStdLibFunctionParams :: [String],
+  { generalStdLibFunctionId :: !String,
+    generalStdLibFunctionParams :: ![String],
     generalStdLibFunctionDefinition ::
-      [Syntax.SyntaxTree] ->
-      IO Syntax.SyntaxTree
+      !( [Syntax.SyntaxTree] ->
+         IO Syntax.SyntaxTree
+       )
   }
 
 generalStdLibFunctionParamNumber :: SknStdLibFunction -> Int

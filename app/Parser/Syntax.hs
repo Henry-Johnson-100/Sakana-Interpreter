@@ -47,16 +47,16 @@ import qualified Util.Tree as Tree
 data Source a = Source {sourceUnit :: a, sourceLine :: Int} deriving (Show, Eq, Read)
 
 data SyntaxUnit = SyntaxUnit
-  { token :: Token,
-    line :: Int,
-    context :: ScopeType
+  { token :: !Token,
+    line :: !Int,
+    context :: !ScopeType
   }
   deriving (Show, Eq)
 
 data Token
-  = Bracket ScopeType BracketTerminal
-  | Data Data
-  | Keyword Keyword
+  = Bracket !ScopeType !BracketTerminal
+  | Data !Data
+  | Keyword !Keyword
   deriving (Show, Read, Eq)
 
 data BracketTerminal = Open | Close deriving (Show, Read, Eq)
@@ -72,10 +72,10 @@ data Keyword
   deriving (Show, Read, Eq)
 
 data Data
-  = Num Double
-  | String String
-  | Boolean Bool
-  | Id String
+  = Num !Double
+  | String !String
+  | Boolean !Bool
+  | Id !String
   | Null
   deriving (Show, Read, Eq)
 
