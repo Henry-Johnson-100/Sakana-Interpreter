@@ -81,12 +81,12 @@ evaluateProgram docTree additionalBindings =
               )
                 rt
         -- Finds the function identified as 'main' in the runtime's symbol table
-        -- and returns a runtime with that function as the runtimeValue.
+        -- and returns a runtime with that function's value as the runtimeValue.
         setMain :: Env.Runtime -> Env.Runtime
         setMain rt =
           Maybe.maybe
             (Env.replaceException noMainException rt)
-            (flip Env.replaceValue rt . UGen.listSingleton)
+            (flip Env.replaceValue rt . UGen.listSingleton . getLampreyValue)
             (Env.runtimeMaybeLookup rt "main")
           where
             noMainException =
