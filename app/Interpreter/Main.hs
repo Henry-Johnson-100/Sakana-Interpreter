@@ -13,6 +13,7 @@ import qualified Exception.Base as Exception
 import qualified Interpreter.Environment as Env
 import qualified Interpreter.Inspection as Inspect
 import qualified Interpreter.SknStdLib.Std as SknStdLib
+import qualified Parser.Main
 import qualified Parser.Syntax as Syntax
 import qualified System.IO as IO
 import qualified Util.Classes as UC
@@ -251,7 +252,9 @@ processFishStatement rt = processFishStatement' rt
           Maybe.fromJust
             . (=<<) Syntax.unId
             . (=<<) (Syntax.baseData . Syntax.token)
-            . Tree.treeNode
+            . (=<<) Tree.treeNode
+            . UGen.head'
+            . Tree.treeChildren
         getFishLamprey :: Syntax.SyntaxTree -> Syntax.SyntaxTree
         getFishLamprey =
           Maybe.fromJust
@@ -305,3 +308,5 @@ throwGeneralErrorWithMsg msg =
         msg
         Exception.Fatal
     )
+
+testString = flip evaluateProgram [] . Parser.Main.parse "Interpreter.Main.testString"
