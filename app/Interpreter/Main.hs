@@ -102,7 +102,7 @@ createCLIArgumentBindings :: [String] -> [Env.Binding]
 createCLIArgumentBindings = map bindingFromTuple . zip argNameScheme
   where
     argNameScheme :: [String]
-    argNameScheme = ["_arg_" ++ [c] | c <- ['A' .. 'z']]
+    argNameScheme = ["_arg_" ++ [c] | c <- ['A' .. 'Z'] ++ ['a' .. 'z']]
     bindingFromTuple :: (String, String) -> Env.Binding
     bindingFromTuple (bid, bval) =
       Env.Binding
