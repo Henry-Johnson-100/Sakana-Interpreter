@@ -90,11 +90,6 @@ instance UC.Format Runtime where
         (UC.format . runtimeValue) rt
       ]
 
--- ""
---  ++ ((UC.format . runtimeSymbolTable) rt)
---   ++ "\n"
---   ++ ((UC.format . runtimeValue) rt)
-
 ----General Operations--------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 bindingTuple :: Binding -> (BindingKey, Syntax.SyntaxTree)
