@@ -79,7 +79,7 @@ stringParser = do
   Prs.char '"'
   string <-
     Prs.manyTill
-      ( (Prs.choice . (<$>) Prs.try)
+      ( tryChoices
           [removeInvisibleSpacing, unescapeEscapedSpaces, anyCharAsString]
       )
       (Prs.char '"')
@@ -91,11 +91,11 @@ stringParser = do
       return [ch]
     removeInvisibleSpacing :: Prs.ParsecT [Char] u DFId.Identity [Char]
     removeInvisibleSpacing = do
-      (Prs.choice . (<$>) Prs.try) [Prs.tab, Prs.newline, Prs.crlf]
+      tryChoices [Prs.tab, Prs.newline, Prs.crlf]
       return ""
     unescapeEscapedSpaces :: Prs.ParsecT [Char] u DFId.Identity [Char]
     unescapeEscapedSpaces =
-      (Prs.choice . (<$>) Prs.try)
+      tryChoices
         [unescapeEscapedNewline, unescapeEscapedTab, unescapeEscapedCarriageReturn]
       where
         unescapeEscapedNewline :: Prs.ParsecT [Char] u DFId.Identity [Char]
@@ -146,7 +146,7 @@ idParser = do
   where
     validIdCharParser :: Prs.ParsecT [Char] u DFId.Identity Char
     validIdCharParser =
-      (Prs.choice . (<$>) Prs.try)
+      tryChoices
         [ Prs.letter,
           Prs.oneOf "!@#$%^&*-=_+,<>/?;:|`~[]{}"
         ]
@@ -160,7 +160,7 @@ idParser = do
 
 dataParser :: DataParser u
 dataParser =
-  (Prs.choice . (<$>) Prs.try) [numParser, stringParser, boolParser]
+  tryChoices [numParser, stringParser, boolParser]
 
 ----Keyword Parsers-----------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -208,6 +208,12 @@ tokenInfoParser tp = do
 
 ----Combinators and Util functions--------------------------------------------------------
 ------------------------------------------------------------------------------------------
+
+-- | Apply try to a list of parser choices so that if a choice fails,
+-- the next choice is tried as if no input has been consumed.
+tryChoices ::
+  [Prs.ParsecT [Char] u DFId.Identity a] -> Prs.ParsecT [Char] u DFId.Identity a
+tryChoices = Prs.choice . (<$>) Prs.try
 
 -- | Takes a parser and ignores the spaces before and after it.
 stripSpaces ::
@@ -305,7 +311,7 @@ lampreyParser st = do
   where
     lampreyParameterParser :: Syntax.ScopeType -> TreeParser u
     lampreyParameterParser st =
-      Prs.choice . (<$>) Prs.try $
+      tryChoices
         [ functionDefinitionParser st,
           idTreeParser st
         ]
@@ -353,7 +359,7 @@ swimParser st = do
       -- but since this is the only place a fishBind can appear,
       -- I guess it's okay for it to be first.
       -- If it's not in this order, the parser will fail.
-      (Prs.choice . (<$>) Prs.try) [fishBindParser, expressionParser Syntax.Send]
+      tryChoices [fishBindParser, expressionParser Syntax.Send]
 
 fishBindParser :: TreeParser u
 fishBindParser = do
@@ -376,7 +382,7 @@ shoalParser st = do
 
 expressionParser :: Syntax.ScopeType -> TreeParser u
 expressionParser st =
-  (Prs.choice . (<$>) Prs.try)
+  tryChoices
     [ lampreyParser st,
       dataTreeParser st,
       functionCallParser st,
@@ -385,7 +391,7 @@ expressionParser st =
 
 globalStatementParser :: TreeParser u
 globalStatementParser =
-  (Prs.choice . (<$>) Prs.try)
+  tryChoices
     [functionDefinitionParser Syntax.Return, shoalParser Syntax.Return]
 
 ----Parse---------------------------------------------------------------------------------
@@ -394,7 +400,8 @@ globalStatementParser =
 docParser :: Prs.ParsecT [Char] u DFId.Identity Syntax.SyntaxTree
 docParser = do
   globalStatements <- Prs.many globalStatementParser
-  let mainTree = Tree.tree (UC.defaultValue {Syntax.token = Syntax.Data (Syntax.Id "main")})
+  let mainTree =
+        Tree.tree (UC.defaultValue {Syntax.token = Syntax.Data (Syntax.Id "main")})
       docTree = mainTree -<*= globalStatements
   return docTree
 
