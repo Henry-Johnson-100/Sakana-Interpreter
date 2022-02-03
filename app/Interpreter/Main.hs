@@ -133,7 +133,7 @@ interpret rt = interpret' . Env.throwJustError $ rt
     -- trs could be null.
     interpret' (Env.Runtime st (tr : trs) err)
       | Inspect.treeHeadIsPrimitiveData tr = return rt
-      | treeHeadIsStandardLibraryCall tr = evaluateStandardLibraryCall rt
+      | Inspect.treeHeadIsFunctionCall tr = evaluateFunction rt
       | otherwise = return rt
 
 -- | #TODO
@@ -142,7 +142,8 @@ evaluateFunction rt = evaluateFunction' rt
   where
     evaluateFunction' :: Env.Runtime -> IO Env.Runtime
     evaluateFunction' (Env.Runtime st (tr : trs) err)
-      | Tree.nodeStrictlySatisfies nodeIsStandardLibCall tr = return rt
+      | Tree.nodeStrictlySatisfies nodeIsStandardLibCall tr =
+        evaluateStandardLibraryCall rt
       | otherwise = return rt
 
 -- | #TODO
