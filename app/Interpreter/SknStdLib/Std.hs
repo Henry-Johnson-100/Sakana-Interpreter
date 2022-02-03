@@ -267,6 +267,7 @@ foldDoubleTreesWith foldBinOp = foldWith foldBinOp . map getDoubleFromTree
     getDoubleFromTree
       ((Syntax.SyntaxUnit (Syntax.Data (Syntax.Num d)) _ _) :-<-: _) = d
     foldWith :: (Double -> Double -> Double) -> [Double] -> Tree Syntax.SyntaxUnit
+    foldWith _ [] = raiseSknStdLibArgumentException ([]) ("Error in foldWith: no arguments provided") ([])
     foldWith foldBinOp (d : ds) =
       Tree.tree
         ( UC.defaultValue

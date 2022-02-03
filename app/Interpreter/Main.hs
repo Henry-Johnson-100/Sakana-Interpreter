@@ -133,7 +133,7 @@ interpret rt = interpret' . Env.throwJustError $ rt
     -- trs could be null.
     interpret' (Env.Runtime st (tr : trs) err)
       | Inspect.treeHeadIsPrimitiveData tr = return rt
-      | treeHeadIsStandardLibraryCall tr = return rt
+      | treeHeadIsStandardLibraryCall tr = evaluateStandardLibraryCall rt
       | otherwise = return rt
 
 -- | #TODO
@@ -153,7 +153,9 @@ evaluateStandardLibraryCall rt = evaluateStandardLibraryCall' rt
   where
     evaluateStandardLibraryCall' :: Env.Runtime -> IO Env.Runtime
     evaluateStandardLibraryCall' (Env.Runtime st (tr : trs) err) = do
-      evaluatedArguments <- interpretArgumentList (Env.replaceValue trs rt)
+      evaluatedArguments <-
+        interpretArgumentList
+          (Env.replaceValue (Tree.treeChildren tr) rt)
       stdLibFuncResult <-
         ( SknStdLib.generalStdLibFunctionDefinition
             ((getStdLibFunctionFromId . getBaseFunctionIdString) tr)
@@ -189,7 +191,9 @@ evaluateStandardLibraryCall rt = evaluateStandardLibraryCall' rt
             interpretArgumentList' (Env.Runtime st (tr' : trs') err) accum = do
               joinedAccum <- accum
               toCons <- argumentResult (Env.Runtime st [tr'] err)
-              (return . flip (:) joinedAccum) toCons
+              interpretArgumentList'
+                (Env.Runtime st trs' err)
+                (return (toCons : joinedAccum))
               where
                 -- This is a partial function but hopefully
                 -- it doesn't lead to any trouble later.
@@ -310,3 +314,6 @@ throwGeneralErrorWithMsg msg =
     )
 
 testString = flip evaluateProgram [] . Parser.Main.parse "Interpreter.Main.testString"
+
+printResult :: String -> IO ()
+printResult str = testString str >>= Either.either UC.printf UC.printf
