@@ -187,7 +187,8 @@ evaluateStandardLibraryCall rt = evaluateStandardLibraryCall' rt
           where
             interpretArgumentList' ::
               Env.Runtime -> IO [Syntax.SyntaxTree] -> IO [Syntax.SyntaxTree]
-            interpretArgumentList' (Env.Runtime st [] err) accum = accum
+            interpretArgumentList' (Env.Runtime st [] err) accum =
+              accum >>= return . reverse
             interpretArgumentList' (Env.Runtime st (tr' : trs') err) accum = do
               joinedAccum <- accum
               toCons <- argumentResult (Env.Runtime st [tr'] err)
