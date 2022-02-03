@@ -313,7 +313,13 @@ throwGeneralErrorWithMsg msg =
         Exception.Fatal
     )
 
-testString = flip evaluateProgram [] . Parser.Main.parse "Interpreter.Main.testString"
+testString :: String -> IO (Either Syntax.SyntaxTree Syntax.Data)
+testString = flip evaluateProgram [] . parseString
+
+parseString = Parser.Main.parse "Interpreter.Main.tests"
+
+sknString :: String
+sknString = "fish main <( - >(10)> >(1)>)<"
 
 printResult :: String -> IO ()
 printResult str = testString str >>= Either.either UC.printf UC.printf
