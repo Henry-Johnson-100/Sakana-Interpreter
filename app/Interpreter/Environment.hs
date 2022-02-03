@@ -83,9 +83,17 @@ instance UC.Defaultable Runtime where
 
 instance UC.Format Runtime where
   format rt =
-    ((UC.format . runtimeSymbolTable) rt)
-      ++ "\n"
-      ++ ((UC.format . runtimeValue) rt)
+    unlines
+      [ "SYMBOL TABLE",
+        (UC.format . runtimeSymbolTable) rt,
+        "VALUE",
+        (UC.format . runtimeValue) rt
+      ]
+
+-- ""
+--  ++ ((UC.format . runtimeSymbolTable) rt)
+--   ++ "\n"
+--   ++ ((UC.format . runtimeValue) rt)
 
 ----General Operations--------------------------------------------------------------------
 ------------------------------------------------------------------------------------------

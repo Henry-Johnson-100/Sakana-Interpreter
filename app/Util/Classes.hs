@@ -39,8 +39,8 @@ instance Format Int where
 instance Format Integer where
   format = show
 
-instance Show a => Format [a] where
-  format = show
+instance Format a => Format [a] where
+  format = unlines . map format
 
 instance (Show a, Show b) => Format (a, b) where
   format = show
