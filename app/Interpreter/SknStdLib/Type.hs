@@ -3,7 +3,7 @@
 module Interpreter.SknStdLib.Type
   ( SknStdLibFunction (..),
     raiseSknStdLibArgumentException,
-    generalStdLibFunctionParamNumber,
+    stdLibFunctionParamNumber,
     evaluateGeneralStdLibFunction,
   )
 where
@@ -13,21 +13,34 @@ import qualified Parser.Syntax as Syntax
 import qualified Util.Classes as UC
 import qualified Util.Tree as Tree
 
-data SknStdLibFunction = GeneralStdLibFunction
-  { generalStdLibFunctionId :: !String,
-    generalStdLibFunctionParams :: ![String],
-    generalStdLibFunctionDefinition ::
-      !( [Syntax.SyntaxTree] ->
-         IO Syntax.SyntaxTree
-       )
-  }
+data SknStdLibFunction
+  = GeneralStdLibFunction
+      { stdLibFunctionId :: !String,
+        stdLibFunctionParams :: ![String],
+        stdLibFunctionDefinition ::
+          !( [Syntax.SyntaxTree] ->
+             IO Syntax.SyntaxTree
+           )
+      }
+  | -- Only difference is the constructor ID.
+    -- shows that generalStdLibFunctionParams can be any length
+    VariadicStdLibFunction
+      { stdLibFunctionId :: !String,
+        stdLibFunctionParams :: ![String],
+        stdLibFunctionDefinition ::
+          !( [Syntax.SyntaxTree] ->
+             IO Syntax.SyntaxTree
+           )
+      }
 
-generalStdLibFunctionParamNumber :: SknStdLibFunction -> Int
-generalStdLibFunctionParamNumber = length . generalStdLibFunctionParams
+-- | Really not ideal to use this function, pattern match on constructors then determine
+-- the number of arguments.
+stdLibFunctionParamNumber :: SknStdLibFunction -> Int
+stdLibFunctionParamNumber = length . stdLibFunctionParams
 
 evaluateGeneralStdLibFunction ::
   SknStdLibFunction -> [Syntax.SyntaxTree] -> IO Syntax.SyntaxTree
-evaluateGeneralStdLibFunction genFunc trs = (generalStdLibFunctionDefinition genFunc) trs
+evaluateGeneralStdLibFunction genFunc trs = (stdLibFunctionDefinition genFunc) trs
 
 raiseSknStdLibArgumentException :: [Syntax.SyntaxTree] -> [Char] -> [String] -> a2
 raiseSknStdLibArgumentException trs expectedArgMessage expectedArgIds =
@@ -40,6 +53,7 @@ raiseSknStdLibArgumentException trs expectedArgMessage expectedArgIds =
             ++ "\n Argument trees are: "
             ++ "\n Expecting only the following arguments: "
             ++ unwords expectedArgIds
+            ++ "\n But got: "
             ++ (unlines . map UC.format) trs
         )
         Exception.Fatal

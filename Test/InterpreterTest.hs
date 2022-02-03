@@ -88,7 +88,13 @@ primitiveStdLibFunctionTests =
         "A primitive value can be cast to a string with show"
         []
         (String "25.25")
-        ((expectData . evaluateString . inMain) "show_prim >(25.25)>")
+        ((expectData . evaluateString . inMain) "show_prim >(25.25)>"),
+      timedAssertEqual
+        1
+        "A std algebraic folding function returns its argument if there is only one"
+        []
+        (Num 3.0)
+        ((expectData . evaluateString . inMain) "/ >(3)>")
     ]
 
 functionDefinitionTests :: TestTree

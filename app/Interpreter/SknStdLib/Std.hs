@@ -199,17 +199,17 @@ genericOrdCompareStdLibFunc name doubleCompare strCompare boolCompare =
 genericFoldingAlgebraicStdLibFunc ::
   String -> (Double -> Double -> Double) -> SknStdLibFunction
 genericFoldingAlgebraicStdLibFunc name foldingFunction =
-  GeneralStdLibFunction name general_params# general_fold#
+  VariadicStdLibFunction name general_params# general_fold#
   where
     general_params# = ["x1", "x2", ".."]
     general_fold# trs = general_fold_definition# trs
       where
         general_fold_definition# :: [Syntax.SyntaxTree] -> IO Syntax.SyntaxTree
         -- raise exception if only one argument is passed into the function.
-        general_fold_definition# (tr : []) =
+        general_fold_definition# [] =
           raiseSknStdLibArgumentException
-            [tr]
-            ("Expecting two or more arguments to the " ++ name ++ " function")
+            []
+            ("Expecting one or more arguments to the " ++ name ++ " function")
             (general_params#)
         general_fold_definition# trs
           | any (not . Inspect.treeHeadIsPrimitiveNumType) trs =

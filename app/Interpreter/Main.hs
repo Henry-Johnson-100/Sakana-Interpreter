@@ -158,7 +158,7 @@ evaluateStandardLibraryCall rt = evaluateStandardLibraryCall' rt
         interpretArgumentList
           (Env.replaceValue (Tree.treeChildren tr) rt)
       stdLibFuncResult <-
-        ( SknStdLib.generalStdLibFunctionDefinition
+        ( SknStdLib.stdLibFunctionDefinition
             ((getStdLibFunctionFromId . getBaseFunctionIdString) tr)
           )
           evaluatedArguments
@@ -175,7 +175,7 @@ evaluateStandardLibraryCall rt = evaluateStandardLibraryCall' rt
         getStdLibFunctionFromId funcId =
           ( Maybe.fromJust
               . UGen.head'
-              . filter ((==) funcId . SknStdLib.generalStdLibFunctionId)
+              . filter ((==) funcId . SknStdLib.stdLibFunctionId)
           )
             SknStdLib.exporting
         -- Taking a list of trees, return a list of the results of interpretation
@@ -215,7 +215,7 @@ treeHeadIsStandardLibraryCall =
 nodeIsStandardLibCall :: Syntax.SyntaxUnit -> Bool
 nodeIsStandardLibCall su = case Syntax.token su of
   (Syntax.Data (Syntax.Id id)) ->
-    (elem id . map SknStdLib.generalStdLibFunctionId) SknStdLib.exporting
+    (elem id . map SknStdLib.stdLibFunctionId) SknStdLib.exporting
   _ -> False
 
 ----Statement Processing Functions--------------------------------------------------------
