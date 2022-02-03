@@ -82,13 +82,13 @@ primitiveStdLibFunctionTests =
         "A primitive number is parsed from a string"
         []
         (Num 25.25)
-        ((expectData . evaluateString . inMain) "read >(25.25)>"),
+        ((expectData . evaluateString . inMain) "read_prim >(\"25.25\")>"),
       timedAssertEqual
         1
         "A primitive value can be cast to a string with show"
         []
         (String "25.25")
-        ((expectData . evaluateString . inMain) "show >(25.25)>")
+        ((expectData . evaluateString . inMain) "show_prim >(25.25)>")
     ]
 
 functionDefinitionTests :: TestTree
