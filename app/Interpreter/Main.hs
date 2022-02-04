@@ -67,26 +67,16 @@ evaluateProgram docTree additionalBindings =
     preprocessParserOutput docTree additionalBindings =
       ( setMain
           . injectAdditionalBindings additionalBindings
-          . foldDocTreeChildrenToRuntime
+          . foldStatementTreesToRuntime
       )
         UC.defaultValue {Env.runtimeValue = Tree.treeChildren docTree}
       where
-        foldDocTreeChildrenToRuntime :: Env.Runtime -> Env.Runtime
-        foldDocTreeChildrenToRuntime rt =
-          if (null . Env.runtimeValue) rt
-            then rt
-            else
-              ( foldDocTreeChildrenToRuntime
-                  . advanceToNextTree
-                  . processStatementTree
-              )
-                rt
         -- Finds the function identified as 'main' in the runtime's symbol table
         -- and returns a runtime with that function's value as the runtimeValue.
         setMain :: Env.Runtime -> Env.Runtime
         setMain rt =
           Maybe.maybe
-            (Env.replaceException noMainException rt)
+            (Env.replaceException (Maybe.Just noMainException) rt)
             (flip Env.replaceValue rt . UGen.listSingleton . getLampreyValue)
             (Env.runtimeMaybeLookup rt "main")
           where
@@ -98,6 +88,17 @@ evaluateProgram docTree additionalBindings =
                 Exception.Fatal
         injectAdditionalBindings :: [Env.Binding] -> Env.Runtime -> Env.Runtime
         injectAdditionalBindings bindings rt = List.foldr Env.injectBinding rt bindings
+
+foldStatementTreesToRuntime :: Env.Runtime -> Env.Runtime
+foldStatementTreesToRuntime rt =
+  if (null . Env.runtimeValue) rt
+    then rt
+    else
+      ( foldStatementTreesToRuntime
+          . advanceToNextTree
+          . processStatementTree
+      )
+        rt
 
 createCLIArgumentBindings :: [String] -> [Env.Binding]
 createCLIArgumentBindings = map bindingFromTuple . zip argNameScheme
@@ -121,11 +122,13 @@ interpret rt = interpret' . Env.throwJustError $ rt
     interpret' (Env.Runtime st [] err) =
       interpret
         ( Env.replaceException
-            ( Exception.newException
-                Exception.NullTree
-                []
-                "Unexpected null tree in the interpreter."
-                Exception.Fatal
+            ( Maybe.Just
+                ( Exception.newException
+                    Exception.NullTree
+                    []
+                    "Unexpected null tree in the interpreter."
+                    Exception.Fatal
+                )
             )
             rt
         )
@@ -136,6 +139,9 @@ interpret rt = interpret' . Env.throwJustError $ rt
       | Inspect.treeHeadIsFunctionCall tr = evaluateFunction rt
       | otherwise = return rt
 
+----Function Interpretation---------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
 -- | #TODO
 evaluateFunction :: Env.Runtime -> IO Env.Runtime
 evaluateFunction rt = evaluateFunction' rt
@@ -145,6 +151,84 @@ evaluateFunction rt = evaluateFunction' rt
       | Tree.nodeStrictlySatisfies nodeIsStandardLibCall tr =
         evaluateStandardLibraryCall rt
       | otherwise = return rt
+
+-- | Responsible for recieving the calling runtime environment and the binding which
+-- holds the function definition then creating a new runtime with the definition's
+-- parameters bound to the caller's arguments.
+--
+-- Should be able to handle returning curried functions or whatever incomplete
+-- arg lists may entail in the future.
+--
+-- Also needs to bind function and struct definitions that are a part of the
+-- function's declaration.
+createFunctionArgumentBindings :: Env.Runtime -> Env.Binding -> Env.Runtime
+createFunctionArgumentBindings (Env.Runtime st (call : trs) err) def =
+  let callerArgs =
+        ( filter (Tree.nodeStrictlySatisfies Inspect.nodeIsSendContext)
+            . Tree.treeChildren
+        )
+          call
+      partitionedDefParameters =
+        ( partitionDefParameters
+            . filter (Tree.nodeStrictlySatisfies Inspect.nodeIsSendContext)
+            . Tree.treeChildren
+            . Env.bindingTree
+        )
+          def
+      boundArgumentRuntime =
+        bindArgumentsToPositionalParameters
+          (Env.replaceValue callerArgs UC.defaultValue)
+          ((Maybe.mapMaybe Tree.treeNode . fst) partitionedDefParameters)
+      boundNonPosParamRuntime =
+        (foldNonPositionalParamsToRuntime . snd) partitionedDefParameters
+      newInterpreterRuntime = Env.Runtime st trs err
+      propagatedException =
+        ( Env.runtimeException
+            . List.foldl' Env.propagateException UC.defaultValue
+        )
+          [boundArgumentRuntime, boundNonPosParamRuntime, newInterpreterRuntime]
+   in ( Env.replaceException propagatedException
+          . List.foldl' Env.transpropagateUnion UC.defaultValue
+      )
+        [boundNonPosParamRuntime, boundArgumentRuntime, newInterpreterRuntime]
+  where
+    bindArgumentsToPositionalParameters ::
+      Env.Runtime -> [Syntax.SyntaxUnit] -> Env.Runtime
+    bindArgumentsToPositionalParameters (Env.Runtime st args err) [] =
+      -- Too many arguments provided
+      (Env.Runtime st args (Maybe.Just generalException))
+    bindArgumentsToPositionalParameters
+      callerArgRuntime
+      (param : params) =
+        case callerArgRuntime of
+          (Env.Runtime st [] err) ->
+            -- done binding, return the runtime
+            callerArgRuntime
+          (Env.Runtime st (arg : args) err) ->
+            bindArgumentsToPositionalParameters
+              ( Env.Runtime
+                  ((Env.insertBinding st .< bindArgument) param arg)
+                  args
+                  err
+              )
+              params
+        where
+          bindArgument :: Syntax.SyntaxUnit -> Syntax.SyntaxTree -> Env.Binding
+          bindArgument param' arg' = Env.Binding (getParamBindingKey param') arg'
+          getParamBindingKey :: Syntax.SyntaxUnit -> Env.BindingKey
+          getParamBindingKey =
+            Env.BindingKey
+              . Maybe.fromJust
+              . (=<<) Syntax.unId
+              . Syntax.baseData
+              . Syntax.token
+    partitionDefParameters ::
+      [Syntax.SyntaxTree] -> ([Syntax.SyntaxTree], [Syntax.SyntaxTree])
+    partitionDefParameters = List.partition (Inspect.treeHeadIsPositionalParameter)
+    foldNonPositionalParamsToRuntime :: [Syntax.SyntaxTree] -> Env.Runtime
+    foldNonPositionalParamsToRuntime trs =
+      foldStatementTreesToRuntime
+        (Env.Runtime UC.defaultValue trs Maybe.Nothing)
 
 -- | #TODO
 -- still requires implementing argument number error checking and stuff
@@ -305,6 +389,8 @@ throwGeneralError :: a
 throwGeneralError =
   Exception.raiseError
     (Exception.newException Exception.General [] "" Exception.Fatal)
+
+generalException = Exception.newException Exception.General [] "" Exception.Fatal
 
 throwGeneralErrorWithMsg msg =
   Exception.raiseError

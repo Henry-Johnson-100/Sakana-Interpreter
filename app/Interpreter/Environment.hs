@@ -142,13 +142,11 @@ replaceSymbolTable st rt = rt {runtimeSymbolTable = st}
 replaceValue :: [Syntax.SyntaxTree] -> Runtime -> Runtime
 replaceValue trs rt = rt {runtimeValue = trs}
 
-replaceException :: Exception.Exception -> Runtime -> Runtime
-replaceException ex rt = rt {runtimeException = Maybe.Just ex}
+replaceException :: Maybe.Maybe Exception.Exception -> Runtime -> Runtime
+replaceException ex rt = rt {runtimeException = ex}
 
 propagateException :: Runtime -> Runtime -> Runtime
-propagateException rtex rt =
-  -- Could be a little more pointfree but I will keep it explicit for clarity.
-  Maybe.maybe rt (flip replaceException rt) (runtimeException rtex)
+propagateException rtex rt = replaceException (runtimeException rtex) rt
 
 {-
 On unioning Runtime SymbolTables:
