@@ -47,7 +47,9 @@ treeHeadIsFunctionCall =
 
 treeHeadIsPositionalParameter :: Syntax.SyntaxTree -> Bool
 treeHeadIsPositionalParameter =
-  UGen.foldIdApplicativeOnSingleton all [treeHeadIsId, treeHasNoChildren]
+  UGen.foldIdApplicativeOnSingleton
+    all
+    [treeHeadIsId, treeHasNoChildren, Tree.nodeStrictlySatisfies nodeIsSendContext]
 
 ----Node Checks---------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------

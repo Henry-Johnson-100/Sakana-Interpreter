@@ -4,6 +4,7 @@ module Interpreter.Main
   )
 where
 
+import Control.Monad ((<=<))
 import qualified Control.Monad as CMonad
 import qualified Data.Either as Either
 import qualified Data.HashMap.Strict as HashMap
@@ -109,6 +110,7 @@ createCLIArgumentBindings = map bindingFromTuple . zip argNameScheme
     bindingFromTuple (bid, bval) =
       Env.Binding
         (Env.BindingKey bid)
+        []
         (Tree.tree (UC.defaultValue {Syntax.token = Syntax.Data (Syntax.String bval)}))
 
 ----Interpreter Logic and Operations------------------------------------------------------
@@ -188,33 +190,33 @@ createFunctionArgumentBindings (Env.Runtime st (call : trs) err) def =
         )
           [boundArgumentRuntime, boundNonPosParamRuntime, newInterpreterRuntime]
    in ( Env.replaceException propagatedException
-          . List.foldl' Env.transpropagateUnion UC.defaultValue
+          . List.foldl' Env.transUnion UC.defaultValue
       )
         [boundNonPosParamRuntime, boundArgumentRuntime, newInterpreterRuntime]
   where
     bindArgumentsToPositionalParameters ::
       Env.Runtime -> [Syntax.SyntaxUnit] -> Env.Runtime
-    bindArgumentsToPositionalParameters (Env.Runtime st args err) [] =
+    bindArgumentsToPositionalParameters (Env.Runtime sts args err) [] =
       -- Too many arguments provided
-      (Env.Runtime st args (Maybe.Just generalException))
+      (Env.Runtime sts args (Maybe.Just generalException))
     bindArgumentsToPositionalParameters
       callerArgRuntime
       (param : params) =
         case callerArgRuntime of
-          (Env.Runtime st [] err) ->
+          (Env.Runtime sts [] err) ->
             -- done binding, return the runtime
             callerArgRuntime
-          (Env.Runtime st (arg : args) err) ->
+          (Env.Runtime (st : sts) (arg : args) err) ->
             bindArgumentsToPositionalParameters
               ( Env.Runtime
-                  ((Env.insertBinding st .< bindArgument) param arg)
+                  (((Env.insertBinding st .< bindArgument) param arg) : sts)
                   args
                   err
               )
               params
         where
           bindArgument :: Syntax.SyntaxUnit -> Syntax.SyntaxTree -> Env.Binding
-          bindArgument param' arg' = Env.Binding (getParamBindingKey param') arg'
+          bindArgument param' arg' = Env.Binding (getParamBindingKey param') [] arg'
           getParamBindingKey :: Syntax.SyntaxUnit -> Env.BindingKey
           getParamBindingKey =
             Env.BindingKey
@@ -228,7 +230,7 @@ createFunctionArgumentBindings (Env.Runtime st (call : trs) err) def =
     foldNonPositionalParamsToRuntime :: [Syntax.SyntaxTree] -> Env.Runtime
     foldNonPositionalParamsToRuntime trs =
       foldStatementTreesToRuntime
-        (Env.Runtime UC.defaultValue trs Maybe.Nothing)
+        (Env.Runtime [] trs Maybe.Nothing)
 
 -- | #TODO
 -- still requires implementing argument number error checking and stuff
@@ -335,14 +337,17 @@ processFishStatement rt = processFishStatement' rt
       Env.injectBinding (makeFishBinding tr) rt
     makeFishBinding :: Syntax.SyntaxTree -> Env.Binding
     makeFishBinding tr =
-      Env.Binding (Env.BindingKey (getFishId tr)) (getFishLamprey tr)
+      Env.Binding (Env.BindingKey (getFishId tr)) (getFishParams tr) (getFishLamprey tr)
       where
         getFishId :: Syntax.SyntaxTree -> String
         getFishId =
           Maybe.fromJust
-            . (=<<) Syntax.unId
-            . (=<<) (Syntax.baseData . Syntax.token)
-            . (=<<) Tree.treeNode
+            . ( \m ->
+                  Syntax.unId
+                    =<< (Syntax.baseData . Syntax.token)
+                    =<< Tree.treeNode
+                    =<< m
+              )
             . UGen.head'
             . Tree.treeChildren
         getFishLamprey :: Syntax.SyntaxTree -> Syntax.SyntaxTree
@@ -350,6 +355,11 @@ processFishStatement rt = processFishStatement' rt
           Maybe.fromJust
             . (=<<) (UGen.head' . Tree.treeChildren)
             . UGen.head'
+            . Tree.treeChildren
+        getFishParams :: Syntax.SyntaxTree -> [Syntax.SyntaxUnit]
+        getFishParams =
+          Maybe.mapMaybe Tree.treeNode
+            . filter Inspect.treeHeadIsPositionalParameter
             . Tree.treeChildren
 
 ----Traverse and Retrieve Functions-------------------------------------------------------
